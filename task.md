@@ -24,7 +24,7 @@
   - [x] `/imports` UI (Upload CSV, review rows, commit batch)
   - [x] Atomic commitment of rows securely hooks into domain services
 
-- [ ] **Testing & Validation**
-  - [ ] Vitest tests for budgets, recurring, and imports
-  - [ ] Idempotency/duplicate-prevention verification
-  - [ ] Verification gates (tsc, eslint, build, vitest)
+- [x] **Testing & Validation**
+  - [x] Vitest tests for budgets, recurring, and imports
+  - [x] Idempotency/duplicate-prevention verification
+  - [x] Verification gates (tsc, eslint, build, vitest)

@@ -39,3 +39,16 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# Veltis planning / internal documentation
+01_PRD.md
+02_TRD.md
+03_APP_FLOW.md
+04_UI_UX_DESIGN_BRIEF.md
+05_BACKEND_SCHEMA.md
+06_IMPLEMENTATION_PLAN.md
+MASTER_BUILD_PROMPT.md
+notes.txt
+AGENTS.md
+CLAUDE.md
+Expense Tracker Planning.txt

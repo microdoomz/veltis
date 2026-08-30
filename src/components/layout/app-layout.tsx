@@ -1,5 +1,5 @@
 import Link from "next/link"
-import { Home, ListOrdered, WalletCards, Plus, MoreHorizontal, Target, Repeat, Upload } from "lucide-react"
+import { Home, ListOrdered, WalletCards, Plus, MoreHorizontal, Target, Repeat, Upload, Zap } from "lucide-react"
 
 const navItems = [
   { href: '/home', label: 'Dashboard', icon: Home },
@@ -8,6 +8,7 @@ const navItems = [
   { href: '/budgets', label: 'Budgets', icon: Target },
   { href: '/recurring', label: 'Recurring', icon: Repeat },
   { href: '/imports', label: 'Imports', icon: Upload },
+  { href: '/settings/shortcuts', label: 'Shortcuts', icon: Zap },
 ]
 
 export function AppLayout({ children }: { children: React.ReactNode }) {

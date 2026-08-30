@@ -63,7 +63,7 @@ describe('Statement Import Service', () => {
     // First row should be debit 5000n
     expect(importData?.rows[0].direction).toBe('debit');
     expect(importData?.rows[0].amountMinor).toBe(5000n);
-    rowId = importData?.rows[0].id!;
+    rowId = importData?.rows[0].id as string;
   });
 
   it('commits an import row idempotently', async () => {

@@ -1,5 +1,6 @@
 import Link from "next/link"
 import { Home, ListOrdered, WalletCards, Plus, MoreHorizontal, Target, Repeat, Upload, Zap } from "lucide-react"
+import { SyncStatus } from "@/components/sync/SyncStatus"
 
 const navItems = [
   { href: '/home', label: 'Dashboard', icon: Home },
@@ -16,8 +17,9 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
     <div className="flex h-screen w-full bg-background">
       {/* Desktop Sidebar */}
       <aside className="hidden md:flex flex-col w-64 border-r border-border bg-card">
-        <div className="p-6 h-16 flex items-center">
+        <div className="p-6 h-16 flex items-center justify-between">
           <h1 className="text-xl font-bold text-primary tracking-tight">Veltis</h1>
+          <SyncStatus />
         </div>
         
         <nav className="flex-1 px-4 space-y-2 py-4">
@@ -39,6 +41,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
         {/* Mobile Header */}
         <header className="md:hidden flex items-center justify-between h-14 px-4 border-b border-border bg-card sticky top-0 z-10">
           <h1 className="text-lg font-bold text-primary tracking-tight">Veltis</h1>
+          <SyncStatus />
         </header>
         
         <div className="flex-1 p-4 md:p-8 max-w-5xl mx-auto w-full">

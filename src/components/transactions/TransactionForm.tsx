@@ -5,8 +5,9 @@ import { useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Card, CardContent } from "@/components/ui/card"
-import { addExpenseAction, addIncomeAction, addTransferAction } from "@/app/actions/transaction"
 import { useRouter } from "next/navigation"
+import { enqueueTransaction, OfflineTransactionPayload } from "@/lib/sync/db"
+import { useSync } from "@/components/sync/SyncProvider"
 
 type Account = { id: string; name: string }
 type Category = { id: string; name: string }
@@ -21,19 +22,33 @@ export function TransactionForm({
   const [type, setType] = useState<"expense" | "income" | "transfer">("expense")
   const [loading, setLoading] = useState(false)
   const router = useRouter()
+  const { triggerSync } = useSync()
 
   async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault()
     setLoading(true)
     try {
       const formData = new FormData(e.currentTarget)
-      if (type === "expense") {
-        await addExpenseAction(formData)
-      } else if (type === "income") {
-        await addIncomeAction(formData)
-      } else if (type === "transfer") {
-        await addTransferAction(formData)
+      
+      const payload: OfflineTransactionPayload = {
+        amountMajor: parseFloat(formData.get("amount") as string),
+        transactionDate: formData.get("transactionDate") as string,
+        description: (formData.get("description") as string) || undefined,
       }
+
+      if (type === "expense" || type === "income") {
+        payload.accountId = formData.get("accountId") as string;
+        payload.categoryId = (formData.get("categoryId") as string) || undefined;
+      } else if (type === "transfer") {
+        payload.sourceAccountId = formData.get("sourceAccountId") as string;
+        payload.destAccountId = formData.get("destAccountId") as string;
+      }
+
+      await enqueueTransaction(type, payload);
+      
+      // Trigger background sync immediately
+      triggerSync();
+
       router.push("/transactions")
     } catch (error) {
       console.error(error)

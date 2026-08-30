@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeAll } from 'vitest';
 import { db } from '../../lib/db';
-import { user, workspace, financialAccount, recurringOccurrence } from '../../lib/db/schema';
+import { user, workspace, financialAccount } from '../../lib/db/schema';
 import { createRecurringItem, getRecurringItemsWithOccurrences, confirmOccurrence } from '../../lib/services/recurring';
 import { randomUUID } from 'crypto';
 

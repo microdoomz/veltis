@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeAll } from 'vitest';
 import { db } from '../../lib/db';
-import { user, workspace, financialAccount, statementImportRow } from '../../lib/db/schema';
+import { user, workspace, financialAccount } from '../../lib/db/schema';
 import { processCsvImport, getImportWithRows, commitImportRow } from '../../lib/services/import';
 import { randomUUID } from 'crypto';
 

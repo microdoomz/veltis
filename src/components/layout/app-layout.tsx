@@ -1,5 +1,14 @@
 import Link from "next/link"
-import { Home, ListOrdered, WalletCards, PieChart, Plus, MoreHorizontal } from "lucide-react"
+import { Home, ListOrdered, WalletCards, Plus, MoreHorizontal, Target, Repeat, Upload } from "lucide-react"
+
+const navItems = [
+  { href: '/home', label: 'Dashboard', icon: Home },
+  { href: '/accounts', label: 'Accounts', icon: WalletCards },
+  { href: '/transactions', label: 'Transactions', icon: ListOrdered },
+  { href: '/budgets', label: 'Budgets', icon: Target },
+  { href: '/recurring', label: 'Recurring', icon: Repeat },
+  { href: '/imports', label: 'Imports', icon: Upload },
+]
 
 export function AppLayout({ children }: { children: React.ReactNode }) {
   return (
@@ -11,10 +20,9 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
         </div>
         
         <nav className="flex-1 px-4 space-y-2 py-4">
-          <NavLink href="/home" icon={Home} label="Home" />
-          <NavLink href="/transactions" icon={ListOrdered} label="Transactions" />
-          <NavLink href="/accounts" icon={WalletCards} label="Accounts" />
-          <NavLink href="/analytics" icon={PieChart} label="Analytics" />
+          {navItems.map((item) => (
+            <NavLink key={item.href} {...item} />
+          ))}
         </nav>
 
         <div className="p-4 border-t border-border">

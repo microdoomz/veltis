@@ -10,9 +10,11 @@ type BaseTransactionParams = {
   currency: string;
   transactionDate: Date;
   description?: string;
+  merchantName?: string;
   categoryId?: string;
   subcategoryId?: string;
   clientTransactionId?: string;
+  source?: 'web' | 'shortcut' | 'import' | 'recurring' | 'system' | 'manual';
 };
 
 export async function createExpense(
@@ -32,10 +34,11 @@ export async function createExpense(
       currency: params.currency,
       transactionDate: params.transactionDate.toISOString().split('T')[0],
       description: params.description,
+      merchantName: params.merchantName,
       categoryId: params.categoryId,
       subcategoryId: params.subcategoryId,
       clientTransactionId: params.clientTransactionId,
-      source: 'manual'
+      source: params.source || 'manual'
     }).returning();
 
     await tx.insert(transactionLeg).values({
@@ -68,10 +71,11 @@ export async function createIncome(
       currency: params.currency,
       transactionDate: params.transactionDate.toISOString().split('T')[0],
       description: params.description,
+      merchantName: params.merchantName,
       categoryId: params.categoryId,
       subcategoryId: params.subcategoryId,
       clientTransactionId: params.clientTransactionId,
-      source: 'manual'
+      source: params.source || 'manual'
     }).returning();
 
     await tx.insert(transactionLeg).values({
@@ -107,8 +111,9 @@ export async function createTransfer(
       currency: params.currency,
       transactionDate: params.transactionDate.toISOString().split('T')[0],
       description: params.description,
+      merchantName: params.merchantName,
       clientTransactionId: params.clientTransactionId,
-      source: 'manual'
+      source: params.source || 'manual'
     }).returning();
 
     await tx.insert(transactionLeg).values([
@@ -151,10 +156,11 @@ export async function createCreditCardPurchase(
       currency: params.currency,
       transactionDate: params.transactionDate.toISOString().split('T')[0],
       description: params.description,
+      merchantName: params.merchantName,
       categoryId: params.categoryId,
       subcategoryId: params.subcategoryId,
       clientTransactionId: params.clientTransactionId,
-      source: 'manual'
+      source: params.source || 'manual'
     }).returning();
 
     await tx.insert(transactionLeg).values({

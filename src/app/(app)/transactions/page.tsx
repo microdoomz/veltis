@@ -6,10 +6,15 @@ import Link from "next/link"
 import { Plus } from "lucide-react"
 import { Button } from "@/components/ui/button"
 
-export default async function TransactionsPage() {
+export default async function TransactionsPage(
+  props: { searchParams?: Promise<{ [key: string]: string | string[] | undefined }> }
+) {
   const authContext = await requireWorkspaceAccess()
+  const searchParams = await props.searchParams
+  const categoryFilter = searchParams?.category as string | undefined
+  
   // Fetch up to 50 for the main list for now
-  const transactions = await getRecentTransactions(authContext.workspaceId, 50)
+  const transactions = await getRecentTransactions(authContext.workspaceId, 50, categoryFilter)
 
   return (
     <div className="space-y-6">

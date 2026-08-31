@@ -34,7 +34,6 @@ describe('Investments Service', () => {
   });
 
   it('records a contribution correctly', async () => {
-    // @ts-expect-error mocked db query
     (db.query.financialAccount.findFirst as any)
       .mockResolvedValueOnce({ id: 'acc2', accountType: 'investment', currency: 'USD' });
 

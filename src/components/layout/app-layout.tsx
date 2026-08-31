@@ -6,6 +6,7 @@ const navItems = [
   { href: '/home', label: 'Dashboard', icon: Home },
   { href: '/accounts', label: 'Accounts', icon: WalletCards },
   { href: '/transactions', label: 'Transactions', icon: ListOrdered },
+  { href: '/analytics', label: 'Analytics', icon: Target },
   { href: '/budgets', label: 'Budgets', icon: Target },
   { href: '/recurring', label: 'Recurring', icon: Repeat },
   { href: '/imports', label: 'Imports', icon: Upload },

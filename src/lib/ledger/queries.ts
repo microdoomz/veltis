@@ -80,18 +80,24 @@ export async function getTransactionById(workspaceId: string, transactionId: str
   });
 }
 
-export async function getRecentTransactions(workspaceId: string, limit: number = 5) {
+export async function getRecentTransactions(workspaceId: string, limit: number = 5, categoryId?: string) {
   // We fetch transactions created in this workspace, ignoring deleted ones.
   // We need to join with transactionLeg and financialAccount to get the account name.
   // Since a transaction can have multiple legs (e.g., transfer), we'll fetch the transaction 
   // and then aggregate its legs in JS, or just fetch the primary leg for display.
 
+  const baseWhere = and(
+    eq(transaction.workspaceId, workspaceId),
+    ne(transaction.status, 'deleted'),
+    ne(transaction.status, 'voided')
+  );
+
+  const finalWhere = categoryId 
+    ? and(baseWhere, eq(transaction.categoryId, categoryId))
+    : baseWhere;
+
   const txs = await db.query.transaction.findMany({
-    where: and(
-      eq(transaction.workspaceId, workspaceId),
-      ne(transaction.status, 'deleted'),
-      ne(transaction.status, 'voided')
-    ),
+    where: finalWhere,
     orderBy: [desc(transaction.transactionDate), desc(transaction.createdAt)],
     limit,
     with: {

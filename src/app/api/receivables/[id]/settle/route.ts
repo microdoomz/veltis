@@ -2,8 +2,9 @@ import { NextResponse } from 'next/server';
 import { requireUser, requireWorkspaceAccess } from '@/lib/auth/guards';
 import { settleReceivable, settleReceivableSchema } from '@/lib/services/receivables';
 
-export async function POST(req: Request, { params }: { params: { id: string } }) {
+export async function POST(req: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
+    const { id } = await params;
     const authContext = await requireWorkspaceAccess();
     const userContext = await requireUser();
     
@@ -11,7 +12,7 @@ export async function POST(req: Request, { params }: { params: { id: string } })
     
     const dataToParse = {
       ...body,
-      receivableId: params.id,
+      receivableId: id,
       workspaceId: authContext.workspaceId,
       createdByUserId: userContext.user.id,
       settledAt: body.settledAt ? new Date(body.settledAt) : new Date(),

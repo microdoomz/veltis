@@ -28,7 +28,7 @@ export async function ReceivablesDashboard({ workspaceId }: { workspaceId: strin
             <p className="text-sm text-muted-foreground">Status: {r.status}</p>
           </div>
           <div className="text-right">
-            <Amount valueMinor={r.amountMinor} colorize="positive" showSign={false} />
+            <Amount valueMinor={r.amountMinor} colorize="default" showSign={false} />
             <div className="text-xs text-muted-foreground mt-1">{r.createdDate}</div>
           </div>
         </Card>

@@ -2,8 +2,9 @@ import { NextResponse } from 'next/server';
 import { requireUser, requireWorkspaceAccess } from '@/lib/auth/guards';
 import { confirmOccurrence } from '@/lib/services/recurring';
 
-export async function POST(req: Request, { params }: { params: { id: string } }) {
+export async function POST(req: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
+    const { id } = await params;
     const authContext = await requireWorkspaceAccess();
     const userContext = await requireUser();
     
@@ -20,7 +21,7 @@ export async function POST(req: Request, { params }: { params: { id: string } })
       : undefined;
 
     await confirmOccurrence(
-      params.id,
+      id,
       authContext.workspaceId,
       accountId,
       userContext.user.id,

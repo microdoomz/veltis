@@ -28,7 +28,7 @@ export async function LiabilitiesDashboard({ workspaceId }: { workspaceId: strin
             <p className="text-sm text-muted-foreground">Status: {l.status}</p>
           </div>
           <div className="text-right">
-            <Amount valueMinor={l.amountMinor} colorize="negative" showSign={false} />
+            <Amount valueMinor={l.amountMinor} colorize="default" showSign={false} />
             <div className="text-xs text-muted-foreground mt-1">{l.createdDate}</div>
           </div>
         </Card>

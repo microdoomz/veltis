@@ -50,8 +50,7 @@ export function InvestmentActions({ workspaceId, accounts, positions, onUpdate }
   );
 }
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-function TransactionForm({ type, workspaceId, accounts, onClose, onUpdate }: any) {
+function TransactionForm({ type, workspaceId, accounts, onClose, onUpdate }: { type: string, workspaceId: string, accounts: { id: string, name: string }[], onClose: () => void, onUpdate: () => void }) {
   // Simplified for V1:
   // In a real app we'd fetch all user's bank accounts to select as source/destination.
   // Here we assume the user types the UUID of their bank account or we just have a dummy text input.
@@ -59,7 +58,7 @@ function TransactionForm({ type, workspaceId, accounts, onClose, onUpdate }: any
   const [accountId, setAccountId] = useState(accounts[0]?.id || '');
   const [bankAccountId, setBankAccountId] = useState(''); // UUID
   
-  const handleSubmit = async (e: any) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     await fetch('/api/investments', {
       method: 'POST',
@@ -85,7 +84,7 @@ function TransactionForm({ type, workspaceId, accounts, onClose, onUpdate }: any
       <div>
         <label className="block text-sm font-medium mb-1">Investment Account</label>
         <select value={accountId} onChange={e => setAccountId(e.target.value)} className="w-full rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 px-3 py-2">
-          {accounts.map((a: any) => <option key={a.id} value={a.id}>{a.name}</option>)}
+          {accounts.map((a: { id: string, name: string }) => <option key={a.id} value={a.id}>{a.name}</option>)}
         </select>
       </div>
       <div>
@@ -104,14 +103,13 @@ function TransactionForm({ type, workspaceId, accounts, onClose, onUpdate }: any
   );
 }
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-function TradeForm({ type, workspaceId, accounts, positions, onClose, onUpdate }: any) {
+function TradeForm({ type, workspaceId, accounts, positions, onClose, onUpdate }: { type: string, workspaceId: string, accounts: { id: string, name: string }[], positions: { id: string, name: string, symbol: string }[], onClose: () => void, onUpdate: () => void }) {
   const [accountId, setAccountId] = useState(accounts[0]?.id || '');
   const [positionId, setPositionId] = useState(positions[0]?.id || '');
   const [units, setUnits] = useState('');
   const [price, setPrice] = useState('');
 
-  const handleSubmit = async (e: any) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     await fetch('/api/investments', {
       method: 'POST',
@@ -137,7 +135,7 @@ function TradeForm({ type, workspaceId, accounts, positions, onClose, onUpdate }
       <div>
         <label className="block text-sm font-medium mb-1">Investment Account</label>
         <select value={accountId} onChange={e => setAccountId(e.target.value)} className="w-full rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 px-3 py-2">
-          {accounts.map((a: any) => <option key={a.id} value={a.id}>{a.name}</option>)}
+          {accounts.map((a: { id: string, name: string }) => <option key={a.id} value={a.id}>{a.name}</option>)}
         </select>
       </div>
       <div>
@@ -168,12 +166,11 @@ function TradeForm({ type, workspaceId, accounts, positions, onClose, onUpdate }
   );
 }
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-function UpdatePriceForm({ workspaceId, positions, onClose, onUpdate }: any) {
+function UpdatePriceForm({ workspaceId, positions, onClose, onUpdate }: { workspaceId: string, positions: { id: string, name: string, symbol: string }[], onClose: () => void, onUpdate: () => void }) {
   const [positionId, setPositionId] = useState(positions[0]?.id || '');
   const [price, setPrice] = useState('');
 
-  const handleSubmit = async (e: any) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     await fetch('/api/investments/snapshots', {
       method: 'POST',
@@ -195,7 +192,7 @@ function UpdatePriceForm({ workspaceId, positions, onClose, onUpdate }: any) {
       <div>
         <label className="block text-sm font-medium mb-1">Asset (Position)</label>
         <select value={positionId} onChange={e => setPositionId(e.target.value)} className="w-full rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 px-3 py-2">
-          {positions.map((p: any) => <option key={p.id} value={p.id}>{p.name} ({p.symbol})</option>)}
+          {positions.map((p: { id: string, name: string, symbol: string }) => <option key={p.id} value={p.id}>{p.name} ({p.symbol})</option>)}
         </select>
       </div>
       <div>

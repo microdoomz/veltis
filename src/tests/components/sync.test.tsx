@@ -4,8 +4,7 @@ import { SyncStatus } from '@/components/sync/SyncStatus';
 import * as db from '@/lib/sync/db';
 import { vi, describe, it, expect, beforeEach, afterEach, Mock } from 'vitest';
 import { cleanup, render, screen, act, waitFor } from '@testing-library/react';
-import * as matchers from '@testing-library/jest-dom/matchers';
-expect.extend(matchers);
+import '@testing-library/jest-dom/vitest';
 
 vi.mock('@/lib/sync/db', () => ({
   initializeQueue: vi.fn().mockResolvedValue(undefined),

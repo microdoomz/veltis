@@ -1,12 +1,12 @@
 import { NextResponse } from 'next/server';
 import { requireUser, requireWorkspaceAccess } from '@/lib/auth/guards';
-import { createRecurringItem, getDashboardItems, createRecurringItemSchema } from '@/lib/services/recurring';
+import { createRecurringItem, getRecurringItemsWithOccurrences, createRecurringItemSchema } from '@/lib/services/recurring';
 
 export async function GET() {
   try {
     const authContext = await requireWorkspaceAccess();
     
-    const records = await getDashboardItems(authContext.workspaceId);
+    const records = await getRecurringItemsWithOccurrences(authContext.workspaceId);
     
     return NextResponse.json(records);
   } catch (error) {

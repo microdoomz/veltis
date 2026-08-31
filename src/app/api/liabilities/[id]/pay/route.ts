@@ -2,8 +2,9 @@ import { NextResponse } from 'next/server';
 import { requireUser, requireWorkspaceAccess } from '@/lib/auth/guards';
 import { payLiability, payLiabilitySchema } from '@/lib/services/liabilities';
 
-export async function POST(req: Request, { params }: { params: { id: string } }) {
+export async function POST(req: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
+    const { id } = await params;
     const authContext = await requireWorkspaceAccess();
     const userContext = await requireUser();
     
@@ -11,7 +12,7 @@ export async function POST(req: Request, { params }: { params: { id: string } })
     
     const dataToParse = {
       ...body,
-      liabilityId: params.id,
+      liabilityId: id,
       workspaceId: authContext.workspaceId,
       createdByUserId: userContext.user.id,
       paidAt: body.paidAt ? new Date(body.paidAt) : new Date(),

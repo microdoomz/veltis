@@ -29,7 +29,7 @@ export function InvestmentDashboard({ workspaceId }: { workspaceId: string }) {
   const [positions, setPositions] = useState<Position[]>([]);
   const [loading, setLoading] = useState(true);
 
-  const fetchInvestments = async () => {
+  const fetchInvestments = useCallback(async () => {
     setLoading(true);
     try {
       const res = await fetch(`/api/investments?workspaceId=${workspaceId}`);
@@ -43,12 +43,11 @@ export function InvestmentDashboard({ workspaceId }: { workspaceId: string }) {
     } finally {
       setLoading(false);
     }
-  };
+  }, [workspaceId]);
 
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => {
     fetchInvestments();
-  }, [workspaceId]);
+  }, [fetchInvestments]);
 
   const handleSyncPrices = async () => {
     // In V1, this loops over positions and triggers sync

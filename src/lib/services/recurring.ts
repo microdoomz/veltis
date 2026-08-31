@@ -4,6 +4,33 @@ import { eq, and } from 'drizzle-orm';
 import { z } from 'zod';
 import { createExpense, createIncome } from './transaction';
 
+export function getNextOccurrenceDate(baseDate: Date, dayRule: 'first_day' | 'last_working_day' | 'custom_day', customDay?: number | null): Date {
+  const year = baseDate.getUTCFullYear();
+  const month = baseDate.getUTCMonth();
+  
+  const targetDate = new Date(Date.UTC(year, month + 1, 1));
+  
+  if (dayRule === 'first_day') {
+    targetDate.setUTCDate(1);
+    while (targetDate.getUTCDay() === 0 || targetDate.getUTCDay() === 6) {
+      targetDate.setUTCDate(targetDate.getUTCDate() + 1);
+    }
+  } else if (dayRule === 'last_working_day') {
+    targetDate.setUTCMonth(targetDate.getUTCMonth() + 1);
+    targetDate.setUTCDate(0); 
+    while (targetDate.getUTCDay() === 0 || targetDate.getUTCDay() === 6) {
+      targetDate.setUTCDate(targetDate.getUTCDate() - 1);
+    }
+  } else if (dayRule === 'custom_day' && customDay) {
+    const lastDayOfMonth = new Date(Date.UTC(targetDate.getUTCFullYear(), targetDate.getUTCMonth() + 1, 0)).getUTCDate();
+    targetDate.setUTCDate(Math.min(customDay, lastDayOfMonth));
+    if (targetDate.getUTCDay() === 6) targetDate.setUTCDate(targetDate.getUTCDate() - 1); 
+    else if (targetDate.getUTCDay() === 0) targetDate.setUTCDate(targetDate.getUTCDate() + 1); 
+  }
+  
+  return targetDate;
+}
+
 export const createRecurringItemSchema = z.object({
   workspaceId: z.string().uuid(),
   type: z.enum(['income', 'expense']),
@@ -32,14 +59,14 @@ export async function createRecurringItem(data: z.infer<typeof createRecurringIt
     active: true,
   }).returning();
 
-  // Create the first occurrence (simplified: just next month same day)
+  // Create the first occurrence
   const today = new Date();
-  const nextMonth = new Date(today.getFullYear(), today.getMonth() + 1, data.customDay || 1);
-  const nextMonthStr = nextMonth.toISOString().split('T')[0];
+  const nextDate = getNextOccurrenceDate(today, data.dayRule, data.customDay);
+  const nextDateStr = nextDate.toISOString().split('T')[0];
 
   await db.insert(recurringOccurrence).values({
     recurringItemId: newItem.id,
-    expectedDate: nextMonthStr,
+    expectedDate: nextDateStr,
     status: 'pending',
   });
 
@@ -69,7 +96,14 @@ export async function getRecurringItemsWithOccurrences(workspaceId: string) {
   }));
 }
 
-export async function confirmOccurrence(occurrenceId: string, workspaceId: string, accountId: string, userId: string) {
+export async function confirmOccurrence(
+  occurrenceId: string, 
+  workspaceId: string, 
+  accountId: string, 
+  userId: string,
+  actualDateStr?: string,
+  actualAmountMinor?: bigint
+) {
   // 1. Fetch occurrence and item securely
   const occurrence = await db.query.recurringOccurrence.findFirst({
     where: eq(recurringOccurrence.id, occurrenceId),
@@ -83,14 +117,17 @@ export async function confirmOccurrence(occurrenceId: string, workspaceId: strin
 
   if (!item) throw new Error("Item not found or unauthorized");
 
-  // 2. Create actual transaction using existing domain service!
+  // 2. Create actual transaction using existing domain service
   let txnId: string;
+  const amountToRecord = actualAmountMinor ?? item.expectedAmountMinor;
+  const dateToRecord = actualDateStr ? new Date(actualDateStr) : new Date(occurrence.expectedDate);
+  
   if (item.type === 'expense') {
     const txn = await createExpense({
       workspaceId,
-      amountMinor: item.expectedAmountMinor,
+      amountMinor: amountToRecord,
       currency: item.currency,
-      transactionDate: new Date(occurrence.expectedDate),
+      transactionDate: dateToRecord,
       accountId,
       categoryId: item.categoryId ?? undefined,
       merchantName: item.name,
@@ -101,9 +138,9 @@ export async function confirmOccurrence(occurrenceId: string, workspaceId: strin
   } else {
     const txn = await createIncome({
       workspaceId,
-      amountMinor: item.expectedAmountMinor,
+      amountMinor: amountToRecord,
       currency: item.currency,
-      transactionDate: new Date(occurrence.expectedDate),
+      transactionDate: dateToRecord,
       accountId,
       categoryId: item.categoryId ?? undefined,
       description: item.name,
@@ -116,20 +153,20 @@ export async function confirmOccurrence(occurrenceId: string, workspaceId: strin
   // 3. Mark occurrence as confirmed
   await db.update(recurringOccurrence).set({
     status: 'confirmed',
-    actualDate: occurrence.expectedDate,
-    actualAmountMinor: item.expectedAmountMinor,
+    actualDate: dateToRecord.toISOString().split('T')[0],
+    actualAmountMinor: amountToRecord,
     transactionId: txnId,
     updatedAt: new Date()
   }).where(eq(recurringOccurrence.id, occurrenceId));
 
-  // 4. Generate next occurrence (simplified generation)
+  // 4. Generate next occurrence
   const currentExpected = new Date(occurrence.expectedDate);
-  const nextMonth = new Date(currentExpected.getFullYear(), currentExpected.getMonth() + 1, item.customDay || 1);
-  const nextMonthStr = nextMonth.toISOString().split('T')[0];
+  const nextDate = getNextOccurrenceDate(currentExpected, item.dayRule, item.customDay);
+  const nextDateStr = nextDate.toISOString().split('T')[0];
 
   await db.insert(recurringOccurrence).values({
     recurringItemId: item.id,
-    expectedDate: nextMonthStr,
+    expectedDate: nextDateStr,
     status: 'pending',
   });
 }

@@ -7,10 +7,12 @@ import {
   heldForOther,
   accountState,
   investmentPosition,
+  investmentPriceSnapshot,
   receivable,
   liability
 } from '../db/schema';
 import { NotFoundError } from '../services/errors';
+import { receivableSettlement, liabilityPayment } from '../db/schema';
 
 /**
  * Ledger balance strictly computes the math of all active transactions.
@@ -169,11 +171,10 @@ export async function getNetWealth(workspaceId: string, dbTx: any = db): Promise
     ledgerSum += BigInt(acc.openingBalance) + BigInt(acc.legSum);
   }
 
-  // Add investments (assuming units * price, but for V1 schema there's no live value materialized on the position.
-  // Wait, investment positions need to be evaluated based on current price, or average_cost. 
-  // Let's use average_cost_minor * units as a placeholder for Net Wealth if live price isn't joined.
+  // Add investments: For each position, use the latest price snapshot if available, otherwise fallback to averageCost.
   const investments = await dbTx
     .select({
+      id: investmentPosition.id,
       units: investmentPosition.units,
       averageCost: investmentPosition.averageCostMinor
     })
@@ -181,27 +182,62 @@ export async function getNetWealth(workspaceId: string, dbTx: any = db): Promise
     .where(eq(investmentPosition.workspaceId, workspaceId));
     
   let investmentValue = 0n;
-  for (const inv of investments) {
-    if (inv.units && inv.averageCost) {
-      // averageCost is minor, units is numeric (can be fractional, but treating as float here for simplicity)
-      // For absolute precision, we'd multiply strictly, but this is an estimate.
-      investmentValue += BigInt(Math.round(Number(inv.units) * Number(inv.averageCost)));
+  if (investments.length > 0) {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const positionIds = investments.map((i: any) => i.id);
+    
+    // Fetch all price snapshots for these positions (could be optimized with DISTINCT ON in Postgres, 
+    // but SQLite doesn't have it natively, so we just order by observedAt desc and pick the first one in TS)
+    // Actually, for SQLite, we can just group by positionId and max(observedAt), or simply fetch them and sort.
+    const snapshots = await dbTx.query.investmentPriceSnapshot.findMany({
+      where: inArray(investmentPriceSnapshot.positionId, positionIds),
+      orderBy: (snapshot: any, { desc }: any) => [desc(snapshot.observedAt)],
+    });
+
+    for (const inv of investments) {
+      if (inv.units) {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const latestSnapshot = snapshots.find((s: any) => s.positionId === inv.id);
+        const priceToUse = latestSnapshot ? latestSnapshot.priceMinor : (inv.averageCost || 0n);
+        
+        investmentValue += BigInt(Math.round(Number(inv.units) * Number(priceToUse)));
+      }
     }
   }
 
-  // Add active Receivables
+  // Add outstanding Receivables
+  // Outstanding = receivable.amountMinor - sum(receivableSettlement.amountMinor)
   const receivablesResult = await dbTx
-    .select({ total: sql<string>`COALESCE(SUM(${receivable.amountMinor}), 0)` })
+    .select({
+      originalAmount: receivable.amountMinor,
+      settledAmount: sql<string>`COALESCE(SUM(${receivableSettlement.amountMinor}), 0)`
+    })
     .from(receivable)
-    .where(and(eq(receivable.workspaceId, workspaceId), inArray(receivable.status, ['open', 'partially_received'])));
-  const totalReceivables = BigInt(receivablesResult[0]?.total || 0);
+    .leftJoin(receivableSettlement, eq(receivableSettlement.receivableId, receivable.id))
+    .where(and(eq(receivable.workspaceId, workspaceId), inArray(receivable.status, ['open', 'partially_received'])))
+    .groupBy(receivable.id);
 
-  // Subtract active Liabilities
+  let totalOutstandingReceivables = 0n;
+  for (const r of receivablesResult) {
+    totalOutstandingReceivables += BigInt(r.originalAmount) - BigInt(r.settledAmount);
+  }
+
+  // Subtract outstanding Liabilities
+  // Outstanding = liability.amountMinor - sum(liabilityPayment.amountMinor)
   const liabilitiesResult = await dbTx
-    .select({ total: sql<string>`COALESCE(SUM(${liability.amountMinor}), 0)` })
+    .select({
+      originalAmount: liability.amountMinor,
+      paidAmount: sql<string>`COALESCE(SUM(${liabilityPayment.amountMinor}), 0)`
+    })
     .from(liability)
-    .where(and(eq(liability.workspaceId, workspaceId), inArray(liability.status, ['open', 'partially_paid'])));
-  const totalLiabilities = BigInt(liabilitiesResult[0]?.total || 0);
+    .leftJoin(liabilityPayment, eq(liabilityPayment.liabilityId, liability.id))
+    .where(and(eq(liability.workspaceId, workspaceId), inArray(liability.status, ['open', 'partially_paid'])))
+    .groupBy(liability.id);
 
-  return ledgerSum + investmentValue + totalReceivables - totalLiabilities;
+  let totalOutstandingLiabilities = 0n;
+  for (const l of liabilitiesResult) {
+    totalOutstandingLiabilities += BigInt(l.originalAmount) - BigInt(l.paidAmount);
+  }
+
+  return ledgerSum + investmentValue + totalOutstandingReceivables - totalOutstandingLiabilities;
 }

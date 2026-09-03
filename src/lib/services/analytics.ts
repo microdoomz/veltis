@@ -1,5 +1,5 @@
 import { db } from '../db';
-import { transaction, category, financialAccount, investmentPosition, investmentPriceSnapshot, budget } from '../db/schema';
+import { transaction, category, investmentPosition, investmentPriceSnapshot, budget } from '../db/schema';
 import { eq, and, gte, lte, sql, desc, inArray } from 'drizzle-orm';
 
 export type TimeFilter = {

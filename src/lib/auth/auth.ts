@@ -43,7 +43,7 @@ export const auth = betterAuth({
           teamId: process.env.APPLE_TEAM_ID || '',
           privateKey: process.env.APPLE_PRIVATE_KEY || '',
           keyId: process.env.APPLE_KEY_ID || '',
-        } as any,
+        } as never,
       }
     } : {}),
   },
@@ -59,7 +59,7 @@ export const auth = betterAuth({
           // If the user has a phone number registered for 2FA, send an SMS.
           // In a real app we might determine if they chose Email or SMS for 2FA.
           // We will attempt SMS if they have a phone number, fallback to email otherwise.
-          const u = user as any;
+          const u = user as { phoneNumber?: string | null };
           if (u.phoneNumber) {
             await sendAuthSMS(u.phoneNumber, otp);
           } else {

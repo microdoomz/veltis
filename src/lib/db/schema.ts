@@ -519,3 +519,10 @@ export const financialAccountRelations = relations(financialAccount, ({ many }) 
 export const categoryRelations = relations(category, ({ many }) => ({
   transactions: many(transaction),
 }));
+
+export const investmentTransactionRelations = relations(investmentTransaction, ({ one }) => ({
+  transaction: one(transaction, {
+    fields: [investmentTransaction.transactionId],
+    references: [transaction.id],
+  }),
+}));

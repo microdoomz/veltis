@@ -1,7 +1,7 @@
 import React from 'react';
 import { db } from '@/lib/db';
 import { liability } from '@/lib/db/schema';
-import { eq, inArray } from 'drizzle-orm';
+import { eq } from 'drizzle-orm';
 import { Card } from '@/components/ui/card';
 import { Amount } from '@/components/ui/amount';
 

@@ -11,7 +11,6 @@ import {
 } from '../db/schema';
 import { eq, and, gte, lte, desc } from 'drizzle-orm';
 import * as ExcelJS from 'exceljs';
-import PdfPrinter from 'pdfmake';
 import { TimeFilter } from './analytics';
 
 // Formatter helper for minor units

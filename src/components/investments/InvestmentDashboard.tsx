@@ -3,8 +3,6 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { InvestmentActions } from './InvestmentActions';
 import { RefreshCw, TrendingUp, AlertTriangle } from 'lucide-react';
-import { Card, CardContent } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
 
 interface InvestmentAccount {
   id: string;

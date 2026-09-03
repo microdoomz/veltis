@@ -3,7 +3,7 @@
 import * as React from "react"
 import { useState } from "react"
 import Link from "next/link"
-import { Plus, ArrowDown, ArrowUp, ArrowRightLeft, X } from "lucide-react"
+import { Plus, ArrowDown, ArrowUp, ArrowRightLeft } from "lucide-react"
 import { AnimatePresence, motion } from "framer-motion"
 
 export function QuickAddFab() {

@@ -30,7 +30,7 @@ export function SyncStatus() {
             setShowSuccess(true);
             setTimeout(() => setShowSuccess(false), 3000);
         }
-      } catch (e) {
+      } catch {
         // ignore errors if idb not ready
       }
     };

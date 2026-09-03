@@ -8,7 +8,7 @@
     "start": "next start",
     "lint": "eslint",
     "migrate:prod": "npx tsx src/lib/db/prod-migrate.ts",
-    "test:prod-smoke": "vitest run src/tests/production/smoke.test.ts"
+    "test:prod-smoke": "vitest run tests/production/smoke.test.ts"
   },
   "dependencies": {
     "@better-auth/passkey": "^1.7.2",

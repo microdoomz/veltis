@@ -1,6 +1,5 @@
 import { db } from '../db';
 import { reconciliation, accountState } from '../db/schema';
-import { eq } from 'drizzle-orm';
 import { getAccountLedgerBalance } from '../ledger';
 import { createAdjustmentTransaction } from './transaction';
 

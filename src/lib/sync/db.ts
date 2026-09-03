@@ -203,7 +203,7 @@ export async function initializeQueue(): Promise<void> {
       request.onerror = () => reject(request.error);
       tx.oncomplete = () => db.close();
     });
-  } catch (e) {
+  } catch {
     // If SSR or indexedDB not available, silently return
     return;
   }

@@ -22,8 +22,8 @@ export default async function HomePage() {
   let authContext;
   try {
     authContext = await requireWorkspaceAccess()
-  } catch (error: any) {
-    if (error.message === 'Unauthorized') {
+  } catch (error: unknown) {
+    if (error instanceof Error && error.message === 'Unauthorized') {
       redirect('/login')
     }
     throw error;

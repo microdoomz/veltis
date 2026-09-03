@@ -107,13 +107,12 @@ export function AnalyticsDashboard({ workspaceId, baseCurrency }: { workspaceId:
     } finally {
       setIsLoading(false);
     }
-  }, [workspaceId, timeFilter]);
+  }, [workspaceId, timeFilter, customStartDate, customEndDate]);
 
   useEffect(() => {
     if (!workspaceId) return;
     // eslint-disable-next-line react-hooks/set-state-in-effect
     fetchData(activeTab);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [workspaceId, activeTab, timeFilter, customStartDate, customEndDate, fetchData]);
 
   const handleCategoryClick = async (categoryId: string) => {

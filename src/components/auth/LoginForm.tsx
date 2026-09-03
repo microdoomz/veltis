@@ -29,7 +29,7 @@ export function LoginForm() {
         router.push('/home');
         router.refresh();
       }
-    } catch (err) {
+    } catch {
       setError('An unexpected error occurred');
     } finally {
       setLoading(false);
@@ -42,7 +42,7 @@ export function LoginForm() {
         provider: 'google',
         callbackURL: '/home'
       });
-    } catch (err) {
+    } catch {
       setError('Failed to initiate Google login');
     }
   };

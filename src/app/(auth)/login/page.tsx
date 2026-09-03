@@ -7,7 +7,7 @@ export default async function LoginPage() {
   let session = null;
   try {
     session = await requireUser();
-  } catch (error) {
+  } catch {
     // Expected to throw if unauthorized, which is fine for the login page
   }
 

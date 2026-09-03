@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { requireUser, requireStrictWorkspaceAccess } from '@/lib/auth/guards';
+import { requireStrictWorkspaceAccess } from '@/lib/auth/guards';
 import { getInvestmentAnalytics } from '@/lib/services/analytics';
 import { z } from 'zod';
 

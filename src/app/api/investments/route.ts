@@ -2,12 +2,11 @@ import { NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import { eq, inArray, desc } from 'drizzle-orm';
 import {
-  financialAccount,
   investmentPosition,
   investmentPriceSnapshot,
   investmentTransaction
 } from '@/lib/db/schema';
-import { requireUser, requireStrictWorkspaceAccess } from '@/lib/auth/guards';
+import { requireStrictWorkspaceAccess } from '@/lib/auth/guards';
 import { z } from 'zod';
 import {
   recordContribution,
@@ -75,11 +74,13 @@ export async function GET(req: Request) {
       }
     });
 
-    return NextResponse.json({
+    const serialized = JSON.parse(JSON.stringify({
       accounts,
       positions: enrichedPositions,
       history,
-    });
+    }, (key, value) => typeof value === 'bigint' ? value.toString() : value));
+
+    return NextResponse.json(serialized);
   } catch (error: unknown) {
     console.error('Failed to fetch investments:', error);
     return NextResponse.json({ error: (error as Error).message }, { status: 500 });
@@ -102,7 +103,6 @@ const transactionSchema = z.object({
 
 export async function POST(req: Request) {
   try {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const body = await req.json();
     const data = transactionSchema.parse(body);
     const { session } = await requireStrictWorkspaceAccess(data.workspaceId);

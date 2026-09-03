@@ -1,4 +1,4 @@
-import { eq, and, ne, sql, inArray } from 'drizzle-orm';
+import { eq, and, sql, inArray } from 'drizzle-orm';
 import { db } from '../db';
 import {
   financialAccount,

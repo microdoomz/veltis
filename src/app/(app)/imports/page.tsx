@@ -24,7 +24,7 @@ export default async function ImportsPage() {
 
       <Card className="p-6 mb-8">
         <h2 className="text-lg font-semibold mb-4">New Import</h2>
-        <form action={uploadImportAction} className="flex gap-4 items-end">
+        <form action={uploadImportAction.bind(null, authContext.workspaceId)} className="flex gap-4 items-end">
           <div className="flex-1">
             <label className="block text-sm font-medium text-muted-foreground mb-1">Account</label>
             <select name="accountId" required className="flex h-10 w-full rounded-md border border-border bg-background px-3 py-2 text-sm">

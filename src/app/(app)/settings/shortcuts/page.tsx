@@ -18,7 +18,7 @@ export default async function ShortcutsPage() {
         Generate tokens to securely log expenses via Apple Shortcuts without needing to log in.
       </p>
 
-      <CreateShortcutForm />
+      <CreateShortcutForm workspaceId={authContext.workspaceId} />
 
       <h2 className="text-xl font-semibold mb-4">Active Tokens</h2>
       {tokens.length === 0 ? (
@@ -34,7 +34,7 @@ export default async function ShortcutsPage() {
                   {token.lastUsedAt && ` • Last used: ${new Date(token.lastUsedAt).toLocaleDateString()}`}
                 </p>
               </div>
-              <form action={deleteShortcutTokenAction}>
+              <form action={deleteShortcutTokenAction.bind(null, authContext.workspaceId)}>
                 <input type="hidden" name="tokenId" value={token.id} />
                 <Button variant="danger" size="sm" type="submit">Revoke</Button>
               </form>

@@ -35,7 +35,7 @@ export default async function BudgetsPage() {
               </div>
               <form action={async () => {
                 "use server"
-                await deleteBudgetAction(budget.id)
+                await deleteBudgetAction(authContext.workspaceId, budget.id)
               }}>
                 <Button type="submit" variant="ghost" size="sm" className="h-8 text-destructive">Delete</Button>
               </form>
@@ -62,7 +62,7 @@ export default async function BudgetsPage() {
 
       <Card className="p-6 mt-8">
         <h2 className="text-lg font-semibold mb-4">Create New Budget</h2>
-        <form action={addBudgetAction} className="space-y-4">
+        <form action={addBudgetAction.bind(null, authContext.workspaceId)} className="space-y-4">
           <div className="grid grid-cols-2 gap-4">
             <div>
               <label className="block text-sm font-medium text-muted-foreground mb-1">Category</label>

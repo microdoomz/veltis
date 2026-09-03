@@ -19,6 +19,7 @@ describe("Offline Sync IndexedDB Client", () => {
 
   it("should create a queue and enqueue transactions", async () => {
     const id = await enqueueTransaction("expense", {
+      workspaceId: "ws-1",
       amountMajor: 100,
       transactionDate: "2023-01-01",
       accountId: "acc-1",
@@ -36,6 +37,7 @@ describe("Offline Sync IndexedDB Client", () => {
 
   it("should update status correctly", async () => {
     const id = await enqueueTransaction("expense", {
+      workspaceId: "ws-1",
       amountMajor: 100,
       transactionDate: "2023-01-01",
     });
@@ -57,6 +59,7 @@ describe("Offline Sync IndexedDB Client", () => {
 
   it("should remove transaction upon success", async () => {
     const id = await enqueueTransaction("income", {
+      workspaceId: "ws-1",
       amountMajor: 500,
       transactionDate: "2023-01-01",
     });
@@ -67,8 +70,8 @@ describe("Offline Sync IndexedDB Client", () => {
   });
 
   it("should recover crashed syncing items back to pending on initialization", async () => {
-    const id1 = await enqueueTransaction("expense", { amountMajor: 100, transactionDate: "2023-01-01" });
-    await enqueueTransaction("income", { amountMajor: 200, transactionDate: "2023-01-02" });
+    const id1 = await enqueueTransaction("expense", { workspaceId: "ws-1", amountMajor: 100, transactionDate: "2023-01-01" });
+    await enqueueTransaction("income", { workspaceId: "ws-1", amountMajor: 200, transactionDate: "2023-01-02" });
 
     // Simulate crash in syncing state
     await updateTransactionStatus(id1, "syncing");
@@ -87,11 +90,11 @@ describe("Offline Sync IndexedDB Client", () => {
   });
   
   it("should maintain multiple queued transactions in order", async () => {
-    await enqueueTransaction("expense", { amountMajor: 10, transactionDate: "2023-01-01" });
+    await enqueueTransaction("expense", { workspaceId: "ws-1", amountMajor: 10, transactionDate: "2023-01-01" });
     await new Promise(r => setTimeout(r, 10)); // Ensure distinct createdAt timestamp
-    await enqueueTransaction("expense", { amountMajor: 20, transactionDate: "2023-01-02" });
+    await enqueueTransaction("expense", { workspaceId: "ws-1", amountMajor: 20, transactionDate: "2023-01-02" });
     await new Promise(r => setTimeout(r, 10));
-    await enqueueTransaction("expense", { amountMajor: 30, transactionDate: "2023-01-03" });
+    await enqueueTransaction("expense", { workspaceId: "ws-1", amountMajor: 30, transactionDate: "2023-01-03" });
 
     const pending = await getPendingTransactions();
     expect(pending).toHaveLength(3);

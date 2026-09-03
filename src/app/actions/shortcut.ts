@@ -1,11 +1,11 @@
 'use server'
 
-import { requireWorkspaceAccess } from '@/lib/auth/guards';
+import { requireStrictWorkspaceAccess } from '@/lib/auth/guards';
 import { createShortcutToken, revokeShortcutToken } from '@/lib/services/shortcut';
 import { revalidatePath } from 'next/cache';
 
-export async function addShortcutTokenAction(formData: FormData) {
-  const authContext = await requireWorkspaceAccess();
+export async function addShortcutTokenAction(workspaceId: string, formData: FormData) {
+  const authContext = await requireStrictWorkspaceAccess(workspaceId);
   
   const name = formData.get('name') as string;
   if (!name || name.trim() === '') throw new Error('Name is required');
@@ -23,8 +23,8 @@ export async function addShortcutTokenAction(formData: FormData) {
   return { rawToken };
 }
 
-export async function deleteShortcutTokenAction(formData: FormData) {
-  const authContext = await requireWorkspaceAccess();
+export async function deleteShortcutTokenAction(workspaceId: string, formData: FormData) {
+  const authContext = await requireStrictWorkspaceAccess(workspaceId);
   
   const tokenId = formData.get('tokenId') as string;
   if (!tokenId) throw new Error('Token ID is required');

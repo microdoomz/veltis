@@ -1,6 +1,6 @@
 "use server"
 
-import { requireWorkspaceAccess } from "@/lib/auth/guards"
+import { requireStrictWorkspaceAccess } from "@/lib/auth/guards"
 import { createBudget, deleteBudget } from "@/lib/services/budget"
 import { revalidatePath } from "next/cache"
 import { z } from "zod"
@@ -12,8 +12,8 @@ const budgetFormSchema = z.object({
   periodEndDate: z.string(),
 })
 
-export async function addBudgetAction(formData: FormData) {
-  const authContext = await requireWorkspaceAccess()
+export async function addBudgetAction(workspaceId: string, formData: FormData) {
+  const authContext = await requireStrictWorkspaceAccess(workspaceId)
   
   const parsed = budgetFormSchema.parse({
     categoryId: formData.get("categoryId"),
@@ -38,8 +38,8 @@ export async function addBudgetAction(formData: FormData) {
   revalidatePath("/budgets")
 }
 
-export async function deleteBudgetAction(budgetId: string) {
-  const authContext = await requireWorkspaceAccess()
+export async function deleteBudgetAction(workspaceId: string, budgetId: string) {
+  const authContext = await requireStrictWorkspaceAccess(workspaceId)
   await deleteBudget(authContext.workspaceId, budgetId)
   revalidatePath("/budgets")
 }

@@ -44,7 +44,7 @@ export default async function RecurringPage() {
                 {item.pendingOccurrences.map(occ => (
                   <div key={occ.id} className="flex justify-between items-center bg-muted/50 p-2 rounded text-sm">
                     <span>{occ.expectedDate}</span>
-                    <form action={confirmOccurrenceAction} className="flex gap-2">
+                    <form action={confirmOccurrenceAction.bind(null, authContext.workspaceId)} className="flex gap-2">
                       <input type="hidden" name="occurrenceId" value={occ.id} />
                       <select name="accountId" required defaultValue={item.defaultAccountId || ""} className="h-8 rounded text-xs border border-border">
                         <option value="">Select Account</option>
@@ -62,7 +62,7 @@ export default async function RecurringPage() {
 
       <Card className="p-6 mt-8">
         <h2 className="text-lg font-semibold mb-4">Add Recurring Item</h2>
-        <form action={addRecurringAction} className="space-y-4">
+        <form action={addRecurringAction.bind(null, authContext.workspaceId)} className="space-y-4">
           <div className="grid grid-cols-2 gap-4">
             <div>
               <label className="block text-sm font-medium text-muted-foreground mb-1">Type</label>

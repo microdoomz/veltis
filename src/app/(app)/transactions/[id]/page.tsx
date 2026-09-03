@@ -84,7 +84,7 @@ export default async function TransactionDetailPage({ params }: { params: Promis
           <div className="pt-6 border-t border-border">
             <form action={async () => {
               "use server"
-              await deleteTransactionAction(txn.id)
+              await deleteTransactionAction(authContext.workspaceId, txn.id)
             }}>
               <Button type="submit" variant="danger" className="w-full">
                 Delete Transaction

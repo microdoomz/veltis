@@ -1,10 +1,12 @@
 import { NextResponse } from 'next/server';
-import { requireUser, requireWorkspaceAccess } from '@/lib/auth/guards';
+import { requireUser, requireStrictWorkspaceAccess } from '@/lib/auth/guards';
 import { createRecurringItem, getRecurringItemsWithOccurrences, createRecurringItemSchema } from '@/lib/services/recurring';
 
-export async function GET() {
+export async function GET(req: Request) {
   try {
-    const authContext = await requireWorkspaceAccess();
+    const url = new URL(req.url);
+    const workspaceId = url.searchParams.get('workspaceId');
+    const authContext = await requireStrictWorkspaceAccess(workspaceId!);
     
     const records = await getRecurringItemsWithOccurrences(authContext.workspaceId);
     
@@ -19,10 +21,11 @@ export async function GET() {
 
 export async function POST(req: Request) {
   try {
-    const authContext = await requireWorkspaceAccess();
+    const body = await req.json();
+    const authContext = await requireStrictWorkspaceAccess(body.workspaceId);
     const userContext = await requireUser();
     
-    const body = await req.json();
+    // Convert baseDate from string to Date
     
     // Convert baseDate from string to Date
     const dataToParse = {

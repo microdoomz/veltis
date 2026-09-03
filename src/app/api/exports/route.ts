@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { requireUser } from '@/lib/auth/guards';
+import { requireStrictWorkspaceAccess } from '@/lib/auth/guards';
 import { 
   generateCsvExport, 
   generateXlsxExport, 
@@ -17,9 +17,6 @@ const querySchema = z.object({
 
 export async function GET(req: Request) {
   try {
-    const user = await requireUser();
-    if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-
     const url = new URL(req.url);
     const data = querySchema.parse({
       workspaceId: url.searchParams.get('workspaceId'),
@@ -27,6 +24,8 @@ export async function GET(req: Request) {
       startDate: url.searchParams.get('startDate') || undefined,
       endDate: url.searchParams.get('endDate') || undefined,
     });
+
+    await requireStrictWorkspaceAccess(data.workspaceId);
 
     const timeFilter = {
       startDate: data.startDate ? new Date(data.startDate) : new Date('2000-01-01'),

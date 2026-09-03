@@ -11,10 +11,11 @@ vi.mock('@/lib/auth/guards', () => {
   return {
     requireUser: vi.fn(),
     requireWorkspaceAccess: vi.fn(),
+    requireStrictWorkspaceAccess: vi.fn(),
   };
 });
 
-import { requireUser, requireWorkspaceAccess } from '@/lib/auth/guards';
+import { requireUser, requireWorkspaceAccess, requireStrictWorkspaceAccess } from '@/lib/auth/guards';
 
 describe('Offline Sync API', () => {
   let testUserId: string;
@@ -51,6 +52,7 @@ describe('Offline Sync API', () => {
 
     (requireUser as Mock).mockResolvedValue({ user: { id: testUserId } });
     (requireWorkspaceAccess as Mock).mockResolvedValue({ workspaceId: testWorkspaceId });
+    (requireStrictWorkspaceAccess as Mock).mockResolvedValue({ workspaceId: testWorkspaceId });
   });
 
   const createSyncRequest = (transactions: unknown[]) => {
@@ -79,6 +81,7 @@ describe('Offline Sync API', () => {
         id: id1,
         type: 'expense',
         payload: {
+          workspaceId: testWorkspaceId,
           amountMajor: 100,
           accountId: testAccountId,
           transactionDate: '2023-01-01',
@@ -89,6 +92,7 @@ describe('Offline Sync API', () => {
         id: id2,
         type: 'income',
         payload: {
+          workspaceId: testWorkspaceId,
           amountMajor: 200,
           accountId: testAccountId,
           transactionDate: '2023-01-02',
@@ -137,6 +141,7 @@ describe('Offline Sync API', () => {
         id,
         type: 'transfer',
         payload: {
+          workspaceId: testWorkspaceId,
           amountMajor: 150,
           sourceAccountId: testAccountId,
           destAccountId: destAccountId,
@@ -169,6 +174,7 @@ describe('Offline Sync API', () => {
       id,
       type: 'expense',
       payload: {
+        workspaceId: testWorkspaceId,
         amountMajor: 50,
         accountId: testAccountId,
         transactionDate: '2023-01-01'
@@ -202,6 +208,7 @@ describe('Offline Sync API', () => {
         id: invalidId,
         type: 'expense',
         payload: {
+          workspaceId: testWorkspaceId,
           amountMajor: -10, // Invalid: negative amount
           accountId: testAccountId,
           transactionDate: '2023-01-01'
@@ -211,6 +218,7 @@ describe('Offline Sync API', () => {
         id: validId,
         type: 'expense',
         payload: {
+          workspaceId: testWorkspaceId,
           amountMajor: 50,
           accountId: testAccountId,
           transactionDate: '2023-01-01'
@@ -237,6 +245,7 @@ describe('Offline Sync API', () => {
         id: invalidId,
         type: 'expense',
         payload: {
+          workspaceId: testWorkspaceId,
           // Missing accountId and amountMajor
           transactionDate: '2023-01-01'
         }
@@ -247,7 +256,7 @@ describe('Offline Sync API', () => {
     const data = await res.json();
     
     expect(data.results[0].status).toBe('permanent_error');
-    expect(data.results[0].error).toContain('expected');
+    expect(data.results[0].error).toContain('Validation failed');
   });
 
   it('returns permanent_error for unknown transaction types', async () => {
@@ -257,6 +266,7 @@ describe('Offline Sync API', () => {
         id: invalidId,
         type: 'unknown_type',
         payload: {
+          workspaceId: testWorkspaceId,
           amountMajor: 10,
           accountId: testAccountId,
           transactionDate: '2023-01-01'
@@ -269,12 +279,12 @@ describe('Offline Sync API', () => {
   });
 
   it('rejects unauthorized access', async () => {
-    (requireWorkspaceAccess as Mock).mockRejectedValueOnce(new Error('Forbidden: No access to this workspace'));
+    (requireStrictWorkspaceAccess as Mock).mockRejectedValueOnce(new Error('Forbidden: No access to this workspace'));
     
     const req = createSyncRequest([{
       id: randomUUID(),
       type: 'expense',
-      payload: { amountMajor: 10, accountId: testAccountId, transactionDate: '2023-01-01' }
+      payload: { workspaceId: testWorkspaceId, amountMajor: 10, accountId: testAccountId, transactionDate: '2023-01-01' }
     }]);
 
     const res = await POST(req);

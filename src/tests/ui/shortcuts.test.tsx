@@ -13,20 +13,20 @@ vi.mock('../../app/actions/shortcut', () => ({
 
 describe('CreateShortcutForm', () => {
   it('renders correctly', () => {
-    render(<CreateShortcutForm />);
+    render(<CreateShortcutForm workspaceId="test-ws" />);
     expect(screen.getByText('Create New Token')).toBeDefined();
     expect(screen.getByPlaceholderText('e.g., iPhone Personal')).toBeDefined();
     expect(screen.getByRole('button', { name: 'Create' })).toBeDefined();
   });
 
   it('disables create button when input is empty', () => {
-    render(<CreateShortcutForm />);
+    render(<CreateShortcutForm workspaceId="test-ws" />);
     const button = screen.getByRole('button', { name: 'Create' });
     expect((button as HTMLButtonElement).disabled).toBe(true);
   });
 
   it('enables create button when input is typed', () => {
-    render(<CreateShortcutForm />);
+    render(<CreateShortcutForm workspaceId="test-ws" />);
     const input = screen.getByPlaceholderText('e.g., iPhone Personal');
     fireEvent.change(input, { target: { value: 'My Token' } });
     
@@ -38,7 +38,7 @@ describe('CreateShortcutForm', () => {
     const mockToken = 'vsh_mocktoken123';
     vi.mocked(addShortcutTokenAction).mockResolvedValueOnce({ rawToken: mockToken } as never);
 
-    render(<CreateShortcutForm />);
+    render(<CreateShortcutForm workspaceId="test-ws" />);
     
     const input = screen.getByPlaceholderText('e.g., iPhone Personal');
     fireEvent.change(input, { target: { value: 'Test Token' } });

@@ -18,6 +18,7 @@ export default async function NewTransactionPage() {
       </header>
 
       <TransactionForm 
+        workspaceId={authContext.workspaceId}
         accounts={accounts.map(a => ({ id: a.id, name: a.name }))}
         categories={categories.map(c => ({ id: c.id, name: c.name }))}
       />

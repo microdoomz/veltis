@@ -7,11 +7,12 @@ import { Amount } from "@/components/ui/amount"
 import { reviewRowAction } from "@/app/actions/import"
 import { notFound } from "next/navigation"
 
-export default async function ImportReviewPage({ params }: { params: { id: string } }) {
+export default async function ImportReviewPage({ params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params
   const authContext = await requireWorkspaceAccess()
   
   const [importRecord, categories] = await Promise.all([
-    getImportWithRows(params.id, authContext.workspaceId),
+    getImportWithRows(id, authContext.workspaceId),
     getCategories(authContext.workspaceId)
   ])
 
@@ -39,7 +40,7 @@ export default async function ImportReviewPage({ params }: { params: { id: strin
             </div>
 
             {row.reviewStatus === 'pending' ? (
-              <form action={reviewRowAction} className="flex gap-2 bg-muted/30 p-2 rounded items-end">
+              <form action={reviewRowAction.bind(null, authContext.workspaceId)} className="flex gap-2 bg-muted/30 p-2 rounded items-end">
                 <input type="hidden" name="rowId" value={row.id} />
                 <input type="hidden" name="importId" value={importRecord.id} />
                 

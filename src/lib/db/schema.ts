@@ -15,6 +15,7 @@ import {
   uniqueIndex,
   primaryKey,
   check,
+  varchar,
 } from 'drizzle-orm/pg-core';
 import { sql } from 'drizzle-orm';
 import { user } from './auth-schema';
@@ -482,6 +483,13 @@ export const budget = pgTable('budget', {
   uniqueIndex('budget_workspace_category_period_idx').on(t.workspaceId, t.categoryId, t.periodStartDate),
   index('budget_workspace_period_idx').on(t.workspaceId, t.periodStartDate),
 ]);
+
+// 25. Rate Limits
+export const rateLimit = pgTable('rate_limit', {
+  key: varchar('key', { length: 255 }).primaryKey(),
+  points: integer('points').notNull().default(0),
+  expiresAt: timestamp('expires_at', { withTimezone: true }).notNull(),
+});
 
 import { relations } from 'drizzle-orm';
 

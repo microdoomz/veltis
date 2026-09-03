@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card } from '@/components/ui/card';
 
-export function CreateShortcutForm() {
+export function CreateShortcutForm({ workspaceId }: { workspaceId: string }) {
   const [name, setName] = useState('');
   const [loading, setLoading] = useState(false);
   const [secret, setSecret] = useState<string | null>(null);
@@ -20,7 +20,7 @@ export function CreateShortcutForm() {
     try {
       const formData = new FormData();
       formData.append('name', name);
-      const res = await addShortcutTokenAction(formData);
+      const res = await addShortcutTokenAction(workspaceId, formData);
       setSecret(res.rawToken);
       setName('');
     } catch (err) {

@@ -44,3 +44,26 @@ export async function requireWorkspaceAccess(workspaceId?: string) {
 
   return { session, membership, workspaceId: membership.workspaceId };
 }
+
+export async function requireStrictWorkspaceAccess(workspaceId: string) {
+  if (!workspaceId) {
+    throw new Error('workspaceId is required for this operation');
+  }
+  
+  const session = await requireUser();
+  const userId = session.user.id;
+
+  const membership = await db.query.workspaceMember.findFirst({
+    where: and(
+      eq(workspaceMember.workspaceId, workspaceId),
+      eq(workspaceMember.userId, userId),
+      eq(workspaceMember.status, 'active')
+    ),
+  });
+
+  if (!membership) {
+    throw new Error('Forbidden: No access to this workspace');
+  }
+
+  return { session, membership, workspaceId: membership.workspaceId };
+}

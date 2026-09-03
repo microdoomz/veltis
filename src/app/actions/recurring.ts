@@ -1,6 +1,6 @@
 "use server"
 
-import { requireWorkspaceAccess } from "@/lib/auth/guards"
+import { requireStrictWorkspaceAccess } from "@/lib/auth/guards"
 import { createRecurringItem, confirmOccurrence } from "@/lib/services/recurring"
 import { revalidatePath } from "next/cache"
 import { z } from "zod"
@@ -14,8 +14,8 @@ const recurringFormSchema = z.object({
   customDay: z.string(),
 })
 
-export async function addRecurringAction(formData: FormData) {
-  const authContext = await requireWorkspaceAccess()
+export async function addRecurringAction(workspaceId: string, formData: FormData) {
+  const authContext = await requireStrictWorkspaceAccess(workspaceId)
   
   const rawData = {
     type: formData.get("type"),
@@ -45,8 +45,8 @@ export async function addRecurringAction(formData: FormData) {
   revalidatePath("/recurring")
 }
 
-export async function confirmOccurrenceAction(formData: FormData) {
-  const authContext = await requireWorkspaceAccess()
+export async function confirmOccurrenceAction(workspaceId: string, formData: FormData) {
+  const authContext = await requireStrictWorkspaceAccess(workspaceId)
   const occurrenceId = formData.get("occurrenceId") as string
   const accountId = formData.get("accountId") as string
   

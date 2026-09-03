@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { requireUser } from '@/lib/auth/guards';
+import { requireUser, requireStrictWorkspaceAccess } from '@/lib/auth/guards';
 import { getInvestmentAnalytics } from '@/lib/services/analytics';
 import { z } from 'zod';
 
@@ -9,13 +9,12 @@ const querySchema = z.object({
 
 export async function GET(req: Request) {
   try {
-    const user = await requireUser();
-    if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-
     const url = new URL(req.url);
     const data = querySchema.parse({
       workspaceId: url.searchParams.get('workspaceId'),
     });
+
+    await requireStrictWorkspaceAccess(data.workspaceId);
 
     const result = await getInvestmentAnalytics(data.workspaceId);
 

@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { requireUser } from '@/lib/auth/guards';
+import { requireStrictWorkspaceAccess } from '@/lib/auth/guards';
 import { z } from 'zod';
 import { updateMarketPrice } from '@/lib/investments/service';
 
@@ -12,11 +12,9 @@ const snapshotSchema = z.object({
 
 export async function POST(req: Request) {
   try {
-    const user = await requireUser();
-    if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-
     const body = await req.json();
     const data = snapshotSchema.parse(body);
+    await requireStrictWorkspaceAccess(data.workspaceId);
 
     const priceMinor = data.manualPriceMinor ? BigInt(data.manualPriceMinor) : undefined;
 

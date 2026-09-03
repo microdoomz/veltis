@@ -35,7 +35,7 @@ describe('TransactionForm Offline Sync Integration', () => {
   const categories = [{ id: 'cat-1', name: 'Food' }];
 
   it('enqueues an expense transaction and redirects', async () => {
-    render(<TransactionForm accounts={accounts} categories={categories} />);
+    render(<TransactionForm workspaceId="ws-1" accounts={accounts} categories={categories} />);
     
     // Switch to expense (default)
     const amountInput = screen.getByPlaceholderText('0.00');
@@ -57,6 +57,7 @@ describe('TransactionForm Offline Sync Integration', () => {
 
     await waitFor(() => {
       expect(enqueueTransaction).toHaveBeenCalledWith('expense', expect.objectContaining({
+        workspaceId: 'ws-1',
         amountMajor: 50.5,
         description: 'Lunch',
         accountId: 'acc-1',
@@ -67,7 +68,7 @@ describe('TransactionForm Offline Sync Integration', () => {
   });
 
   it('enqueues a transfer transaction and redirects', async () => {
-    render(<TransactionForm accounts={accounts} categories={categories} />);
+    render(<TransactionForm workspaceId="ws-1" accounts={accounts} categories={categories} />);
     
     // Switch to transfer
     fireEvent.click(screen.getAllByText('Transfer')[0]);
@@ -88,6 +89,7 @@ describe('TransactionForm Offline Sync Integration', () => {
 
     await waitFor(() => {
       expect(enqueueTransaction).toHaveBeenCalledWith('transfer', expect.objectContaining({
+        workspaceId: 'ws-1',
         amountMajor: 100,
         sourceAccountId: 'acc-1',
         destAccountId: 'acc-2'

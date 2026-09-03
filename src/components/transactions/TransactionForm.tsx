@@ -13,9 +13,11 @@ type Account = { id: string; name: string }
 type Category = { id: string; name: string }
 
 export function TransactionForm({
+  workspaceId,
   accounts,
   categories
 }: {
+  workspaceId: string
   accounts: Account[]
   categories: Category[]
 }) {
@@ -31,6 +33,7 @@ export function TransactionForm({
       const formData = new FormData(e.currentTarget)
       
       const payload: OfflineTransactionPayload = {
+        workspaceId,
         amountMajor: parseFloat(formData.get("amount") as string),
         transactionDate: formData.get("transactionDate") as string,
         description: (formData.get("description") as string) || undefined,

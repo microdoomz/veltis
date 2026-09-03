@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { verifyShortcutToken } from '@/lib/services/shortcut';
 import { checkIdempotency, recordIdempotency } from '@/lib/services/idempotency';
+import { checkRateLimit } from '@/lib/security/rate-limit';
 import { createExpense } from '@/lib/services/transaction';
 import { db } from '@/lib/db';
 import { eq, and } from 'drizzle-orm';
@@ -28,6 +29,11 @@ export async function POST(req: NextRequest) {
     const shortcut = await verifyShortcutToken(token);
     if (!shortcut) {
       return NextResponse.json({ error: 'Invalid or revoked token' }, { status: 401 });
+    }
+
+    const rateLimit = await checkRateLimit(`shortcut:token:${shortcut.id}`, 20, 60);
+    if (!rateLimit.success) {
+      return NextResponse.json({ error: 'Rate limit exceeded. Please try again later.' }, { status: 429 });
     }
 
     // 2. Parse request payload

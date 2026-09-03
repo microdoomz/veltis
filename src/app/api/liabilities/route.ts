@@ -1,13 +1,15 @@
 import { NextResponse } from 'next/server';
-import { requireUser, requireWorkspaceAccess } from '@/lib/auth/guards';
+import { requireUser, requireStrictWorkspaceAccess } from '@/lib/auth/guards';
 import { createLiability, createLiabilitySchema } from '@/lib/services/liabilities';
 import { db } from '@/lib/db';
 import { liability } from '@/lib/db/schema';
 import { eq } from 'drizzle-orm';
 
-export async function GET() {
+export async function GET(req: Request) {
   try {
-    const authContext = await requireWorkspaceAccess();
+    const url = new URL(req.url);
+    const workspaceId = url.searchParams.get('workspaceId');
+    const authContext = await requireStrictWorkspaceAccess(workspaceId!);
     
     const records = await db.query.liability.findMany({
       where: eq(liability.workspaceId, authContext.workspaceId),
@@ -25,10 +27,11 @@ export async function GET() {
 
 export async function POST(req: Request) {
   try {
-    const authContext = await requireWorkspaceAccess();
+    const body = await req.json();
+    const authContext = await requireStrictWorkspaceAccess(body.workspaceId);
     const userContext = await requireUser();
     
-    const body = await req.json();
+    // Process string dates back into Date objects for Zod schema
     
     // Process string dates back into Date objects for Zod schema
     const dataToParse = {

@@ -7,7 +7,7 @@ import {
   investmentPriceSnapshot,
   investmentTransaction
 } from '@/lib/db/schema';
-import { requireUser } from '@/lib/auth/guards';
+import { requireUser, requireStrictWorkspaceAccess } from '@/lib/auth/guards';
 import { z } from 'zod';
 import {
   recordContribution,
@@ -18,12 +18,11 @@ import {
 
 export async function GET(req: Request) {
   try {
-    const user = await requireUser();
-    if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-
     const url = new URL(req.url);
     const workspaceId = url.searchParams.get('workspaceId');
     if (!workspaceId) return NextResponse.json({ error: 'Missing workspaceId' }, { status: 400 });
+    
+    await requireStrictWorkspaceAccess(workspaceId);
 
     // Fetch investment accounts
     const accounts = await db.query.financialAccount.findMany({
@@ -103,12 +102,11 @@ const transactionSchema = z.object({
 
 export async function POST(req: Request) {
   try {
-    const user = await requireUser();
-    if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const body = await req.json();
     const data = transactionSchema.parse(body);
+    const { session } = await requireStrictWorkspaceAccess(data.workspaceId);
+    const user = session;
 
     const date = new Date(data.transactionDate);
 

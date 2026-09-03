@@ -29,20 +29,20 @@ export async function getAccountLedgerBalance(accountId: string, dbTx: any = db)
       // Sum debits as positive, credits as negative
       legSum: sql<string>`COALESCE(SUM(
         CASE 
-          WHEN ${transactionLeg.direction} = 'debit' THEN ${transactionLeg.amountMinor}
-          ELSE -${transactionLeg.amountMinor}
+          WHEN ${transaction.status} NOT IN ('deleted', 'voided') THEN
+            CASE 
+              WHEN ${transactionLeg.direction} = 'debit' THEN ${transactionLeg.amountMinor}
+              ELSE -${transactionLeg.amountMinor}
+            END
+          ELSE 0
         END
       ), 0)`,
     })
     .from(financialAccount)
     .leftJoin(transactionLeg, eq(transactionLeg.accountId, financialAccount.id))
-    .innerJoin(
+    .leftJoin(
       transaction,
-      and(
-        eq(transaction.id, transactionLeg.transactionId),
-        ne(transaction.status, 'deleted'),
-        ne(transaction.status, 'voided')
-      )
+      eq(transaction.id, transactionLeg.transactionId)
     )
     .where(eq(financialAccount.id, accountId))
     .groupBy(financialAccount.id);
@@ -68,20 +68,20 @@ export async function getAvailableMoney(workspaceId: string, dbTx: any = db): Pr
       openingBalance: financialAccount.openingBalanceMinor,
       legSum: sql<string>`COALESCE(SUM(
         CASE 
-          WHEN ${transactionLeg.direction} = 'debit' THEN ${transactionLeg.amountMinor}
-          ELSE -${transactionLeg.amountMinor}
+          WHEN ${transaction.status} NOT IN ('deleted', 'voided') THEN
+            CASE 
+              WHEN ${transactionLeg.direction} = 'debit' THEN ${transactionLeg.amountMinor}
+              ELSE -${transactionLeg.amountMinor}
+            END
+          ELSE 0
         END
       ), 0)`,
     })
     .from(financialAccount)
     .leftJoin(transactionLeg, eq(transactionLeg.accountId, financialAccount.id))
-    .innerJoin(
+    .leftJoin(
       transaction,
-      and(
-        eq(transaction.id, transactionLeg.transactionId),
-        ne(transaction.status, 'deleted'),
-        ne(transaction.status, 'voided')
-      )
+      eq(transaction.id, transactionLeg.transactionId)
     )
     .where(
       and(
@@ -142,20 +142,20 @@ export async function getNetWealth(workspaceId: string, dbTx: any = db): Promise
       openingBalance: financialAccount.openingBalanceMinor,
       legSum: sql<string>`COALESCE(SUM(
         CASE 
-          WHEN ${transactionLeg.direction} = 'debit' THEN ${transactionLeg.amountMinor}
-          ELSE -${transactionLeg.amountMinor}
+          WHEN ${transaction.status} NOT IN ('deleted', 'voided') THEN
+            CASE 
+              WHEN ${transactionLeg.direction} = 'debit' THEN ${transactionLeg.amountMinor}
+              ELSE -${transactionLeg.amountMinor}
+            END
+          ELSE 0
         END
       ), 0)`,
     })
     .from(financialAccount)
     .leftJoin(transactionLeg, eq(transactionLeg.accountId, financialAccount.id))
-    .innerJoin(
+    .leftJoin(
       transaction,
-      and(
-        eq(transaction.id, transactionLeg.transactionId),
-        ne(transaction.status, 'deleted'),
-        ne(transaction.status, 'voided')
-      )
+      eq(transaction.id, transactionLeg.transactionId)
     )
     .where(
       and(

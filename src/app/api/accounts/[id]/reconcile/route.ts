@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { requireUser } from '@/lib/auth/guards';
+import { requireStrictWorkspaceAccess } from '@/lib/auth/guards';
 import { reconcileAccount } from '@/lib/services/reconciliation';
 import { z } from 'zod';
 
@@ -16,11 +16,10 @@ export async function POST(
 ) {
   try {
     const { id } = await params;
-    const session = await requireUser();
-    if (!session || !session.user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-
+    
     const json = await req.json();
     const data = bodySchema.parse(json);
+    const { session } = await requireStrictWorkspaceAccess(data.workspaceId);
 
     const result = await reconcileAccount({
       workspaceId: data.workspaceId,

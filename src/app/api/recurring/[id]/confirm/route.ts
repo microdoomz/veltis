@@ -1,14 +1,13 @@
 import { NextResponse } from 'next/server';
-import { requireUser, requireWorkspaceAccess } from '@/lib/auth/guards';
+import { requireUser, requireStrictWorkspaceAccess } from '@/lib/auth/guards';
 import { confirmOccurrence } from '@/lib/services/recurring';
 
 export async function POST(req: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
     const { id } = await params;
-    const authContext = await requireWorkspaceAccess();
-    const userContext = await requireUser();
-    
     const body = await req.json();
+    const authContext = await requireStrictWorkspaceAccess(body.workspaceId);
+    const userContext = await requireUser();
     const accountId = body.accountId;
     
     if (!accountId || typeof accountId !== 'string') {

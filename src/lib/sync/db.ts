@@ -2,6 +2,7 @@ export type OfflineTransactionType = 'expense' | 'income' | 'transfer';
 export type OfflineSyncStatus = 'pending' | 'syncing' | 'error' | 'synced';
 
 export interface OfflineTransactionPayload {
+  workspaceId: string;
   amountMajor: number;
   transactionDate: string;
   description?: string;

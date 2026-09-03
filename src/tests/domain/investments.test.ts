@@ -34,6 +34,7 @@ describe('Investments Service', () => {
   });
 
   it('records a contribution correctly', async () => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     (db.query.financialAccount.findFirst as any)
       .mockResolvedValueOnce({ id: 'acc2', accountType: 'investment', currency: 'USD' });
 

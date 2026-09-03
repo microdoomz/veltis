@@ -81,3 +81,17 @@ body {
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
+
+/* Tabular numerals for financial amounts */
+.tnum {
+  font-variant-numeric: tabular-nums;
+}
+
+/* Subtle elevation classes */
+.elevation-low {
+  box-shadow: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+}
+
+.elevation-medium {
+  box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+}

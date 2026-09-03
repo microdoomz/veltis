@@ -2,8 +2,11 @@ import { requireWorkspaceAccess } from "@/lib/auth/guards"
 import { getAccountSummary } from "@/lib/ledger/queries"
 import { Card } from "@/components/ui/card"
 import { Amount } from "@/components/ui/amount"
-import { Wallet, CreditCard, Building2, TrendingUp, PiggyBank } from "lucide-react"
+import { Wallet, CreditCard, Building2, TrendingUp, PiggyBank, Plus } from "lucide-react"
 import Link from "next/link"
+import { EmptyState } from "@/components/ui/empty-state"
+import { ListContainer, ListItem } from "@/components/ui/transitions"
+import { Button } from "@/components/ui/button"
 
 function getAccountIcon(type: string) {
   switch (type) {
@@ -42,38 +45,45 @@ export default async function AccountsPage() {
             <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">
               {type.replace('_', ' ')}
             </h2>
-            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+            <ListContainer className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
               {accs.map(acc => (
-                <Link key={acc.id} href={`/accounts/${acc.id}`}>
-                  <Card className="hover:border-primary/50 transition-colors cursor-pointer">
-                    <div className="p-4 flex flex-col gap-4">
-                      <div className="flex items-center gap-3">
-                        <div className="p-2 bg-muted rounded-full">
-                          {getAccountIcon(acc.accountType)}
+                <ListItem key={acc.id}>
+                  <Link href={`/accounts/${acc.id}`} className="block h-full">
+                    <Card className="h-full elevation-low hover:elevation-medium hover:border-primary/50 transition-all cursor-pointer">
+                      <div className="p-4 flex flex-col justify-between h-full gap-4">
+                        <div className="flex items-center gap-3">
+                          <div className="p-2 bg-muted rounded-full">
+                            {getAccountIcon(acc.accountType)}
+                          </div>
+                          <div>
+                            <p className="font-medium text-sm">{acc.name}</p>
+                            <p className="text-xs text-muted-foreground">{acc.institutionName || 'Manual Account'}</p>
+                          </div>
                         </div>
-                        <div>
-                          <p className="font-medium text-sm">{acc.name}</p>
-                          <p className="text-xs text-muted-foreground">{acc.institutionName || 'Manual Account'}</p>
+                        <div className="flex justify-between items-end">
+                          <span className="text-xs text-muted-foreground">Balance</span>
+                          <Amount valueMinor={acc.balanceMinor} className="font-semibold text-lg" colorize="default" />
                         </div>
                       </div>
-                      <div className="flex justify-between items-end">
-                        <span className="text-xs text-muted-foreground">Balance</span>
-                        <Amount valueMinor={acc.balanceMinor} className="font-semibold text-lg" colorize="default" />
-                      </div>
-                    </div>
-                  </Card>
-                </Link>
+                    </Card>
+                  </Link>
+                </ListItem>
               ))}
-            </div>
+            </ListContainer>
           </div>
         ))}
 
         {accounts.length === 0 && (
-          <div className="text-center py-12 border border-dashed border-border rounded-xl">
-            <Wallet className="mx-auto h-12 w-12 text-muted-foreground/50 mb-3" />
-            <h3 className="text-lg font-medium">No accounts yet</h3>
-            <p className="text-muted-foreground text-sm">Add an account to start tracking your wealth.</p>
-          </div>
+          <EmptyState 
+            icon={Wallet}
+            title="No accounts yet"
+            description="Add an account to start tracking your wealth."
+            action={
+              <Link href="/accounts/new">
+                <Button><Plus className="w-4 h-4 mr-2" /> Add Account</Button>
+              </Link>
+            }
+          />
         )}
       </div>
     </div>

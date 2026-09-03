@@ -3,8 +3,10 @@ import { getRecentTransactions } from "@/lib/ledger/queries"
 import { Card } from "@/components/ui/card"
 import { Amount } from "@/components/ui/amount"
 import Link from "next/link"
-import { Plus } from "lucide-react"
+import { Plus, ReceiptText } from "lucide-react"
 import { Button } from "@/components/ui/button"
+import { EmptyState } from "@/components/ui/empty-state"
+import { ListContainer, ListItem } from "@/components/ui/transitions"
 
 export default async function TransactionsPage(
   props: { searchParams?: Promise<{ [key: string]: string | string[] | undefined }> }
@@ -30,53 +32,95 @@ export default async function TransactionsPage(
         </Link>
       </header>
 
-      <Card>
-        <div className="divide-y divide-border">
-          {transactions.length === 0 ? (
-            <div className="p-8 text-center text-muted-foreground">
-              No transactions found. Add your first expense or income!
+      <Card className="elevation-low overflow-hidden">
+        {transactions.length === 0 ? (
+          <EmptyState 
+            icon={ReceiptText}
+            title="No transactions yet" 
+            description="Add your first expense or income to start tracking."
+            action={
+              <Link href="/transactions/new">
+                <Button><Plus className="w-4 h-4 mr-2" /> Add Transaction</Button>
+              </Link>
+            }
+          />
+        ) : (
+          <>
+            {/* Desktop Table Header */}
+            <div className="hidden md:grid grid-cols-[2fr,1fr,1fr,1fr,auto] gap-4 p-4 border-b border-border bg-muted/20 text-sm font-medium text-muted-foreground">
+              <div>Description</div>
+              <div>Category</div>
+              <div>Account</div>
+              <div>Date</div>
+              <div className="text-right">Amount</div>
             </div>
-          ) : (
-            transactions.map((txn) => (
-              <div key={txn.id} className="flex items-center justify-between p-4 hover:bg-muted/50 transition-colors">
-                <div>
-                  <p className="font-medium text-sm">
-                    {txn.description || (txn.transactionType === 'expense' ? 'Expense' : txn.transactionType === 'income' ? 'Income' : 'Transfer')}
-                  </p>
-                  <div className="text-xs text-muted-foreground flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-2 mt-1">
-                    <span>{new Date(txn.transactionDate).toLocaleDateString()}</span>
+            
+            <ListContainer className="divide-y divide-border">
+              {transactions.map((txn) => (
+                <ListItem key={txn.id} className="grid grid-cols-1 md:grid-cols-[2fr,1fr,1fr,1fr,auto] gap-2 md:gap-4 p-4 items-center hover:bg-muted/50 transition-colors">
+                  {/* Mobile Top Row / Desktop Col 1 */}
+                  <div className="flex justify-between md:block">
+                    <p className="font-medium text-sm">
+                      {txn.description || (txn.transactionType === 'expense' ? 'Expense' : txn.transactionType === 'income' ? 'Income' : 'Transfer')}
+                    </p>
+                    {/* Mobile Amount */}
+                    <div className="md:hidden text-right flex flex-col items-end">
+                      <Amount 
+                        valueMinor={txn.transactionType === 'expense' || txn.transactionType === 'credit_card_purchase' ? -txn.amountMinor : txn.amountMinor} 
+                        colorize="inverted" 
+                        showSign={true}
+                        className="font-medium" 
+                      />
+                      <span className="text-[10px] text-muted-foreground capitalize mt-1 opacity-70">
+                        {txn.source}
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Mobile Meta / Desktop Cols 2-4 */}
+                  <div className="text-xs text-muted-foreground flex items-center gap-2 md:contents">
+                    {/* Desktop Category */}
+                    <div className="hidden md:flex items-center">
+                      {txn.category && (
+                        <span className="bg-muted px-2 py-1 rounded text-[10px] uppercase font-medium">{txn.category.name}</span>
+                      )}
+                    </div>
+                    {/* Desktop Account */}
+                    <div className="hidden md:block truncate">
+                      {txn.legs.length > 0 && txn.legs[0].account?.name}
+                    </div>
+                    {/* Desktop Date */}
+                    <div className="hidden md:block">
+                      {new Date(txn.transactionDate).toLocaleDateString()}
+                    </div>
                     
+                    {/* Mobile Inline Meta */}
+                    <span className="md:hidden">{new Date(txn.transactionDate).toLocaleDateString()}</span>
                     {txn.category && (
-                      <>
-                        <span className="hidden sm:inline">&bull;</span>
-                        <span className="bg-muted px-1.5 py-0.5 rounded text-[10px] uppercase font-medium">{txn.category.name}</span>
-                      </>
+                      <span className="md:hidden bg-muted px-1.5 py-0.5 rounded text-[10px] uppercase font-medium">{txn.category.name}</span>
                     )}
-                    
                     {txn.legs.length > 0 && (
-                      <>
-                        <span className="hidden sm:inline">&bull;</span>
-                        <span>{txn.legs[0].account?.name}</span>
-                      </>
+                      <span className="md:hidden">&bull; {txn.legs[0].account?.name}</span>
                     )}
                   </div>
-                </div>
-                <div className="text-right flex flex-col items-end">
-                  <Amount 
-                    valueMinor={txn.transactionType === 'expense' || txn.transactionType === 'credit_card_purchase' ? -txn.amountMinor : txn.amountMinor} 
-                    colorize="inverted" 
-                    showSign={true}
-                    className="font-medium" 
-                  />
-                  {/* Status Indicator for offline/pending in the future, for now just show source */}
-                  <span className="text-[10px] text-muted-foreground capitalize mt-1 opacity-70">
-                    {txn.source}
-                  </span>
-                </div>
-              </div>
-            ))
-          )}
-        </div>
+
+                  {/* Desktop Amount */}
+                  <div className="hidden md:flex flex-col items-end justify-center text-right">
+                    <Amount 
+                      valueMinor={txn.transactionType === 'expense' || txn.transactionType === 'credit_card_purchase' ? -txn.amountMinor : txn.amountMinor} 
+                      colorize="inverted" 
+                      showSign={true}
+                      className="font-medium text-sm" 
+                    />
+                    <span className="text-[10px] text-muted-foreground capitalize mt-1 opacity-70">
+                      {txn.source}
+                    </span>
+                  </div>
+                </ListItem>
+              ))}
+            </ListContainer>
+          </>
+        )}
       </Card>
     </div>
   )

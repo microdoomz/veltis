@@ -1,5 +1,8 @@
+"use client"
 import * as React from "react"
 import { cn } from "@/lib/utils"
+import { PrivacyContext } from "@/components/layout/PrivacyProvider"
+import { motion, AnimatePresence } from "framer-motion"
 
 interface AmountProps extends React.HTMLAttributes<HTMLSpanElement> {
   valueMinor: bigint;
@@ -24,21 +27,30 @@ export function formatMoney(valueMinor: bigint, currency: string = "INR") {
 
 export const Amount = React.forwardRef<HTMLSpanElement, AmountProps>(
   ({ valueMinor, currency = "INR", showSign = false, colorize = "none", className, ...props }, ref) => {
+    // Some instances might render Amount in environments without PrivacyProvider (e.g. static pages if any), 
+    // but the app is fully wrapped in the provider.
+    const privacyContext = React.useContext(PrivacyContext) || { isPrivacyModeEnabled: false, isRevealed: false };
+    const { isPrivacyModeEnabled, isRevealed } = privacyContext;
     const isNegative = valueMinor < 0n;
     const isPositive = valueMinor > 0n;
     const isZero = valueMinor === 0n;
 
     // Use absolute value for formatting if we are showing a custom sign
     const absValueMinor = isNegative ? -valueMinor : valueMinor;
-    let formatted = formatMoney(absValueMinor, currency);
     
-    // Add explicit plus/minus sign if requested
-    if (showSign) {
-      if (isNegative) formatted = "-" + formatted;
-      if (isPositive) formatted = "+" + formatted;
-    } else if (isNegative) {
-       // Just native negative representation (usually handles it nicely, but Intl often puts `-₹` instead of `₹-`)
-       formatted = formatMoney(valueMinor, currency);
+    let formatted = "••••••";
+
+    if (!isPrivacyModeEnabled || isRevealed) {
+      formatted = formatMoney(absValueMinor, currency);
+      
+      // Add explicit plus/minus sign if requested
+      if (showSign) {
+        if (isNegative) formatted = "-" + formatted;
+        if (isPositive) formatted = "+" + formatted;
+      } else if (isNegative) {
+         // Just native negative representation (usually handles it nicely, but Intl often puts `-₹` instead of `₹-`)
+         formatted = formatMoney(valueMinor, currency);
+      }
     }
 
     // Determine coloring
@@ -64,7 +76,18 @@ export const Amount = React.forwardRef<HTMLSpanElement, AmountProps>(
         )}
         {...props}
       >
-        {formatted}
+        <AnimatePresence mode="popLayout" initial={false}>
+          <motion.span
+            key={formatted}
+            initial={{ opacity: 0, filter: "blur(4px)" }}
+            animate={{ opacity: 1, filter: "blur(0px)" }}
+            exit={{ opacity: 0, filter: "blur(4px)" }}
+            transition={{ duration: 0.2 }}
+            className="inline-block"
+          >
+            {formatted}
+          </motion.span>
+        </AnimatePresence>
       </span>
     )
   }

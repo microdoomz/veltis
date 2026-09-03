@@ -377,3 +377,50 @@ export async function softDeleteTransaction(transactionId: string) {
     return updated;
   });
 }
+
+export async function createAdjustmentTransaction(
+  params: BaseTransactionParams & { accountId: string; adjustmentDirection: 'increase' | 'decrease' },
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  dbTx: any = db
+) {
+  if (params.amountMinor < 0n) {
+    throw new InvalidTransactionError('Amount must be positive.');
+  }
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  return await dbTx.transaction(async (tx: any) => {
+    const [newTx] = await tx.insert(transaction).values({
+      workspaceId: params.workspaceId,
+      createdByUserId: params.createdByUserId,
+      transactionType: 'adjustment',
+      status: 'active',
+      amountMinor: params.amountMinor,
+      currency: params.currency,
+      transactionDate: params.transactionDate.toISOString().split('T')[0],
+      description: params.description || 'Reconciliation Adjustment',
+      merchantName: params.merchantName,
+      categoryId: params.categoryId,
+      subcategoryId: params.subcategoryId,
+      clientTransactionId: params.clientTransactionId,
+      source: params.source || 'system'
+    }).returning();
+
+    // Debit increases an asset account, credit decreases it.
+    // Assuming reconciliation adjustments are mostly for asset accounts for now.
+    // If it's a liability account (like credit card), an increase in balance means debit (less debt) or credit (more debt)?
+    // For reconciliation, "actual balance" higher than calculated usually means we need to increase the balance.
+    // Let's assume standard asset direction: debit = increase, credit = decrease.
+    const direction = params.adjustmentDirection === 'increase' ? 'debit' : 'credit';
+
+    await tx.insert(transactionLeg).values({
+      transactionId: newTx.id,
+      accountId: params.accountId,
+      direction,
+      amountMinor: params.amountMinor,
+      currency: params.currency,
+      legRole: 'reconciliation_adjustment'
+    });
+
+    return newTx;
+  });
+}

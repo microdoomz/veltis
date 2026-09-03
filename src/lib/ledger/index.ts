@@ -191,6 +191,7 @@ export async function getNetWealth(workspaceId: string, dbTx: any = db): Promise
     // Actually, for SQLite, we can just group by positionId and max(observedAt), or simply fetch them and sort.
     const snapshots = await dbTx.query.investmentPriceSnapshot.findMany({
       where: inArray(investmentPriceSnapshot.positionId, positionIds),
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       orderBy: (snapshot: any, { desc }: any) => [desc(snapshot.observedAt)],
     });
 

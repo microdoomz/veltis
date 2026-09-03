@@ -4,6 +4,7 @@ import { Card } from "@/components/ui/card"
 import { Amount } from "@/components/ui/amount"
 import { notFound } from "next/navigation"
 import Link from "next/link"
+import { Button } from "@/components/ui/button"
 
 export default async function AccountDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
@@ -18,14 +19,23 @@ export default async function AccountDetailPage({ params }: { params: Promise<{ 
 
   return (
     <div className="space-y-6">
-      <header className="mb-6">
-        <div className="flex items-center gap-2 mb-2">
-          <Link href="/accounts" className="text-muted-foreground text-sm hover:text-foreground hover:underline">
-            &larr; Back to Accounts
+      <header className="mb-6 flex items-center justify-between">
+        <div>
+          <div className="flex items-center gap-2 mb-2">
+            <Link href="/accounts" className="text-muted-foreground text-sm hover:text-foreground hover:underline">
+              &larr; Back to Accounts
+            </Link>
+          </div>
+          <h1 className="text-2xl font-bold tracking-tight text-primary">{account.name}</h1>
+          <p className="text-muted-foreground capitalize">{account.accountType.replace('_', ' ')}</p>
+        </div>
+        <div>
+          <Link href={`/accounts/${account.id}/reconcile`}>
+            <Button variant="outline">
+              Reconcile Account
+            </Button>
           </Link>
         </div>
-        <h1 className="text-2xl font-bold tracking-tight text-primary">{account.name}</h1>
-        <p className="text-muted-foreground capitalize">{account.accountType.replace('_', ' ')}</p>
       </header>
 
       <Card className="bg-primary text-primary-foreground border-none">

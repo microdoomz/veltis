@@ -1,6 +1,7 @@
 import Link from "next/link"
 import { Home, ListOrdered, WalletCards, Plus, MoreHorizontal, Target, Repeat, Upload, Zap } from "lucide-react"
 import { SyncStatus } from "@/components/sync/SyncStatus"
+import { QuickAddFab } from "@/components/layout/quick-add-fab"
 
 const navItems = [
   { href: '/home', label: 'Dashboard', icon: Home },
@@ -55,11 +56,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
         <MobileNavLink href="/home" icon={Home} label="Home" />
         <MobileNavLink href="/transactions" icon={ListOrdered} label="Txns" />
         
-        <div className="relative -top-5">
-          <button className="flex h-12 w-12 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-lg active:scale-95 transition-transform">
-            <Plus className="h-6 w-6" />
-          </button>
-        </div>
+        <QuickAddFab />
         
         <MobileNavLink href="/accounts" icon={WalletCards} label="Accounts" />
         <MobileNavLink href="/more" icon={MoreHorizontal} label="More" />

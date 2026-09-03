@@ -5,6 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Amount } from "@/components/ui/amount"
 import { Wallet, CreditCard, Building2, TrendingUp, PiggyBank } from "lucide-react"
 import Link from "next/link"
+import { redirect } from "next/navigation"
 
 function getAccountIcon(type: string) {
   switch (type) {
@@ -18,7 +19,16 @@ function getAccountIcon(type: string) {
 }
 
 export default async function HomePage() {
-  const authContext = await requireWorkspaceAccess()
+  let authContext;
+  try {
+    authContext = await requireWorkspaceAccess()
+  } catch (error: any) {
+    if (error.message === 'Unauthorized') {
+      redirect('/login')
+    }
+    throw error;
+  }
+  
   const workspaceId = authContext.workspaceId
 
   // Fetch Core Financial Data concurrently

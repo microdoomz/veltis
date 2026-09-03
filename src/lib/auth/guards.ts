@@ -4,10 +4,15 @@ import { db } from '../db';
 import { workspaceMember } from '../db/schema';
 import { and, eq } from 'drizzle-orm';
 
-export async function requireUser() {
+export async function getUser() {
   const session = await auth.api.getSession({
     headers: await headers(),
   });
+  return session;
+}
+
+export async function requireUser() {
+  const session = await getUser();
 
   if (!session || !session.user) {
     throw new Error('Unauthorized');

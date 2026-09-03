@@ -1,13 +1,16 @@
 import { AppLayout } from "@/components/layout/app-layout"
-import { requireUser } from "@/lib/auth/guards"
+import { getUser } from "@/lib/auth/guards"
+import { redirect } from "next/navigation"
 
 export default async function AppRouteLayout({
   children,
 }: {
   children: React.ReactNode
 }) {
-  // Enforce authentication at the layout level
-  await requireUser()
+  const session = await getUser()
+  if (!session) {
+    redirect('/login')
+  }
 
   return (
     <AppLayout>

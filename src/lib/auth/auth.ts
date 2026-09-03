@@ -23,16 +23,19 @@ export const auth = betterAuth({
   },
   socialProviders: {
     google: {
-      clientId: process.env.GOOGLE_CLIENT_ID!,
-      clientSecret: process.env.GOOGLE_CLIENT_SECRET!,
+      clientId: process.env.GOOGLE_CLIENT_ID || '',
+      clientSecret: process.env.GOOGLE_CLIENT_SECRET || '',
     },
-    apple: {
-      clientId: process.env.APPLE_CLIENT_ID!,
-      clientSecret: process.env.APPLE_CLIENT_SECRET!,
-      teamId: process.env.APPLE_TEAM_ID!,
-      privateKey: process.env.APPLE_PRIVATE_KEY!,
-      keyId: process.env.APPLE_KEY_ID!,
-    },
+    ...(process.env.APPLE_CLIENT_ID ? {
+      apple: {
+        clientId: process.env.APPLE_CLIENT_ID,
+        clientSecret: process.env.APPLE_CLIENT_SECRET || {
+          teamId: process.env.APPLE_TEAM_ID || '',
+          privateKey: process.env.APPLE_PRIVATE_KEY || '',
+          keyId: process.env.APPLE_KEY_ID || '',
+        } as any,
+      }
+    } : {}),
   },
   plugins: [
     phoneNumber(),

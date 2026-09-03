@@ -1,6 +1,6 @@
 import React from 'react';
 import { InvestmentDashboard } from '@/components/investments/InvestmentDashboard';
-import { requireUser } from '@/lib/auth/guards';
+import { getUser } from '@/lib/auth/guards';
 import { redirect } from 'next/navigation';
 
 export const metadata = {
@@ -12,7 +12,7 @@ export default async function InvestmentsPage({
 }: {
   searchParams: { workspaceId?: string };
 }) {
-  const user = await requireUser();
+  const user = await getUser();
   if (!user) {
     redirect('/login');
   }

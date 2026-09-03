@@ -44,4 +44,18 @@ export class YahooFinanceProvider implements MarketDataProvider {
   }
 }
 
-export const marketProvider: MarketDataProvider = new YahooFinanceProvider();
+export function getMarketProvider(): MarketDataProvider {
+  const providerType = process.env.MARKET_DATA_PROVIDER;
+  
+  if (!providerType) {
+    throw new Error('MARKET_DATA_PROVIDER environment variable is missing. Must be set to a supported provider (e.g. "yahoo").');
+  }
+
+  if (providerType === 'yahoo') {
+    return new YahooFinanceProvider();
+  }
+
+  throw new Error(`Unsupported MARKET_DATA_PROVIDER: ${providerType}`);
+}
+
+export const marketProvider: MarketDataProvider = getMarketProvider();

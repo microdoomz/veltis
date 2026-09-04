@@ -52,7 +52,7 @@ describe('Liabilities APIs', () => {
 
   it('GET /api/liabilities returns correctly', async () => {
     const req = createGetRequest(`http://localhost/api/liabilities?workspaceId=${testWorkspaceId}`);
-    const res = await getLiabilities(req, { params: {} });
+    const res = await getLiabilities(req);
     expect(res.status).toBe(200);
     const data = await res.json();
     expect(Array.isArray(data)).toBe(true);

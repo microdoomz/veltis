@@ -64,7 +64,7 @@ describe('Investments APIs', () => {
 
   it('GET /api/investments returns correctly', async () => {
     const req = createGetRequest(`http://localhost/api/investments?workspaceId=${testWorkspaceId}`);
-    const res = await getInvestments(req, { params: {} });
+    const res = await getInvestments(req);
     expect(res.status).toBe(200);
     const data = await res.json();
     expect(data.positions).toBeDefined();
@@ -94,7 +94,7 @@ describe('Investments APIs', () => {
       manualPriceMinor: 10000,
       manualCurrency: 'USD'
     });
-    const res = await createSnapshot(req, { params: {} });
+    const res = await createSnapshot(req);
     expect(res.status).toBe(200);
     const data = await res.json();
     expect(data.success).toBe(true);

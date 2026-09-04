@@ -1,23 +1,24 @@
 import React from 'react';
 import { InvestmentDashboard } from '@/components/investments/InvestmentDashboard';
-import { getUser } from '@/lib/auth/guards';
+import { requireWorkspaceAccess } from '@/lib/auth/guards';
 import { redirect } from 'next/navigation';
 
 export const metadata = {
   title: 'Investments - Veltis',
 };
 
-export default async function InvestmentsPage({
-  searchParams,
-}: {
-  searchParams: { workspaceId?: string };
-}) {
-  const user = await getUser();
-  if (!user) {
-    redirect('/login');
+export default async function InvestmentsPage() {
+  let authContext;
+  try {
+    authContext = await requireWorkspaceAccess()
+  } catch (error: unknown) {
+    if (error instanceof Error && error.message === 'Unauthorized') {
+      redirect('/login')
+    }
+    throw error;
   }
-
-  const workspaceId = searchParams.workspaceId; // For simplicity in V1
+  
+  const workspaceId = authContext.workspaceId;
 
   return (
     <div className="w-full max-w-4xl mx-auto p-4 md:p-6 pb-24">

@@ -52,7 +52,7 @@ describe('Recurring APIs', () => {
 
   it('GET /api/recurring returns correctly', async () => {
     const req = createGetRequest(`http://localhost/api/recurring?workspaceId=${testWorkspaceId}`);
-    const res = await getRecurring(req, { params: {} });
+    const res = await getRecurring(req);
     expect(res.status).toBe(200);
     const data = await res.json();
     expect(Array.isArray(data)).toBe(true);

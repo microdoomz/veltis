@@ -52,7 +52,7 @@ describe('Receivables APIs', () => {
 
   it('GET /api/receivables returns correctly', async () => {
     const req = createGetRequest(`http://localhost/api/receivables?workspaceId=${testWorkspaceId}`);
-    const res = await getReceivables(req, { params: {} });
+    const res = await getReceivables(req);
     expect(res.status).toBe(200);
     const data = await res.json();
     expect(Array.isArray(data)).toBe(true);

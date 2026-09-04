@@ -49,10 +49,11 @@ export function TransactionForm({
 
       await enqueueTransaction(type, payload);
       
-      // Trigger background sync immediately
-      triggerSync();
+      // Await sync if online so server receives it immediately
+      await triggerSync();
 
       router.push("/transactions")
+      router.refresh()
     } catch (error) {
       console.error(error)
       alert("Failed to save transaction.")

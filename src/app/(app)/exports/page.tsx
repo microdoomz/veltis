@@ -3,8 +3,6 @@
 import { useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Label } from '@/components/ui/label';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Download } from 'lucide-react';
 
 export default function ExportsPage() {
@@ -38,32 +36,30 @@ export default function ExportsPage() {
         </CardHeader>
         <CardContent className="space-y-6">
           <div className="space-y-2">
-            <Label>Date Range</Label>
-            <Select value={dateRange} onValueChange={setDateRange}>
-              <SelectTrigger>
-                <SelectValue placeholder="Select date range" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="last30">Last 30 Days</SelectItem>
-                <SelectItem value="thisYear">This Year</SelectItem>
-                <SelectItem value="lastYear">Last Year</SelectItem>
-                <SelectItem value="all">All Time</SelectItem>
-              </SelectContent>
-            </Select>
+            <label className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">Date Range</label>
+            <select 
+              value={dateRange} 
+              onChange={(e) => setDateRange(e.target.value)}
+              className="flex h-10 w-full items-center justify-between rounded-md border border-border bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              <option value="last30">Last 30 Days</option>
+              <option value="thisYear">This Year</option>
+              <option value="lastYear">Last Year</option>
+              <option value="all">All Time</option>
+            </select>
           </div>
 
           <div className="space-y-2">
-            <Label>Format</Label>
-            <Select value={format} onValueChange={setFormat}>
-              <SelectTrigger>
-                <SelectValue placeholder="Select format" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="csv">CSV (Spreadsheet)</SelectItem>
-                <SelectItem value="json">JSON (Developer)</SelectItem>
-                <SelectItem value="pdf">PDF (Report)</SelectItem>
-              </SelectContent>
-            </Select>
+            <label className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">Format</label>
+            <select 
+              value={format} 
+              onChange={(e) => setFormat(e.target.value)}
+              className="flex h-10 w-full items-center justify-between rounded-md border border-border bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              <option value="csv">CSV (Spreadsheet)</option>
+              <option value="json">JSON (Developer)</option>
+              <option value="pdf">PDF (Report)</option>
+            </select>
           </div>
         </CardContent>
         <CardFooter>
@@ -76,3 +72,4 @@ export default function ExportsPage() {
     </div>
   );
 }
+

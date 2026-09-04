@@ -2,7 +2,8 @@
 
 import Link from "next/link"
 import { useState } from "react"
-import { Home, ListOrdered, WalletCards, Plus, MoreHorizontal, Target, Repeat, Upload, Zap, Menu, LogOut, ChevronLeft } from "lucide-react"
+import { Home, ListOrdered, WalletCards, Plus, MoreHorizontal, Target, Repeat, Upload, Zap, Menu, LogOut, ChevronLeft, Settings, Download } from "lucide-react"
+import { authClient } from "@/lib/auth/client"
 import { SyncStatus } from "@/components/sync/SyncStatus"
 import { QuickAddFab } from "@/components/layout/quick-add-fab"
 import { useRouter } from "next/navigation"
@@ -16,6 +17,8 @@ const navItems = [
   { href: '/recurring', label: 'Recurring', icon: Repeat },
   { href: '/imports', label: 'Imports', icon: Upload },
   { href: '/settings/shortcuts', label: 'Shortcuts', icon: Zap },
+  { href: '/settings', label: 'Settings', icon: Settings },
+  { href: '/exports', label: 'Exports', icon: Download },
 ]
 
 export function AppLayout({ children }: { children: React.ReactNode }) {
@@ -23,8 +26,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
   const router = useRouter();
 
   const handleLogout = async () => {
-    // In a real app, this would call the better-auth sign out API
-    await fetch('/api/auth/sign-out', { method: 'POST' });
+    await authClient.signOut();
     router.push('/login');
   };
 

@@ -20,7 +20,7 @@ export function ForgotPasswordForm() {
     try {
       const { error } = await authClient.forgetPassword({
         email,
-        redirectTo: '/reset-password',
+        redirectTo: "/reset-password",
       });
       if (error) {
         setError(error.message || 'Failed to send reset link');
@@ -73,7 +73,7 @@ export function ForgotPasswordForm() {
           />
         </div>
         <Button type="submit" className="w-full" disabled={loading}>
-          {loading ? 'Sending link...' : 'Send reset link'}
+          {loading ? 'Sending link...' : 'Send Reset Link'}
         </Button>
       </form>
 

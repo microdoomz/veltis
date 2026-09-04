@@ -1,7 +1,11 @@
+"use client"
+
 import Link from "next/link"
-import { Home, ListOrdered, WalletCards, Plus, MoreHorizontal, Target, Repeat, Upload, Zap } from "lucide-react"
+import { useState } from "react"
+import { Home, ListOrdered, WalletCards, Plus, MoreHorizontal, Target, Repeat, Upload, Zap, Menu, LogOut, ChevronLeft } from "lucide-react"
 import { SyncStatus } from "@/components/sync/SyncStatus"
 import { QuickAddFab } from "@/components/layout/quick-add-fab"
+import { useRouter } from "next/navigation"
 
 const navItems = [
   { href: '/home', label: 'Dashboard', icon: Home },
@@ -15,25 +19,51 @@ const navItems = [
 ]
 
 export function AppLayout({ children }: { children: React.ReactNode }) {
+  const [isCollapsed, setIsCollapsed] = useState(false);
+  const router = useRouter();
+
+  const handleLogout = async () => {
+    // In a real app, this would call the better-auth sign out API
+    await fetch('/api/auth/sign-out', { method: 'POST' });
+    router.push('/login');
+  };
+
   return (
     <div className="flex h-screen w-full bg-background">
       {/* Desktop Sidebar */}
-      <aside className="hidden md:flex flex-col w-64 border-r border-border bg-card">
-        <div className="p-6 h-16 flex items-center justify-between">
-          <h1 className="text-xl font-bold text-primary tracking-tight">Veltis</h1>
-          <SyncStatus />
+      <aside className={`hidden md:flex flex-col border-r border-border bg-card transition-all duration-300 ease-in-out ${isCollapsed ? 'w-20' : 'w-64'}`}>
+        <div className="p-4 h-16 flex items-center justify-between">
+          {!isCollapsed && <h1 className="text-xl font-bold text-primary tracking-tight px-2">Veltis</h1>}
+          <button 
+            onClick={() => setIsCollapsed(!isCollapsed)}
+            className="p-2 rounded-md hover:bg-muted text-muted-foreground transition-colors mx-auto"
+            aria-label="Toggle Sidebar"
+          >
+            {isCollapsed ? <Menu className="h-5 w-5" /> : <ChevronLeft className="h-5 w-5" />}
+          </button>
         </div>
         
-        <nav className="flex-1 px-4 space-y-2 py-4">
+        {!isCollapsed && (
+          <div className="px-6 pb-2">
+            <SyncStatus />
+          </div>
+        )}
+        
+        <nav className="flex-1 px-4 space-y-2 py-4 overflow-y-auto">
           {navItems.map((item) => (
-            <NavLink key={item.href} {...item} />
+            <NavLink key={item.href} {...item} isCollapsed={isCollapsed} />
           ))}
         </nav>
 
-        <div className="p-4 border-t border-border">
-          <button className="flex w-full items-center justify-center gap-2 rounded-md bg-primary py-2.5 text-sm font-medium text-primary-foreground shadow transition-colors hover:bg-primary/90">
+        <div className="p-4 border-t border-border flex flex-col gap-2">
+          <Link href="/transactions/new" className={`flex w-full items-center justify-center gap-2 rounded-md bg-primary py-2.5 text-sm font-medium text-primary-foreground shadow transition-colors hover:bg-primary/90 ${isCollapsed ? 'px-0' : 'px-4'}`}>
             <Plus className="h-5 w-5" />
-            <span>New Transaction</span>
+            {!isCollapsed && <span>New Transaction</span>}
+          </Link>
+          
+          <button onClick={handleLogout} className={`flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive justify-center md:justify-start ${isCollapsed ? 'justify-center' : ''}`}>
+            <LogOut className="h-5 w-5 flex-shrink-0" />
+            {!isCollapsed && <span>Log out</span>}
           </button>
         </div>
       </aside>
@@ -65,14 +95,15 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
   )
 }
 
-function NavLink({ href, icon: Icon, label }: { href: string; icon: React.ElementType; label: string }) {
+function NavLink({ href, icon: Icon, label, isCollapsed }: { href: string; icon: React.ElementType; label: string; isCollapsed: boolean }) {
   return (
     <Link
       href={href}
-      className="flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+      className={`flex items-center gap-3 rounded-lg py-2 text-sm font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground ${isCollapsed ? 'justify-center px-0' : 'px-3'}`}
+      title={isCollapsed ? label : undefined}
     >
-      <Icon className="h-5 w-5" />
-      {label}
+      <Icon className="h-5 w-5 flex-shrink-0" />
+      {!isCollapsed && <span>{label}</span>}
     </Link>
   )
 }

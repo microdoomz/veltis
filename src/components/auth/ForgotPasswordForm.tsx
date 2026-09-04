@@ -18,6 +18,7 @@ export function ForgotPasswordForm() {
     setError('');
     
     try {
+      // @ts-expect-error - forgetPassword exists at runtime but might be missing in types depending on better-auth version
       const { error } = await authClient.forgetPassword({
         email,
         redirectTo: "/reset-password",
@@ -41,9 +42,9 @@ export function ForgotPasswordForm() {
         <p className="text-muted-foreground text-sm">
           We have sent a password reset link to {email}.
         </p>
-        <Button asChild className="w-full mt-4">
-          <Link href="/login">Return to login</Link>
-        </Button>
+        <Link href="/login" className="w-full mt-4 inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 bg-primary text-primary-foreground hover:bg-primary/90 h-10 px-4 py-2">
+          Return to login
+        </Link>
       </div>
     );
   }

@@ -1,11 +1,20 @@
 import * as React from "react"
 import { cn } from "@/lib/utils"
+import { Loader2 } from "lucide-react"
 
-const Button = React.forwardRef<HTMLButtonElement, React.ButtonHTMLAttributes<HTMLButtonElement> & { variant?: "default" | "outline" | "ghost" | "danger" | "secondary", size?: "default" | "sm" | "lg" | "icon" }>(
-  ({ className, variant = "default", size = "default", ...props }, ref) => {
+export interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
+  variant?: "default" | "outline" | "ghost" | "danger" | "secondary"
+  size?: "default" | "sm" | "lg" | "icon"
+  loading?: boolean
+}
+
+const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
+  ({ className, variant = "default", size = "default", loading = false, disabled, children, ...props }, ref) => {
     return (
       <button
         ref={ref}
+        disabled={disabled || loading}
+        aria-busy={loading}
         className={cn(
           "inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0",
           {
@@ -22,10 +31,14 @@ const Button = React.forwardRef<HTMLButtonElement, React.ButtonHTMLAttributes<HT
           className
         )}
         {...props}
-      />
+      >
+        {loading && <Loader2 className="animate-spin" />}
+        {children}
+      </button>
     )
   }
 )
 Button.displayName = "Button"
 
 export { Button }
+

@@ -3,7 +3,10 @@
 import { useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { TaxonomyManager } from '@/components/settings/TaxonomyManager';
+import { ProfileSettings } from '@/components/settings/ProfileSettings';
+import { SecuritySettings } from '@/components/settings/SecuritySettings';
 import { cn } from '@/lib/utils';
+import { CheckCircle2, ShieldCheck, Sparkles } from 'lucide-react';
 
 export default function SettingsPage() {
   const [activeTab, setActiveTab] = useState('general');
@@ -30,44 +33,62 @@ export default function SettingsPage() {
           ))}
         </div>
         
+        {/* General / Profile Tab */}
         <div className={cn("space-y-4 mt-6", activeTab === 'general' ? 'block' : 'hidden')}>
-          <Card>
-            <CardHeader>
-              <CardTitle>Profile</CardTitle>
-              <CardDescription>Manage your public profile and preferences.</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="space-y-2">
-                <p className="text-sm font-medium">Coming soon.</p>
-              </div>
-            </CardContent>
-          </Card>
+          <ProfileSettings />
         </div>
         
+        {/* Taxonomy Management Tab */}
         <div className={cn("space-y-4 mt-6", activeTab === 'taxonomy' ? 'block' : 'hidden')}>
           <TaxonomyManager />
         </div>
 
+        {/* Security & Authentication Tab */}
         <div className={cn("space-y-4 mt-6", activeTab === 'security' ? 'block' : 'hidden')}>
-          <Card>
-            <CardHeader>
-              <CardTitle>Security & 2FA</CardTitle>
-              <CardDescription>Manage your account security and authentication methods.</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <p className="text-sm font-medium">Coming soon.</p>
-            </CardContent>
-          </Card>
+          <SecuritySettings />
         </div>
 
+        {/* Billing / Plan Tab */}
         <div className={cn("space-y-4 mt-6", activeTab === 'billing' ? 'block' : 'hidden')}>
           <Card>
             <CardHeader>
-              <CardTitle>Subscription</CardTitle>
-              <CardDescription>Manage your billing and plan.</CardDescription>
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                <div>
+                  <CardTitle className="flex items-center gap-2">
+                    <Sparkles className="h-5 w-5 text-primary" /> Veltis Personal Plan
+                  </CardTitle>
+                  <CardDescription>Your current subscription tier and system entitlements.</CardDescription>
+                </div>
+                <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-primary/10 text-primary border border-primary/25 self-start sm:self-auto">
+                  <ShieldCheck className="h-3.5 w-3.5" /> Active Plan
+                </span>
+              </div>
             </CardHeader>
-            <CardContent>
-              <p className="text-sm font-medium">Coming soon.</p>
+            <CardContent className="space-y-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {[
+                  'Strict Double-Entry Transaction Ledger',
+                  'Unlimited Multi-Currency Accounts & Wallets',
+                  'Offline-First IndexedDB Synchronization',
+                  'Receivables & Liabilities Tracking',
+                  'Market Valuation Snapshots for Investments',
+                  'Direct CSV, XLSX, PDF, & JSON Database Backups',
+                  'Apple Shortcuts Dedicated Bearer Token API',
+                  'WebAuthn Passkey & Two-Factor Authentication',
+                ].map((feature, idx) => (
+                  <div key={idx} className="flex items-center gap-2.5 text-sm text-foreground">
+                    <CheckCircle2 className="h-4 w-4 text-primary flex-shrink-0" />
+                    <span>{feature}</span>
+                  </div>
+                ))}
+              </div>
+
+              <div className="p-4 rounded-xl bg-muted/40 border border-border text-xs text-muted-foreground space-y-1">
+                <p className="font-medium text-foreground">Zero Third-Party Scraping Guarantee</p>
+                <p>
+                  Veltis operates on a review-first, private financial ledger architecture. We never sell your data or connect to third-party bank scrapers without your explicit command.
+                </p>
+              </div>
             </CardContent>
           </Card>
         </div>
@@ -75,4 +96,3 @@ export default function SettingsPage() {
     </div>
   );
 }
-

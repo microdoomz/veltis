@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { authClient } from '@/lib/auth/client';
@@ -12,6 +12,14 @@ export function LoginForm() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const router = useRouter();
+
+  useEffect(() => {
+    // Warm up the application cache ahead of user login
+    router.prefetch?.('/home');
+    router.prefetch?.('/accounts');
+    router.prefetch?.('/transactions');
+    router.prefetch?.('/settings');
+  }, [router]);
 
   const handleEmailLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -81,7 +89,7 @@ export function LoginForm() {
             disabled={loading}
           />
         </div>
-        <Button type="submit" className="w-full" disabled={loading}>
+        <Button type="submit" className="w-full" loading={loading}>
           {loading ? 'Signing in...' : 'Sign in with Email'}
         </Button>
       </form>

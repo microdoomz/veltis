@@ -1,8 +1,8 @@
 "use client"
 
 import Link from "next/link"
-import { useState } from "react"
-import { Home, ListOrdered, WalletCards, Plus, MoreHorizontal, Target, Repeat, Upload, Zap, Menu, LogOut, ChevronLeft, Settings, Download, TrendingUp, ArrowDownLeft, ArrowUpRight } from "lucide-react"
+import { useState, useEffect } from "react"
+import { Home, ListOrdered, WalletCards, Plus, Target, Repeat, Upload, Zap, Menu, LogOut, ChevronLeft, Settings, Download, TrendingUp, ArrowDownLeft, ArrowUpRight } from "lucide-react"
 import { authClient } from "@/lib/auth/client"
 import { SyncStatus } from "@/components/sync/SyncStatus"
 import { QuickAddFab } from "@/components/layout/quick-add-fab"
@@ -28,6 +28,16 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const router = useRouter();
+
+  useEffect(() => {
+    // Proactively prefetch all primary application routes for instantaneous navigation
+    navItems.forEach((item) => {
+      router.prefetch?.(item.href);
+    });
+    router.prefetch?.('/transactions/new');
+    router.prefetch?.('/accounts/new');
+    router.prefetch?.('/settings/privacy');
+  }, [router]);
 
   const handleLogout = async () => {
     await authClient.signOut({
@@ -68,7 +78,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
         </nav>
 
         <div className="p-4 border-t border-border flex flex-col gap-2">
-          <Link href="/transactions/new" className={`flex w-full items-center justify-center gap-2 rounded-md bg-primary py-2.5 text-sm font-medium text-primary-foreground shadow transition-colors hover:bg-primary/90 ${isCollapsed ? 'px-0' : 'px-4'}`}>
+          <Link prefetch={true} href="/transactions/new" className={`flex w-full items-center justify-center gap-2 rounded-md bg-primary py-2.5 text-sm font-medium text-primary-foreground shadow transition-colors hover:bg-primary/90 ${isCollapsed ? 'px-0' : 'px-4'}`}>
             <Plus className="h-5 w-5" />
             {!isCollapsed && <span>New</span>}
           </Link>
@@ -98,6 +108,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
             <Link
               key={item.href}
               href={item.href}
+              prefetch={true}
               onClick={() => setMobileMenuOpen(false)}
               className="flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
             >
@@ -150,6 +161,7 @@ function NavLink({ href, icon: Icon, label, isCollapsed }: { href: string; icon:
   return (
     <Link
       href={href}
+      prefetch={true}
       className={`flex items-center gap-3 rounded-lg py-2 text-sm font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground ${isCollapsed ? 'justify-center px-0' : 'px-3'}`}
       title={isCollapsed ? label : undefined}
     >
@@ -163,6 +175,7 @@ function MobileNavLink({ href, icon: Icon, label }: { href: string; icon: React.
   return (
     <Link
       href={href}
+      prefetch={true}
       className="flex flex-col items-center justify-center w-16 text-muted-foreground hover:text-primary transition-colors"
     >
       <Icon className="h-6 w-6 mb-1" />

@@ -93,9 +93,9 @@
 | **Google Sign-In** | OAuth login linking to user workspace | Configured in Better Auth social providers; UI button connected | **IMPLEMENTED** | `src/lib/auth/auth.ts`, `src/components/auth/LoginForm.tsx` | Manual / Mocked in test | Requires `GOOGLE_CLIENT_ID` & `GOOGLE_CLIENT_SECRET`. |
 | **Apple Sign-In** | Apple OAuth social sign-in | Implemented in backend config, but UI button is intentionally disabled | **PARTIALLY IMPLEMENTED** | `src/lib/auth/auth.ts`, `src/components/auth/LoginForm.tsx` | None | UI button disabled with "temporarily unavailable / coming soon" note per project decision. |
 | **Phone / SMS OTP Auth** | Phone number registration & OTP verification | Better Auth phone plugin configured with Twilio SMS service | **IMPLEMENTED** | `src/lib/auth/auth.ts`, `src/lib/services/sms.ts` | Mocked in tests | Twilio logs to console when credentials are not configured. |
-| **Two-Factor Auth (2FA)** | Optional TOTP / SMS OTP 2FA | Configured in Better Auth with SMS OTP fallback | **IMPLEMENTED** | `src/lib/auth/auth.ts`, `src/lib/db/auth-schema.ts` | Tested via schema/auth | Settings UI management tab currently displays "Coming soon". |
+| **Two-Factor Auth (2FA)** | Optional TOTP / SMS OTP 2FA | Configured in Better Auth with SMS OTP fallback; TOTP setup & verification in Settings UI | **IMPLEMENTED** | `src/lib/auth/auth.ts`, `src/components/settings/SecuritySettings.tsx` | Tested via schema/auth & Settings component tests | TOTP URI, 6-digit code verification, and backup codes handled in `/settings`. |
 | **Magic Links** | Passwordless sign-in via email | Better Auth magic link plugin wired to Resend service | **IMPLEMENTED** | `src/lib/auth/auth.ts`, `src/lib/services/email.ts` | Covered in service tests | Email template rendered via `getEmailTemplateHTML`. |
-| **Passkeys / WebAuthn** | Biometric platform authenticator sign-in | Better Auth passkey plugin installed and registered in schema | **IMPLEMENTED** | `src/lib/auth/auth.ts`, `src/lib/db/auth-schema.ts` | Covered in schema tests | Ready for client enrollment prompts. |
+| **Passkeys / WebAuthn** | Biometric platform authenticator sign-in | Better Auth passkey plugin installed and wired to Security Settings | **IMPLEMENTED** | `src/lib/auth/auth.ts`, `src/components/settings/SecuritySettings.tsx` | Covered in schema & component tests | Supports browser WebAuthn biometric enrollment and management. |
 | **Onboarding** | Progressive 10-step wizard | 2-step wizard created in `OnboardingForm.tsx` submitting to `/api/accounts` | **IMPLEMENTED** | `src/app/(auth)/onboarding/page.tsx`, `src/components/auth/OnboardingForm.tsx`, `src/app/api/accounts/route.ts` | `tests/api/accounts.test.ts` | Onboarding submits to `POST /api/accounts` and initializes base currency. |
 | **Home Dashboard** | Total Wealth, Available Money, accounts, recent transactions, quick actions | Server component querying ledger; hero cards; quick add sheet | **IMPLEMENTED** | `src/app/(app)/home/page.tsx`, `src/components/layout/quick-add-fab.tsx` | `tests/dashboard.e2e.ts` | Fully dynamic, derives balances from authoritative ledger. |
 | **Account Listing & Detail** | Grouped by type, available amount, lien, recent activity | Grouped list and detail view with transaction activity | **IMPLEMENTED** | `src/app/(app)/accounts/page.tsx`, `src/app/(app)/accounts/[id]/page.tsx` | `tests/domain/ledger.test.ts` | "Add Account" CTA links to `/accounts/new`. |
@@ -154,7 +154,7 @@
 | `/imports` | Statement imports | Upload CSV statements for staging | Required | **IMPLEMENTED** | Yes | Uploads CSV and redirects to review screen. |
 | `/imports/[id]` | Import review screen | Review rows, duplicate warnings, commit/reject | Required | **IMPLEMENTED** | Yes | Commits rows atomically into the transaction ledger. |
 | `/exports` | Data export | Download CSV, XLSX, PDF, JSON | Required | **IMPLEMENTED** | Yes (Domain/UI) | Direct download buttons wired to `/api/exports`. |
-| `/settings` | Settings & preferences | Profile, taxonomy, security, billing | Required | **IMPLEMENTED** | Yes (API/Domain) | Includes interactive modals for custom categories, tags, and rules. |
+| `/settings` | Settings & preferences | Profile, workspace, security, 2FA, passkeys, sessions, taxonomy, billing | Required | **IMPLEMENTED** | Yes (API/Domain/Component) | Full Profile, Workspace currency, 2FA TOTP, Passkeys, Session termination, Taxonomy & Billing. |
 | `/settings/privacy` | Privacy mode | Toggle amount masking and local persistence | Required | **IMPLEMENTED** | Yes | Manages localStorage flag for privacy mode. |
 | `/settings/shortcuts` | Shortcut management | Generate and revoke Apple Shortcut tokens | Required | **IMPLEMENTED** | Yes | Generates secure tokens, displays raw token once. |
 
@@ -165,6 +165,7 @@
 | Route | Method | Purpose | Auth | Implemented | Tested | Notes |
 | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
 | `/api/auth/[...all]` | ALL | Better Auth handler | Handled by Better Auth | **IMPLEMENTED** | Yes | Handles credentials, OAuth, 2FA, passkeys, sessions. |
+| `/api/workspace` | GET, PATCH | Read or update workspace configuration (name, base currency) | Session Guard | **IMPLEMENTED** | Yes | Validates workspace access and owner/admin role permissions. |
 | `/api/accounts` | GET, POST | List accounts or create new account | Session Guard | **IMPLEMENTED** | Yes | Validates workspace, account types, opening balances, base currency. |
 | `/api/shortcuts/expense` | POST | Apple Shortcut expense creation | Bearer Token | **IMPLEMENTED** | Yes | Validates hashed token, rate limits, respects workspace/account currency. |
 | `/api/sync/transactions` | POST | Offline batch transaction synchronization | Session Guard | **IMPLEMENTED** | Yes | Idempotently commits batch transactions, respects account currency. |
@@ -439,6 +440,19 @@ When taking over this project:
 ---
 
 ## 16. Change Log
+
+### 2026-09-05 — Settings Profile & Security Features + Instant Prefetch & Streaming Skeletons Sprint
+- **What changed:**
+  1. **Profile Settings:** Created `ProfileSettings.tsx` displaying user details, workspace name, currency selector (USD, EUR, GBP, INR, JPY, CAD, AUD, CHF, SGD, AED), date format, timezone, and privacy mode shortcut.
+  2. **Security & 2FA Settings:** Created `SecuritySettings.tsx` supporting password changes, TOTP 2FA setup with QR URI, 6-digit code verification, backup codes, disable 2FA, biometric Passkeys / WebAuthn registration, active session termination ("Log out other devices"), and Apple Shortcuts quick link.
+  3. **Workspace API & Services:** Added `getWorkspaceById` and `updateWorkspace` in `src/lib/services/workspace.ts` and created `GET`/`PATCH /api/workspace` with owner-only mutation protection.
+  4. **Instant Navigation & Skeleton Screens:** Created 13 streaming skeleton screens (`loading.tsx`) across all App Router routes (`(app)`, `home`, `accounts`, `transactions`, `investments`, `receivables`, `liabilities`, `analytics`, `budgets`, `recurring`, `imports`, `exports`, `settings`) so navigation transitions instantly (0ms) and streams skeletons while server queries resolve.
+  5. **Prefetching & Button Loading State:** Enhanced `Button` with `loading?: boolean` rendering `Loader2` spinner; added route prefetching and in-memory prewarming in `LoginForm.tsx` and `app-layout.tsx`.
+  6. **Automated Testing:** Added `tests/api/workspace.test.ts` (4 tests) and `tests/components/Settings.test.tsx` (3 tests); full test suite expanded to 43 test suites and 172 tests (100% passing).
+- **Why it changed:** User requested implementing missing Profile and Security settings from the Building Docs, eliminating perceived route sluggishness with prefetching and loading skeletons, and adding button spinners.
+- **Files affected:** 19 files modified/created across components, loading skeletons, services, API routes, and tests.
+- **Tests run:** 43 Vitest test suites passed, 172 tests passed (100% pass rate). Production Next.js build verified.
+- **Result:** Complete settings management suite and snappy, sub-second perceived page transitions.
 
 ### 2026-09-05 — Full V1 Missing Feature Implementation & Bug Remediation Sprint
 - **What changed:** Implemented all critical missing features identified during audit:

@@ -259,13 +259,13 @@ export function AccountActionsModal({ account }: AccountActionsProps) {
             </div>
 
             {/* Disclaimer */}
-            <div className="bg-muted/50 border border-border p-3.5 rounded-lg space-y-2 text-xs text-muted-foreground leading-relaxed">
-              <p className="font-semibold text-foreground">⚠️ Disclaimer & Data Integrity Protection:</p>
+            <div className="bg-destructive/10 border border-destructive/30 p-3.5 rounded-lg space-y-2 text-xs text-destructive dark:text-red-300 leading-relaxed">
+              <p className="font-semibold text-destructive dark:text-red-200">⚠️ Critical Account Deletion Disclaimer:</p>
               <p>
-                Deleting this account will archive it and remove it from your active accounts, available money, and net wealth calculations.
+                <strong>Even the amount and balance in this account will be deleted.</strong> Deleting this account will immediately remove its entire balance and all its active allocations from your Total Wealth, Net Worth, and Available Balance.
               </p>
-              <p>
-                In compliance with double-entry accounting standards, existing transactions, statements, and ledger audit records linked to this account will remain safely preserved in your history.
+              <p className="text-muted-foreground text-[11px]">
+                In compliance with double-entry audit standards, past historical records will be archived, but this account will cease to hold any value in your finances.
               </p>
             </div>
 
@@ -283,7 +283,7 @@ export function AccountActionsModal({ account }: AccountActionsProps) {
                 className="mt-0.5 rounded border-border text-destructive focus:ring-destructive" 
               />
               <span className="text-xs font-medium text-foreground">
-                I understand the consequences and want to permanently archive this account.
+                I understand that the amount, balance, and allocations will be deleted from my totals.
               </span>
             </label>
 

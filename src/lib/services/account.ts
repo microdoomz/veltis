@@ -1,5 +1,5 @@
 import { db } from '../db';
-import { financialAccount, accountState, workspace } from '../db/schema';
+import { financialAccount, accountState, workspace, allocation, investmentPosition } from '../db/schema';
 import { eq, and } from 'drizzle-orm';
 import { z } from 'zod';
 import { NotFoundError, ValidationError } from './errors';
@@ -132,6 +132,22 @@ export async function deleteAccount(workspaceId: string, accountId: string) {
       eq(financialAccount.workspaceId, workspaceId)
     ))
     .returning();
+
+  // Archive any active allocations linked to this account so their balances are cleared from Available Balance
+  await db.update(allocation)
+    .set({
+      status: 'archived',
+      updatedAt: new Date(),
+    })
+    .where(and(
+      eq(allocation.financialAccountId, accountId),
+      eq(allocation.workspaceId, workspaceId),
+      eq(allocation.status, 'active')
+    ));
+
+  // Delete any investment positions linked to this account so portfolio value and Net Wealth are completely cleared
+  await db.delete(investmentPosition)
+    .where(eq(investmentPosition.financialAccountId, accountId));
 
   return archived;
 }

@@ -27,10 +27,10 @@ export async function getAccountLedgerBalance(accountId: string, dbTx: any = db)
     .select({
       openingBalance: financialAccount.openingBalanceMinor,
       type: financialAccount.accountType,
-      // Sum debits as positive, credits as negative
+      // Sum debits as positive, credits as negative (ignoring reference_only and deleted transactions)
       legSum: sql<string>`COALESCE(SUM(
         CASE 
-          WHEN ${transaction.status} NOT IN ('deleted', 'voided') THEN
+          WHEN ${transaction.status} NOT IN ('deleted', 'voided') AND ${transactionLeg.legRole} != 'reference_only' THEN
             CASE 
               WHEN ${transactionLeg.direction} = 'debit' THEN ${transactionLeg.amountMinor}
               ELSE -${transactionLeg.amountMinor}
@@ -69,7 +69,7 @@ export async function getAvailableMoney(workspaceId: string, dbTx: any = db): Pr
       openingBalance: financialAccount.openingBalanceMinor,
       legSum: sql<string>`COALESCE(SUM(
         CASE 
-          WHEN ${transaction.status} NOT IN ('deleted', 'voided') THEN
+          WHEN ${transaction.status} NOT IN ('deleted', 'voided') AND ${transactionLeg.legRole} != 'reference_only' THEN
             CASE 
               WHEN ${transactionLeg.direction} = 'debit' THEN ${transactionLeg.amountMinor}
               ELSE -${transactionLeg.amountMinor}
@@ -138,10 +138,13 @@ export async function getAvailableMoney(workspaceId: string, dbTx: any = db): Pr
       totalHeld: sql<string>`COALESCE(SUM(${heldForOther.amountMinor}), 0)`
     })
     .from(heldForOther)
+    .innerJoin(financialAccount, eq(financialAccount.id, heldForOther.accountId))
     .where(
       and(
         eq(heldForOther.workspaceId, workspaceId),
-        eq(heldForOther.status, 'open')
+        eq(heldForOther.status, 'open'),
+        eq(financialAccount.status, 'active'),
+        inArray(financialAccount.accountType, ['bank', 'cash_wallet', 'digital_wallet'])
       )
     );
   const totalHeld = BigInt(heldResult[0]?.totalHeld || 0);
@@ -163,7 +166,7 @@ export async function getLiquidSummary(workspaceId: string, dbTx: any = db): Pro
       openingBalance: financialAccount.openingBalanceMinor,
       legSum: sql<string>`COALESCE(SUM(
         CASE 
-          WHEN ${transaction.status} NOT IN ('deleted', 'voided') THEN
+          WHEN ${transaction.status} NOT IN ('deleted', 'voided') AND ${transactionLeg.legRole} != 'reference_only' THEN
             CASE 
               WHEN ${transactionLeg.direction} = 'debit' THEN ${transactionLeg.amountMinor}
               ELSE -${transactionLeg.amountMinor}
@@ -258,7 +261,7 @@ export async function getLiquidSummary(workspaceId: string, dbTx: any = db): Pro
  */
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export async function getNetWealth(workspaceId: string, dbTx: any = db): Promise<bigint> {
-  // 1. Fetch investments first to accurately determine investment accounts and their market/cost values
+  // 1. Fetch investments for active accounts only to accurately determine active investment values
   const investments = await dbTx
     .select({
       id: investmentPosition.id,
@@ -267,7 +270,13 @@ export async function getNetWealth(workspaceId: string, dbTx: any = db): Promise
       averageCost: investmentPosition.averageCostMinor
     })
     .from(investmentPosition)
-    .where(eq(investmentPosition.workspaceId, workspaceId));
+    .innerJoin(financialAccount, eq(financialAccount.id, investmentPosition.financialAccountId))
+    .where(
+      and(
+        eq(investmentPosition.workspaceId, workspaceId),
+        eq(financialAccount.status, 'active')
+      )
+    );
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const investmentAccountIds = new Set(investments.map((i: any) => i.financialAccountId));
@@ -282,7 +291,7 @@ export async function getNetWealth(workspaceId: string, dbTx: any = db): Promise
       openingBalance: financialAccount.openingBalanceMinor,
       legSum: sql<string>`COALESCE(SUM(
         CASE 
-          WHEN ${transaction.status} NOT IN ('deleted', 'voided') THEN
+          WHEN ${transaction.status} NOT IN ('deleted', 'voided') AND ${transactionLeg.legRole} != 'reference_only' THEN
             CASE 
               WHEN ${transactionLeg.direction} = 'debit' THEN ${transactionLeg.amountMinor}
               ELSE -${transactionLeg.amountMinor}

@@ -2,8 +2,9 @@
 
 import React, { useCallback, useEffect, useState } from 'react';
 import { InvestmentActions } from './InvestmentActions';
-import { RefreshCw, TrendingUp, AlertTriangle, Plus } from 'lucide-react';
+import { RefreshCw, TrendingUp, AlertTriangle, Plus, PlusCircle } from 'lucide-react';
 import { useCurrency } from '@/components/layout/CurrencyProvider';
+import { TopUpInvestmentModal } from './TopUpInvestmentModal';
 import Link from 'next/link';
 
 interface InvestmentAccount {
@@ -30,6 +31,8 @@ export function InvestmentDashboard({ workspaceId }: { workspaceId: string }) {
   const [accounts, setAccounts] = useState<InvestmentAccount[]>([]);
   const [positions, setPositions] = useState<Position[]>([]);
   const [loading, setLoading] = useState(true);
+  const [isTopUpOpen, setIsTopUpOpen] = useState(false);
+  const [topUpPositionId, setTopUpPositionId] = useState<string | undefined>(undefined);
 
   const fetchInvestments = useCallback(async () => {
     setLoading(true);
@@ -133,15 +136,29 @@ export function InvestmentDashboard({ workspaceId }: { workspaceId: string }) {
         </div>
       </div>
 
-      <div className="flex items-center justify-between">
+      <div className="flex flex-wrap items-center justify-between gap-3">
         <InvestmentActions workspaceId={workspaceId} accounts={accounts} positions={positions} onUpdate={fetchInvestments} />
-        <Link 
-          href="/accounts/new" 
-          className="inline-flex items-center px-4 py-2 bg-primary text-primary-foreground text-sm font-medium rounded-lg hover:opacity-90 transition-opacity"
-        >
-          <Plus className="w-4 h-4 mr-1.5" />
-          Add Investment
-        </Link>
+        <div className="flex items-center gap-2">
+          {positions.length > 0 && (
+            <button 
+              onClick={() => {
+                setTopUpPositionId(positions[0]?.id);
+                setIsTopUpOpen(true);
+              }}
+              className="inline-flex items-center px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-semibold rounded-lg shadow-sm transition-colors"
+            >
+              <PlusCircle className="w-4 h-4 mr-1.5" />
+              One-Time Investment
+            </button>
+          )}
+          <Link 
+            href="/accounts/new" 
+            className="inline-flex items-center px-4 py-2 bg-primary text-primary-foreground text-sm font-medium rounded-lg hover:opacity-90 transition-opacity"
+          >
+            <Plus className="w-4 h-4 mr-1.5" />
+            Add Investment
+          </Link>
+        </div>
       </div>
 
       {/* Holdings */}
@@ -201,6 +218,17 @@ export function InvestmentDashboard({ workspaceId }: { workspaceId: string }) {
                     <td className={`px-4 py-4 text-right font-medium ${posPositive ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400'}`}>
                       {posPositive ? '+' : ''}{(Number(gain)/100).toLocaleString('en-US', { style: 'currency', currency: pos.currency })}
                     </td>
+                    <td className="px-4 py-4 text-right">
+                      <button
+                        onClick={() => {
+                          setTopUpPositionId(pos.id);
+                          setIsTopUpOpen(true);
+                        }}
+                        className="text-xs px-2.5 py-1 rounded-lg bg-primary/10 text-primary hover:bg-primary/20 font-medium transition-colors"
+                      >
+                        + Top Up
+                      </button>
+                    </td>
                   </tr>
                 );
               })}
@@ -208,6 +236,16 @@ export function InvestmentDashboard({ workspaceId }: { workspaceId: string }) {
           </table>
         </div>
       )}
+
+      {/* One-Time Investment Top Up Modal */}
+      <TopUpInvestmentModal
+        workspaceId={workspaceId}
+        positions={positions}
+        preSelectedPositionId={topUpPositionId}
+        isOpen={isTopUpOpen}
+        onClose={() => setIsTopUpOpen(false)}
+        onSuccess={fetchInvestments}
+      />
     </div>
   );
 }

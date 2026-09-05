@@ -93,146 +93,195 @@ export default async function ShortcutsPage() {
         </div>
 
         <div className="space-y-6 text-sm">
-          {/* Step 1 */}
-          <div className="flex items-start gap-3">
-            <span className="flex-shrink-0 w-6 h-6 rounded-full bg-primary text-primary-foreground flex items-center justify-center font-bold text-xs">
-              1
-            </span>
-            <div className="space-y-1">
-              <p className="font-semibold text-foreground">Generate and copy your token</p>
-              <p className="text-muted-foreground text-xs">
-                Create a new token in the section above and copy the secret token string starting with <code>vsh_</code>.
-              </p>
-            </div>
-          </div>
-
-          {/* Step 2 */}
-          <div className="flex items-start gap-3">
-            <span className="flex-shrink-0 w-6 h-6 rounded-full bg-primary text-primary-foreground flex items-center justify-center font-bold text-xs">
-              2
-            </span>
-            <div className="space-y-1">
-              <p className="font-semibold text-foreground">Create a new Shortcut</p>
-              <p className="text-muted-foreground text-xs">
-                Open the <strong>Shortcuts</strong> app on iOS and tap <strong>+</strong> in the top right corner.
-              </p>
-            </div>
-          </div>
-
-          {/* Step 3 */}
-          <div className="flex items-start gap-3">
-            <span className="flex-shrink-0 w-6 h-6 rounded-full bg-primary text-primary-foreground flex items-center justify-center font-bold text-xs">
-              3
-            </span>
-            <div className="space-y-2 w-full">
-              <p className="font-semibold text-foreground">Add the &quot;Get Contents of URL&quot; Action</p>
-              <p className="text-muted-foreground text-xs">
-                In the bottom search bar, search for <strong>Get Contents of URL</strong> and tap to add it.
-              </p>
-              <div className="p-3 bg-muted/60 rounded-lg font-mono text-xs text-foreground break-all">
-                URL: <strong>https://veltismoney.vercel.app/api/shortcuts/expense</strong>
-              </div>
-            </div>
-          </div>
-
-          {/* Step 4 */}
-          <div className="flex items-start gap-3">
-            <span className="flex-shrink-0 w-6 h-6 rounded-full bg-primary text-primary-foreground flex items-center justify-center font-bold text-xs">
-              4
-            </span>
-            <div className="space-y-3 w-full">
-              <p className="font-semibold text-foreground">Configure Method & Headers</p>
-              <p className="text-muted-foreground text-xs">
-                Tap the arrow or dropdown next to the URL to expand configuration options:
-              </p>
-              <div className="space-y-2 pl-2 border-l-2 border-primary/40">
-                <p className="text-xs">
-                  • Set <strong>Method</strong>: Select <strong>POST</strong>
+          {/* Important Callout / Pitfalls */}
+          <div className="p-4 rounded-xl bg-amber-500/10 border border-amber-500/20 space-y-2">
+            <h3 className="font-semibold text-amber-700 dark:text-amber-400 flex items-center gap-2 text-xs uppercase tracking-wider">
+              <span>⚠️</span> Two Critical Shortcuts Rules to Prevent Errors
+            </h3>
+            <div className="grid sm:grid-cols-2 gap-3 text-xs text-foreground/90">
+              <div className="p-2.5 rounded-lg bg-background/80 border border-border/60 space-y-1">
+                <p className="font-bold text-foreground">1. Is <code>accountId</code> a Dictionary?</p>
+                <p className="text-muted-foreground text-[11px] leading-relaxed">
+                  <strong className="text-emerald-600 dark:text-emerald-400">NO. It is Text.</strong> In the JSON body field type picker, select <strong>Text</strong> (never Dictionary). The Account ID is a text UUID string (e.g. <code>4c9f...</code>).
                 </p>
-                <div className="space-y-1.5">
-                  <p className="text-xs font-medium">• Under <strong>Headers</strong>, tap <strong>Add new header</strong> twice to add:</p>
-                  <div className="bg-muted/60 p-3 rounded-lg space-y-2 text-xs font-mono">
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-1 border-b border-border/50 pb-1.5">
-                      <div><span className="text-muted-foreground">Header 1 Key:</span> <strong>Authorization</strong></div>
-                      <div><span className="text-muted-foreground">Text field:</span> <strong>Bearer YOUR_TOKEN</strong> (or paste <code>vsh_...</code>)</div>
+              </div>
+              <div className="p-2.5 rounded-lg bg-background/80 border border-border/60 space-y-1">
+                <p className="font-bold text-foreground">2. Where does &quot;Choose from Menu&quot; go?</p>
+                <p className="text-muted-foreground text-[11px] leading-relaxed">
+                  It must go at the <strong className="text-primary">very top (Action 1)</strong>, BEFORE &quot;Get Contents of URL&quot;. Shortcuts executes strictly top-to-bottom.
+                </p>
+              </div>
+            </div>
+          </div>
+
+          {/* Setup Method Selector */}
+          <div className="space-y-4">
+            <div className="flex items-center gap-2">
+              <span className="flex-shrink-0 w-6 h-6 rounded-full bg-primary text-primary-foreground flex items-center justify-center font-bold text-xs">
+                1
+              </span>
+              <div>
+                <p className="font-semibold text-foreground">Generate &amp; Copy your Access Token</p>
+                <p className="text-muted-foreground text-xs">
+                  Create a new token above and copy the secret token string starting with <code>vsh_</code>.
+                </p>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2">
+              <span className="flex-shrink-0 w-6 h-6 rounded-full bg-primary text-primary-foreground flex items-center justify-center font-bold text-xs">
+                2
+              </span>
+              <div>
+                <p className="font-semibold text-foreground">Open iOS Shortcuts &amp; Create a New Shortcut</p>
+                <p className="text-muted-foreground text-xs">
+                  Open the <strong>Shortcuts</strong> app on iOS and tap <strong>+</strong> in the top-right corner.
+                </p>
+              </div>
+            </div>
+
+            {/* Visual Action Flow Box */}
+            <div className="p-4 rounded-xl bg-muted/40 border border-border space-y-3">
+              <p className="font-bold text-xs uppercase tracking-wider text-muted-foreground">
+                Shortcut Action Sequence (Choose Method A or B):
+              </p>
+
+              <div className="space-y-3">
+                {/* Method A */}
+                <div className="p-3 rounded-lg bg-background border border-border/70 space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="font-semibold text-xs text-primary">Method A: Simple (Fixed Primary Account)</span>
+                    <span className="text-[10px] bg-primary/10 text-primary font-medium px-2 py-0.5 rounded-full">Recommended &bull; 60 Seconds</span>
+                  </div>
+                  <p className="text-[11px] text-muted-foreground leading-relaxed">
+                    If you always charge expenses to one account (e.g. your primary bank or cash), simply add:
+                  </p>
+                  <div className="space-y-1.5 font-mono text-[11px]">
+                    <div className="p-2 rounded bg-muted/60 border border-border/40">
+                      <strong>Action 1:</strong> Ask for Number with prompt <em>&quot;How much did you spend?&quot;</em>
                     </div>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-1 pt-0.5">
-                      <div><span className="text-muted-foreground">Header 2 Key:</span> <strong>Content-Type</strong></div>
-                      <div><span className="text-muted-foreground">Text field:</span> <strong>application/json</strong></div>
+                    <div className="p-2 rounded bg-muted/60 border border-border/40">
+                      <strong>Action 2:</strong> Ask for Text with prompt <em>&quot;What was it for?&quot;</em>
+                    </div>
+                    <div className="p-2 rounded bg-muted/60 border border-border/40">
+                      <strong>Action 3:</strong> Get Contents of URL (see Step 3 below, and paste your Account ID directly into <code>accountId</code>)
+                    </div>
+                  </div>
+                </div>
+
+                {/* Method B */}
+                <div className="p-3 rounded-lg bg-background border border-border/70 space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="font-semibold text-xs text-foreground">Method B: Interactive Multi-Account Menu</span>
+                    <span className="text-[10px] bg-muted text-muted-foreground font-medium px-2 py-0.5 rounded-full">Prompts you to pick an account</span>
+                  </div>
+                  <p className="text-[11px] text-muted-foreground leading-relaxed">
+                    To choose which account to charge on every purchase:
+                  </p>
+                  <div className="space-y-1.5 font-mono text-[11px]">
+                    <div className="p-2 rounded bg-muted/60 border border-border/40">
+                      <strong>Action 1:</strong> Choose from Menu with prompt <em>&quot;Select Account&quot;</em>
+                      <div className="pl-3 pt-1 text-[10px] text-muted-foreground space-y-1 font-sans">
+                        <div>&bull; Option: <strong>&quot;Bank Account&quot;</strong> &rarr; Add <strong>Text</strong> action below it: paste Bank Account UUID</div>
+                        <div>&bull; Option: <strong>&quot;Cash Wallet&quot;</strong> &rarr; Add <strong>Text</strong> action below it: paste Cash UUID</div>
+                      </div>
+                    </div>
+                    <div className="p-2 rounded bg-muted/60 border border-border/40">
+                      <strong>Action 2:</strong> Ask for Number with prompt <em>&quot;Amount?&quot;</em>
+                    </div>
+                    <div className="p-2 rounded bg-muted/60 border border-border/40">
+                      <strong>Action 3:</strong> Ask for Text with prompt <em>&quot;Description?&quot;</em>
+                    </div>
+                    <div className="p-2 rounded bg-muted/60 border border-border/40">
+                      <strong>Action 4:</strong> Get Contents of URL (set <code>accountId</code> to <strong>Menu Result</strong> variable)
                     </div>
                   </div>
                 </div>
               </div>
             </div>
-          </div>
 
-          {/* Step 5 */}
-          <div className="flex items-start gap-3">
-            <span className="flex-shrink-0 w-6 h-6 rounded-full bg-primary text-primary-foreground flex items-center justify-center font-bold text-xs">
-              5
-            </span>
-            <div className="space-y-3 w-full">
-              <p className="font-semibold text-foreground">Configure Request Body (JSON fields)</p>
-              <p className="text-muted-foreground text-xs">
-                Set <strong>Request Body</strong> to <strong>JSON</strong>. Tap <strong>Add new field</strong> for the fields below:
-              </p>
-              <div className="bg-muted/60 p-3 rounded-lg space-y-3 text-xs">
-                {/* Field 1 */}
-                <div className="space-y-1">
-                  <div className="flex items-center gap-2">
-                    <span className="px-1.5 py-0.5 rounded bg-blue-500/10 text-blue-600 dark:text-blue-400 font-bold text-[10px]">Type: Number</span>
-                    <strong className="font-mono text-foreground">amount</strong>
-                  </div>
-                  <p className="text-muted-foreground text-[11px]">
-                    In <strong>Key</strong> enter <code>amount</code>. In the <strong>Number</strong> field, enter an amount (or tap and select <em>Ask Each Time</em> / <em>Shortcut Input</em>).
-                  </p>
+            {/* Step 3: URL & Method */}
+            <div className="flex items-start gap-3">
+              <span className="flex-shrink-0 w-6 h-6 rounded-full bg-primary text-primary-foreground flex items-center justify-center font-bold text-xs">
+                3
+              </span>
+              <div className="space-y-2 w-full">
+                <p className="font-semibold text-foreground">Add &quot;Get Contents of URL&quot; Action</p>
+                <div className="p-3 bg-muted/60 rounded-lg font-mono text-xs text-foreground break-all">
+                  URL: <strong>https://veltismoney.vercel.app/api/shortcuts/expense</strong>
                 </div>
-
-                {/* Field 2 */}
-                <div className="space-y-1 border-t border-border/50 pt-2">
-                  <div className="flex items-center gap-2">
-                    <span className="px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 font-bold text-[10px]">Type: Text</span>
-                    <strong className="font-mono text-foreground">description</strong>
-                  </div>
-                  <p className="text-muted-foreground text-[11px]">
-                    In <strong>Key</strong> enter <code>description</code>. In the <strong>Text</strong> field, enter what the expense is for (or tap and select <em>Ask Each Time</em>).
-                  </p>
+                <div className="p-3 bg-muted/60 rounded-lg space-y-1 text-xs">
+                  <p><strong>Method:</strong> POST</p>
                 </div>
+              </div>
+            </div>
 
-                {/* Field 3 */}
-                <div className="space-y-1.5 border-t border-border/50 pt-2.5">
-                  <div className="flex items-center gap-2">
-                    <span className="px-1.5 py-0.5 rounded bg-amber-500/15 text-amber-600 dark:text-amber-400 font-bold text-[10px]">Type: Text (Required)</span>
-                    <strong className="font-mono text-foreground">accountId</strong>
+            {/* Step 4: Headers */}
+            <div className="flex items-start gap-3">
+              <span className="flex-shrink-0 w-6 h-6 rounded-full bg-primary text-primary-foreground flex items-center justify-center font-bold text-xs">
+                4
+              </span>
+              <div className="space-y-2 w-full">
+                <p className="font-semibold text-foreground">Add Request Headers</p>
+                <p className="text-muted-foreground text-xs">
+                  Under <strong>Headers</strong>, tap <strong>Add new header</strong> twice:
+                </p>
+                <div className="bg-muted/60 p-3 rounded-lg space-y-2 text-xs font-mono">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-1 border-b border-border/50 pb-1.5">
+                    <div><span className="text-muted-foreground font-sans">Header 1 Key:</span> <strong>Authorization</strong></div>
+                    <div><span className="text-muted-foreground font-sans">Value:</span> <strong>Bearer YOUR_TOKEN</strong></div>
                   </div>
-                  <p className="text-muted-foreground text-[11px] leading-relaxed">
-                    In <strong>Key</strong> enter <code>accountId</code>. In the <strong>Text</strong> field, enter your Account ID from the table above.
-                  </p>
-                  <div className="p-3 bg-muted/40 rounded-lg border border-border/60 text-[11px] space-y-1.5 mt-1.5">
-                    <p className="font-semibold text-foreground flex items-center gap-1.5">
-                      <ListFilter className="w-3.5 h-3.5 text-primary" />
-                      Pro Tip: Create an Interactive Account Dropdown in iOS Shortcuts
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-1 pt-0.5">
+                    <div><span className="text-muted-foreground font-sans">Header 2 Key:</span> <strong>Content-Type</strong></div>
+                    <div><span className="text-muted-foreground font-sans">Value:</span> <strong>application/json</strong></div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Step 5: JSON Body */}
+            <div className="flex items-start gap-3">
+              <span className="flex-shrink-0 w-6 h-6 rounded-full bg-primary text-primary-foreground flex items-center justify-center font-bold text-xs">
+                5
+              </span>
+              <div className="space-y-3 w-full">
+                <p className="font-semibold text-foreground">Configure Request Body (JSON fields)</p>
+                <p className="text-muted-foreground text-xs">
+                  Set <strong>Request Body</strong> to <strong>JSON</strong>. Tap <strong>Add new field</strong> for these 3 fields:
+                </p>
+                <div className="bg-muted/60 p-3 rounded-lg space-y-3 text-xs">
+                  {/* Field 1: amount */}
+                  <div className="space-y-1">
+                    <div className="flex items-center gap-2">
+                      <span className="px-1.5 py-0.5 rounded bg-blue-500/10 text-blue-600 dark:text-blue-400 font-bold text-[10px]">Type: Number</span>
+                      <strong className="font-mono text-foreground">amount</strong>
+                    </div>
+                    <p className="text-muted-foreground text-[11px]">
+                      Key: <code>amount</code> &bull; Value: Tap and select your <em>Provided Input</em> from the Number prompt.
                     </p>
-                    <p className="text-muted-foreground leading-relaxed">
-                      To choose which account to charge every time you run the shortcut:
-                    </p>
-                    <ol className="list-decimal list-inside space-y-1 text-muted-foreground pl-1">
-                      <li>Add a <strong>Choose from Menu</strong> action at the start of your shortcut, listing your accounts (e.g. &ldquo;HDFC Bank&rdquo;, &ldquo;Cash&rdquo;, &ldquo;ICICI&rdquo;).</li>
-                      <li>Under each option, add a <strong>Text</strong> action and paste that account&apos;s exact <strong>Account ID</strong> from the table above.</li>
-                      <li>In this <code>accountId</code> JSON field, select <strong>Menu Result</strong> as the text variable. When triggered, your iPhone will show an interactive menu so you choose your account on the fly!</li>
-                    </ol>
                   </div>
-                </div>
 
-                {/* Field 4 */}
-                <div className="space-y-1 border-t border-border/50 pt-2">
-                  <div className="flex items-center gap-2">
-                    <span className="px-1.5 py-0.5 rounded bg-purple-500/10 text-purple-600 dark:text-purple-400 font-bold text-[10px]">Type: Text (Optional)</span>
-                    <strong className="font-mono text-foreground">idempotencyKey</strong>
+                  {/* Field 2: description */}
+                  <div className="space-y-1 border-t border-border/50 pt-2">
+                    <div className="flex items-center gap-2">
+                      <span className="px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 font-bold text-[10px]">Type: Text</span>
+                      <strong className="font-mono text-foreground">description</strong>
+                    </div>
+                    <p className="text-muted-foreground text-[11px]">
+                      Key: <code>description</code> &bull; Value: Tap and select your <em>Provided Input</em> from the Text prompt.
+                    </p>
                   </div>
-                  <p className="text-muted-foreground text-[11px]">
-                    In <strong>Key</strong> enter <code>idempotencyKey</code>. In the <strong>Text</strong> field, tap and select <em>Current Date</em> (or leave empty to let Veltis auto-generate).
-                  </p>
+
+                  {/* Field 3: accountId */}
+                  <div className="space-y-1.5 border-t border-border/50 pt-2">
+                    <div className="flex items-center gap-2">
+                      <span className="px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-700 dark:text-amber-300 font-bold text-[10px]">Type: Text (Never Dictionary!)</span>
+                      <strong className="font-mono text-foreground">accountId</strong>
+                    </div>
+                    <p className="text-muted-foreground text-[11px] leading-relaxed">
+                      Key: <code>accountId</code> &bull; Value: Select <strong>Text</strong> type. In Method A, paste your Account ID directly from the table above. In Method B, tap and select <strong>Menu Result</strong>.
+                    </p>
+                  </div>
                 </div>
               </div>
             </div>

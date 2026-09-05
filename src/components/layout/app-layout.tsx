@@ -10,6 +10,26 @@ import { useRouter, usePathname } from "next/navigation"
 import { PrivacyToggle } from "@/components/layout/PrivacyToggle"
 import { cn } from "@/lib/utils"
 
+function MoneyBagIcon({ className }: { className?: string }) {
+  return (
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className={className}
+    >
+      <path d="M12 2a2 2 0 0 1 2 2c0 .35-.1.67-.26.95L15 6h-6l1.26-1.05A2 2 0 0 1 12 2z" />
+      <path d="M6 9h12c1.5 0 3 1.5 3 4 0 5-3.5 9-9 9s-9-4-9-9c0-2.5 1.5-4 3-4z" />
+      <path d="M12 12v6" />
+      <path d="M10 13.5a1.5 1.5 0 0 1 2-1.5h1a1.5 1.5 0 0 1 0 3h-2a1.5 1.5 0 0 0 0 3h1a1.5 1.5 0 0 0 2-1.5" />
+    </svg>
+  );
+}
+
 const navItems = [
   { href: '/home', label: 'Dashboard', icon: Home },
   { href: '/accounts', label: 'Accounts', icon: WalletCards },
@@ -18,7 +38,7 @@ const navItems = [
   { href: '/receivables', label: 'Receivables', icon: ArrowDownLeft },
   { href: '/liabilities', label: 'Liabilities', icon: ArrowUpRight },
   { href: '/analytics', label: 'Analytics', icon: LineChart },
-  { href: '/budgets', label: 'Budgets', icon: PiggyBank },
+  { href: '/budgets', label: 'Budgets', icon: MoneyBagIcon },
   { href: '/recurring', label: 'Recurring', icon: Repeat },
   { href: '/imports', label: 'Imports', icon: Download },
   { href: '/exports', label: 'Exports', icon: Upload },

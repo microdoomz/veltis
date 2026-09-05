@@ -3,6 +3,7 @@ import { requireWorkspaceAccess } from '@/lib/auth/guards';
 import { createAccount, getAccounts } from '@/lib/services/account';
 import { db } from '@/lib/db';
 import { workspace, investmentPosition, investmentPriceSnapshot, recurringItem } from '@/lib/db/schema';
+import { createRecurringItem } from '@/lib/services/recurring';
 import { eq } from 'drizzle-orm';
 import { z } from 'zod';
 
@@ -23,6 +24,7 @@ const postAccountSchema = z.object({
   units: z.union([z.string(), z.number()]).optional().nullable(),
   currentPrice: z.coerce.number().optional().nullable(),
   sipMonthlyAmount: z.coerce.number().optional().nullable(),
+  sipMonthlyDay: z.coerce.number().min(1).max(31).optional().nullable(),
 });
 
 function normalizeAccountType(rawType?: string): 'bank' | 'cash_wallet' | 'digital_wallet' | 'investment' | 'credit_card' {
@@ -143,9 +145,10 @@ export async function POST(req: Request) {
         });
       }
 
-      // If monthly SIP amount is specified, create recurring SIP item
+      // If monthly SIP amount is specified, create recurring SIP item scheduled on user-chosen day of month
       if (parsed.data.sipMonthlyAmount && parsed.data.sipMonthlyAmount > 0) {
-        await db.insert(recurringItem).values({
+        const customDay = parsed.data.sipMonthlyDay ? Math.min(31, Math.max(1, parsed.data.sipMonthlyDay)) : 1;
+        await createRecurringItem({
           workspaceId,
           type: 'expense',
           name: `SIP - ${parsed.data.name}`,
@@ -153,8 +156,8 @@ export async function POST(req: Request) {
           currency,
           defaultAccountId: newAccount.id,
           frequency: 'monthly',
-          dayRule: 'first_day',
-          active: true,
+          dayRule: 'custom_day',
+          customDay,
         });
       }
     }

@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { db } from '@/lib/db';
-import { eq, inArray, desc } from 'drizzle-orm';
+import { eq, inArray, desc, and } from 'drizzle-orm';
 import {
   investmentPosition,
   investmentPriceSnapshot,
@@ -12,7 +12,8 @@ import {
   recordContribution,
   recordWithdrawal,
   buyPosition,
-  sellPosition
+  sellPosition,
+  topUpPosition
 } from '@/lib/investments/service';
 
 export async function GET(req: Request) {
@@ -23,16 +24,26 @@ export async function GET(req: Request) {
     
     await requireStrictWorkspaceAccess(workspaceId);
 
-    // Fetch investment accounts
+    // Fetch investment accounts (active only)
     const accounts = await db.query.financialAccount.findMany({
       where: (account, { and, eq }) => 
-        and(eq(account.workspaceId, workspaceId), eq(account.accountType, 'investment')),
+        and(
+          eq(account.workspaceId, workspaceId),
+          eq(account.accountType, 'investment'),
+          eq(account.status, 'active')
+        ),
     });
 
-    // Fetch positions
-    const positions = await db.query.investmentPosition.findMany({
-      where: eq(investmentPosition.workspaceId, workspaceId),
-    });
+    // Fetch positions only for active accounts
+    const activeAccountIds = accounts.map(a => a.id);
+    const positions = activeAccountIds.length > 0
+      ? await db.query.investmentPosition.findMany({
+          where: and(
+            eq(investmentPosition.workspaceId, workspaceId),
+            inArray(investmentPosition.financialAccountId, activeAccountIds)
+          ),
+        })
+      : [];
 
     // Fetch latest price snapshot for each position
     const positionIds = positions.map(p => p.id);
@@ -89,12 +100,12 @@ export async function GET(req: Request) {
 
 const transactionSchema = z.object({
   workspaceId: z.string().uuid(),
-  type: z.enum(['contribution', 'withdrawal', 'buy', 'sell']),
-  investmentAccountId: z.string().uuid(),
-  sourceAccountId: z.string().uuid().optional(), // For contribution
+  type: z.enum(['contribution', 'withdrawal', 'buy', 'sell', 'topup']),
+  investmentAccountId: z.string().uuid().optional(),
+  sourceAccountId: z.string().uuid().optional(), // For contribution or topup
   destinationAccountId: z.string().uuid().optional(), // For withdrawal
-  positionId: z.string().uuid().optional(), // For buy/sell
-  amountMinor: z.number().int().positive().optional(), // For contribution/withdrawal
+  positionId: z.string().uuid().optional(), // For buy/sell/topup
+  amountMinor: z.number().int().positive().optional(), // For contribution/withdrawal/topup
   units: z.string().optional(), // For buy/sell
   priceMinor: z.number().int().positive().optional(), // For buy/sell
   currency: z.string().length(3),
@@ -113,7 +124,7 @@ export async function POST(req: Request) {
     let txId = '';
     switch (data.type) {
       case 'contribution':
-        if (!data.sourceAccountId || !data.amountMinor) throw new Error('Missing fields for contribution');
+        if (!data.sourceAccountId || !data.amountMinor || !data.investmentAccountId) throw new Error('Missing fields for contribution');
         txId = await recordContribution(
           data.workspaceId,
           data.sourceAccountId,
@@ -125,7 +136,7 @@ export async function POST(req: Request) {
         );
         break;
       case 'withdrawal':
-        if (!data.destinationAccountId || !data.amountMinor) throw new Error('Missing fields for withdrawal');
+        if (!data.destinationAccountId || !data.amountMinor || !data.investmentAccountId) throw new Error('Missing fields for withdrawal');
         txId = await recordWithdrawal(
           data.workspaceId,
           data.investmentAccountId,
@@ -137,7 +148,7 @@ export async function POST(req: Request) {
         );
         break;
       case 'buy':
-        if (!data.positionId || !data.units || !data.priceMinor) throw new Error('Missing fields for buy');
+        if (!data.positionId || !data.units || !data.priceMinor || !data.investmentAccountId) throw new Error('Missing fields for buy');
         txId = await buyPosition(
           data.workspaceId,
           data.investmentAccountId,
@@ -151,6 +162,7 @@ export async function POST(req: Request) {
         break;
       case 'sell':
         if (!data.positionId || !data.units || !data.priceMinor) throw new Error('Missing fields for sell');
+        if (!data.investmentAccountId) throw new Error('Missing investment account ID');
         txId = await sellPosition(
           data.workspaceId,
           data.investmentAccountId,
@@ -160,6 +172,19 @@ export async function POST(req: Request) {
           data.currency,
           date,
           user.user.id
+        );
+        break;
+      case 'topup':
+        if (!data.positionId || !data.amountMinor) throw new Error('Missing positionId or amount for top-up');
+        txId = await topUpPosition(
+          data.workspaceId,
+          data.positionId,
+          BigInt(data.amountMinor),
+          BigInt(data.priceMinor || 1000),
+          data.currency,
+          date,
+          user.user.id,
+          data.sourceAccountId
         );
         break;
     }

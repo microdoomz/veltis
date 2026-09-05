@@ -1,5 +1,5 @@
 import { db } from '../db';
-import { recurringItem, recurringOccurrence } from '../db/schema';
+import { recurringItem, recurringOccurrence, investmentPosition, investmentTransaction } from '../db/schema';
 import { eq, and } from 'drizzle-orm';
 import { z } from 'zod';
 import { createExpense, createIncome } from './transaction';
@@ -150,7 +150,39 @@ export async function confirmOccurrence(
     txnId = txn.id;
   }
 
-  // 3. Mark occurrence as confirmed
+  // 3. If this recurring item is tied to an investment account (SIP), add the amount into investments
+  if (item.defaultAccountId) {
+    const pos = await db.query.investmentPosition.findFirst({
+      where: and(
+        eq(investmentPosition.financialAccountId, item.defaultAccountId),
+        eq(investmentPosition.workspaceId, workspaceId)
+      ),
+    });
+    if (pos) {
+      const priceMinor = pos.averageCostMinor && pos.averageCostMinor > 0n ? pos.averageCostMinor : 1000n;
+      const incrementalUnits = Number(amountToRecord) / Number(priceMinor);
+      const newTotalUnits = (Number(pos.units || 0) + incrementalUnits).toFixed(4);
+
+      await db.update(investmentPosition).set({
+        units: newTotalUnits,
+        updatedAt: new Date(),
+      }).where(eq(investmentPosition.id, pos.id));
+
+      await db.insert(investmentTransaction).values({
+        workspaceId,
+        positionId: pos.id,
+        transactionId: txnId,
+        transactionType: 'buy',
+        units: incrementalUnits.toFixed(4),
+        priceMinor,
+        amountMinor: amountToRecord,
+        currency: item.currency,
+        transactionDate: dateToRecord.toISOString().split('T')[0],
+      });
+    }
+  }
+
+  // 4. Mark occurrence as confirmed
   await db.update(recurringOccurrence).set({
     status: 'confirmed',
     actualDate: dateToRecord.toISOString().split('T')[0],

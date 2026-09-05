@@ -9,15 +9,18 @@ export function DeleteImportBatchButton({
   workspaceId,
   importId,
   filename,
+  onDeleted,
 }: {
   workspaceId: string
   importId: string
   filename: string
+  onDeleted?: (importId: string) => void
 }) {
   const [isPending, startTransition] = useTransition()
   const [showConfirm, setShowConfirm] = useState(false)
 
   const handleDelete = () => {
+    onDeleted?.(importId)
     startTransition(async () => {
       await deleteImportBatchAction(workspaceId, importId)
       setShowConfirm(false)

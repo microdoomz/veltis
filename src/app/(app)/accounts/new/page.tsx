@@ -55,6 +55,7 @@ export default function NewAccountPage() {
 
   // Investment specific state
   const [sipMonthlyAmount, setSipMonthlyAmount] = useState('');
+  const [sipMonthlyDay, setSipMonthlyDay] = useState('5');
   const [livePrice, setLivePrice] = useState<number | null>(null);
   const [liveSymbol, setLiveSymbol] = useState<string | null>(null);
   const [livePriceDate, setLivePriceDate] = useState<string | null>(null);
@@ -156,6 +157,7 @@ export default function NewAccountPage() {
         payload.units = calculatedUnits > 0 ? calculatedUnits.toFixed(4) : undefined;
         if (parseFloat(sipMonthlyAmount) > 0) {
           payload.sipMonthlyAmount = parseFloat(sipMonthlyAmount);
+          payload.sipMonthlyDay = parseInt(sipMonthlyDay, 10) || 1;
         }
       }
 
@@ -407,22 +409,45 @@ export default function NewAccountPage() {
                   </div>
                 </div>
 
-                {/* Monthly SIP Amount */}
-                <div className="space-y-2">
-                  <div className="flex items-center gap-1.5">
-                    <Repeat className="w-4 h-4 text-primary" />
-                    <label className="text-sm font-medium">SIP Each Month</label>
+                {/* Monthly SIP Amount & Day of Month */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div className="space-y-2">
+                    <div className="flex items-center gap-1.5">
+                      <Repeat className="w-4 h-4 text-primary" />
+                      <label className="text-sm font-medium">SIP Each Month</label>
+                    </div>
+                    <Input
+                      type="number"
+                      step="0.01"
+                      placeholder="e.g. 5000 (Optional)"
+                      value={sipMonthlyAmount}
+                      onChange={(e) => setSipMonthlyAmount(e.target.value)}
+                    />
+                    <p className="text-xs text-muted-foreground">
+                      Monthly instalment commitment.
+                    </p>
                   </div>
-                  <Input
-                    type="number"
-                    step="0.01"
-                    placeholder="e.g. 5000 (Optional)"
-                    value={sipMonthlyAmount}
-                    onChange={(e) => setSipMonthlyAmount(e.target.value)}
-                  />
-                  <p className="text-xs text-muted-foreground">
-                    If you have a recurring monthly SIP, enter the monthly instalment amount.
-                  </p>
+
+                  {parseFloat(sipMonthlyAmount) > 0 && (
+                    <div className="space-y-2 animate-in fade-in">
+                      <div className="flex items-center gap-1.5">
+                        <label className="text-sm font-medium">SIP Day of Month</label>
+                        <span className="text-[10px] bg-primary/10 text-primary font-bold px-1.5 py-0.5 rounded">1-31</span>
+                      </div>
+                      <Input
+                        type="number"
+                        min="1"
+                        max="31"
+                        placeholder="e.g. 5"
+                        value={sipMonthlyDay}
+                        onChange={(e) => setSipMonthlyDay(e.target.value)}
+                        required
+                      />
+                      <p className="text-xs text-muted-foreground">
+                        Date each month when Veltis will prompt you to review and confirm this SIP.
+                      </p>
+                    </div>
+                  )}
                 </div>
 
                 {/* Live Valuation & Position Summary Card */}

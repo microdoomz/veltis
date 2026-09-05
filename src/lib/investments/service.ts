@@ -340,3 +340,101 @@ export async function updateMarketPrice(workspaceId: string, positionId: string,
     });
   }
 }
+
+/**
+ * One-time investment top-up for an existing fund position.
+ * Can be funded from a linked bank account or directly recorded.
+ */
+export async function topUpPosition(
+  workspaceId: string,
+  positionId: string,
+  amountMinor: bigint,
+  priceMinor: bigint,
+  currency: string,
+  transactionDate: Date,
+  userId: string,
+  sourceBankAccountId?: string
+) {
+  if (amountMinor <= 0n) throw new ValidationError('Amount must be positive');
+  if (priceMinor <= 0n) throw new ValidationError('Price must be positive');
+
+  return await db.transaction(async (tx) => {
+    const pos = await tx.query.investmentPosition.findFirst({
+      where: and(
+        eq(investmentPosition.id, positionId),
+        eq(investmentPosition.workspaceId, workspaceId)
+      ),
+    });
+
+    if (!pos) throw new NotFoundError('Investment position not found');
+
+    const calculatedUnits = Number(amountMinor) / Number(priceMinor);
+    const unitsStr = calculatedUnits.toFixed(4);
+    const unitsNum = Number(unitsStr);
+
+    // 1. Create investment purchase transaction
+    const [txRecord] = await tx.insert(transaction).values({
+      workspaceId,
+      transactionType: 'investment_contribution',
+      status: 'active',
+      amountMinor,
+      currency,
+      transactionDate: transactionDate.toISOString().split('T')[0],
+      source: 'web',
+      createdByUserId: userId,
+      description: `One-Time Top-Up: ${pos.name}`,
+    }).returning();
+
+    // If a source bank account was specified, deduct cash from it
+    if (sourceBankAccountId) {
+      await tx.insert(transactionLeg).values({
+        transactionId: txRecord.id,
+        accountId: sourceBankAccountId,
+        direction: 'credit', // Credit reduces bank balance
+        amountMinor,
+        currency,
+        legRole: 'source',
+      });
+      await tx.insert(transactionLeg).values({
+        transactionId: txRecord.id,
+        accountId: pos.financialAccountId,
+        direction: 'debit', // Debit increases investment account
+        amountMinor,
+        currency,
+        legRole: 'destination',
+      });
+    }
+
+    // 2. Insert investmentTransaction
+    await tx.insert(investmentTransaction).values({
+      workspaceId,
+      positionId,
+      transactionId: txRecord.id,
+      transactionType: 'buy',
+      units: unitsStr,
+      priceMinor,
+      amountMinor,
+      currency,
+      transactionDate: transactionDate.toISOString().split('T')[0],
+    });
+
+    // 3. Update position units and average cost
+    const currentUnits = Number(pos.units || '0');
+    const currentAvgCost = pos.averageCostMinor || priceMinor;
+    const newUnits = currentUnits + unitsNum;
+
+    const currentTotalVal = money.multiply(currentAvgCost, currentUnits);
+    const newTotalVal = currentTotalVal + amountMinor;
+    const newAvgCostMajor = money.toMajor(newTotalVal) / (newUnits > 0 ? newUnits : 1);
+    const newAvgCostMinor = money.fromMajor(newAvgCostMajor);
+
+    await tx.update(investmentPosition).set({
+      units: newUnits.toFixed(4),
+      averageCostMinor: newAvgCostMinor,
+      updatedAt: new Date(),
+    }).where(eq(investmentPosition.id, positionId));
+
+    return txRecord.id;
+  });
+}
+

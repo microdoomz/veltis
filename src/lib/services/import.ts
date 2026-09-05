@@ -1,5 +1,5 @@
 import { db } from '../db';
-import { statementImport, statementImportRow, transaction, financialAccount } from '../db/schema';
+import { statementImport, statementImportRow, transaction, transactionLeg, financialAccount } from '../db/schema';
 import { eq, and, sql } from 'drizzle-orm';
 import { createExpense, createIncome } from './transaction';
 
@@ -141,7 +141,8 @@ export async function processCsvImport(
   filename: string,
   workspaceId: string,
   accountId: string,
-  userId: string
+  userId: string,
+  isReferenceOnly: boolean = false
 ) {
   // Strip UTF-8 BOM, normalize newlines
   const cleanedContent = csvContent.replace(/^\uFEFF/, '').replace(/\r\n/g, '\n').replace(/\r/g, '\n');
@@ -243,11 +244,12 @@ export async function processCsvImport(
     });
     const currency = account?.currency || 'USD';
 
+    const prefix = isReferenceOnly ? 'ref_' : '';
     const [importRecord] = await tx.insert(statementImport).values({
       workspaceId,
       financialAccountId: accountId,
-      fileObjectKey: `imports/${workspaceId}/${Date.now()}_${filename}`,
-      originalFilename: filename,
+      fileObjectKey: `imports/${workspaceId}/${prefix}${Date.now()}_${filename}`,
+      originalFilename: isReferenceOnly && !filename.startsWith('[Reference] ') ? `[Reference] ${filename}` : filename,
       mimeType: 'text/csv',
       fileSize: BigInt(csvContent.length),
       status: 'review',
@@ -462,6 +464,14 @@ export async function commitImportRow(
     reviewStatus: 'accepted',
     committedTransactionId: txnId,
   }).where(eq(statementImportRow.id, rowId));
+
+  // If this statement import was marked as Reference-Only, ensure legs do not affect account balance
+  const isReferenceOnly = importRecord.fileObjectKey.includes('/ref_') || importRecord.originalFilename.startsWith('[Reference] ');
+  if (isReferenceOnly) {
+    await db.update(transactionLeg).set({
+      legRole: 'reference_only',
+    }).where(eq(transactionLeg.transactionId, txnId));
+  }
 }
 
 export async function rejectImportRow(rowId: string, workspaceId: string) {

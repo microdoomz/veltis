@@ -58,6 +58,9 @@ export function ImportReviewView({
   const [statusFilter, setStatusFilter] = useState<"all" | "pending" | "accepted" | "rejected">("all")
   const [directionFilter, setDirectionFilter] = useState<"all" | "credit" | "debit">("all")
   const [isPending, startTransition] = useTransition()
+  const [isBulkProcessing, setIsBulkProcessing] = useState(false)
+
+  const controlsDisabled = isPending || isBulkProcessing
 
   const rows = importRecord.rows || []
   const totalCount = rows.length
@@ -99,9 +102,14 @@ export function ImportReviewView({
     const ids = targetIds || selectedIds
     if (!ids.length) return
 
+    setIsBulkProcessing(true)
     startTransition(async () => {
-      await bulkReviewRowsAction(workspaceId, importRecord.id, ids, action)
-      setSelectedIds((prev) => prev.filter((id) => !ids.includes(id)))
+      try {
+        await bulkReviewRowsAction(workspaceId, importRecord.id, ids, action)
+        setSelectedIds((prev) => prev.filter((id) => !ids.includes(id)))
+      } finally {
+        setIsBulkProcessing(false)
+      }
     })
   }
 
@@ -138,6 +146,20 @@ export function ImportReviewView({
 
       {/* Controls: Bulk Actions & Filters */}
       <Card className="p-4 border border-border/80 rounded-xl space-y-4 shadow-sm">
+        {isBulkProcessing && (
+          <div className="p-3.5 bg-primary/10 border border-primary/25 rounded-xl flex items-center justify-between text-xs text-primary animate-in fade-in">
+            <div className="flex items-center gap-2.5 font-medium">
+              <Loader2 className="w-4 h-4 animate-spin text-primary flex-shrink-0" />
+              <span>
+                Processing batch in the background... <strong className="underline">You can safely leave this page</strong> while transactions are committed or rejected.
+              </span>
+            </div>
+            <span className="text-[11px] font-mono bg-card px-2 py-0.5 rounded-md text-foreground border border-border flex-shrink-0">
+              Processing...
+            </span>
+          </div>
+        )}
+
         <div className="flex flex-wrap items-center justify-between gap-3">
           {/* Filters */}
           <div className="flex flex-wrap items-center gap-2">
@@ -152,12 +174,13 @@ export function ImportReviewView({
                 <button
                   key={st}
                   type="button"
+                  disabled={controlsDisabled}
                   onClick={() => setStatusFilter(st)}
                   className={`px-2.5 py-1 rounded-md capitalize font-medium transition-all ${
                     statusFilter === st
                       ? "bg-background text-foreground shadow-sm"
                       : "text-muted-foreground hover:text-foreground"
-                  }`}
+                  } ${controlsDisabled ? "opacity-50 cursor-not-allowed" : ""}`}
                 >
                   {st}
                 </button>
@@ -217,10 +240,10 @@ export function ImportReviewView({
                       .map((r) => r.id)
                     handleBulkAction("accept", allPendingIds)
                   }}
-                  disabled={isPending}
+                  disabled={controlsDisabled}
                   className="h-8 text-xs font-semibold text-positive border-positive/30 hover:bg-positive/10"
                 >
-                  {isPending ? <Loader2 className="w-3.5 h-3.5 animate-spin mr-1.5" /> : <CheckCircle2 className="w-3.5 h-3.5 mr-1.5" />}
+                  {controlsDisabled ? <Loader2 className="w-3.5 h-3.5 animate-spin mr-1.5" /> : <CheckCircle2 className="w-3.5 h-3.5 mr-1.5" />}
                   Commit All Pending ({pendingCount})
                 </Button>
                 <Button
@@ -232,10 +255,10 @@ export function ImportReviewView({
                       .map((r) => r.id)
                     handleBulkAction("reject", allPendingIds)
                   }}
-                  disabled={isPending}
+                  disabled={controlsDisabled}
                   className="h-8 text-xs font-semibold text-destructive border-destructive/30 hover:bg-destructive/10"
                 >
-                  {isPending ? <Loader2 className="w-3.5 h-3.5 animate-spin mr-1.5" /> : <XCircle className="w-3.5 h-3.5 mr-1.5" />}
+                  {controlsDisabled ? <Loader2 className="w-3.5 h-3.5 animate-spin mr-1.5" /> : <XCircle className="w-3.5 h-3.5 mr-1.5" />}
                   Reject All Pending
                 </Button>
               </>
@@ -288,8 +311,11 @@ export function ImportReviewView({
         <div className="flex items-center gap-2 px-1">
           <button
             type="button"
+            disabled={controlsDisabled}
             onClick={toggleSelectAllVisible}
-            className="flex items-center gap-2 text-xs font-medium text-muted-foreground hover:text-foreground transition-colors"
+            className={`flex items-center gap-2 text-xs font-medium text-muted-foreground hover:text-foreground transition-colors ${
+              controlsDisabled ? "opacity-50 cursor-not-allowed" : ""
+            }`}
           >
             {allVisiblePendingSelected ? (
               <CheckSquare className="w-4 h-4 text-primary" />
@@ -326,8 +352,11 @@ export function ImportReviewView({
                   {isPendingRow ? (
                     <button
                       type="button"
+                      disabled={controlsDisabled}
                       onClick={() => toggleSelectRow(row.id)}
-                      className="mt-0.5 text-muted-foreground hover:text-primary transition-colors flex-shrink-0"
+                      className={`mt-0.5 text-muted-foreground hover:text-primary transition-colors flex-shrink-0 ${
+                        controlsDisabled ? "opacity-50 cursor-not-allowed" : ""
+                      }`}
                     >
                       {isSelected ? (
                         <CheckSquare className="w-4 h-4 text-primary" />
@@ -413,6 +442,7 @@ export function ImportReviewView({
                       name="action"
                       value="commit"
                       size="sm"
+                      disabled={controlsDisabled}
                       className="h-8 px-3 text-xs bg-positive hover:bg-positive/90 text-white font-medium"
                     >
                       <CheckCircle2 className="w-3.5 h-3.5 mr-1" />
@@ -424,6 +454,7 @@ export function ImportReviewView({
                       value="reject"
                       variant="outline"
                       size="sm"
+                      disabled={controlsDisabled}
                       className="h-8 px-3 text-xs text-destructive border-destructive/40 hover:bg-destructive/10 font-medium"
                     >
                       <XCircle className="w-3.5 h-3.5 mr-1" />

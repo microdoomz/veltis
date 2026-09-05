@@ -4,7 +4,7 @@ import { getAccountSummary } from "@/lib/ledger/queries"
 import { Card } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { NewImportForm } from "@/components/imports/NewImportForm"
-import { DeleteImportBatchButton } from "@/components/imports/DeleteImportBatchButton"
+import { ImportBatchList } from "@/components/imports/ImportBatchList"
 import Link from "next/link"
 import { AlertCircle, FileSpreadsheet } from "lucide-react"
 
@@ -58,35 +58,10 @@ export default async function ImportsPage({
 
       <div className="space-y-4">
         <h2 className="text-lg font-semibold text-foreground">Previous Imports</h2>
-        <div className="space-y-3">
-          {imports.map(imp => (
-            <Card key={imp.id} className="p-4 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 hover:bg-muted/30 border border-border/80 rounded-xl transition-colors">
-              <div className="space-y-1">
-                <p className="font-medium text-foreground">{imp.originalFilename}</p>
-                <p className="text-xs text-muted-foreground">
-                  {new Date(imp.createdAt).toLocaleString()} &bull; <span className="capitalize font-medium text-foreground/80">{imp.status}</span>
-                </p>
-              </div>
-              <div className="flex items-center gap-2 self-end sm:self-center">
-                <Link href={`/imports/${imp.id}`}>
-                  <Button variant="outline" size="sm" className="rounded-lg h-9">
-                    Review Rows
-                  </Button>
-                </Link>
-                <DeleteImportBatchButton
-                  workspaceId={authContext.workspaceId}
-                  importId={imp.id}
-                  filename={imp.originalFilename}
-                />
-              </div>
-            </Card>
-          ))}
-          {imports.length === 0 && (
-            <Card className="p-8 text-center border-dashed border-border rounded-xl">
-              <p className="text-sm text-muted-foreground">No statement imports recorded yet.</p>
-            </Card>
-          )}
-        </div>
+        <ImportBatchList
+          initialImports={imports}
+          workspaceId={authContext.workspaceId}
+        />
       </div>
     </div>
   )

@@ -1,30 +1,61 @@
 import { requireWorkspaceAccess } from "@/lib/auth/guards"
 import { getTransactionById } from "@/lib/ledger/queries"
+import { getAccounts } from "@/lib/services/account"
+import { db } from "@/lib/db"
+import { category } from "@/lib/db/schema"
+import { eq, and, isNull, asc } from "drizzle-orm"
 import { Card } from "@/components/ui/card"
 import { Amount } from "@/components/ui/amount"
 import { notFound } from "next/navigation"
 import Link from "next/link"
-import { deleteTransactionAction } from "@/app/actions/transaction"
-import { Button } from "@/components/ui/button"
+import { TransactionActionsModal } from "@/components/transactions/TransactionActionsModal"
 
 export default async function TransactionDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
   const authContext = await requireWorkspaceAccess()
   
-  const txn = await getTransactionById(authContext.workspaceId, id)
+  const [txn, categories, accounts] = await Promise.all([
+    getTransactionById(authContext.workspaceId, id),
+    db.query.category.findMany({
+      where: and(eq(category.workspaceId, authContext.workspaceId), isNull(category.archivedAt)),
+      orderBy: [asc(category.name)],
+    }),
+    getAccounts(authContext.workspaceId),
+  ])
+
   if (!txn) {
     notFound()
   }
 
+  const primaryAccountId = txn.legs.find((l) => l.accountId !== null)?.accountId || null;
+
   return (
-    <div className="space-y-6">
-      <header className="mb-6">
-        <div className="flex items-center gap-2 mb-2">
-          <Link href="/transactions" className="text-muted-foreground text-sm hover:text-foreground hover:underline">
-            &larr; Back to Transactions
-          </Link>
+    <div className="space-y-6 max-w-2xl mx-auto pb-20">
+      <header className="flex items-center justify-between">
+        <div>
+          <div className="flex items-center gap-2 mb-1">
+            <Link href="/transactions" className="text-muted-foreground text-sm hover:text-foreground hover:underline">
+              &larr; Back to Transactions
+            </Link>
+          </div>
+          <h1 className="text-2xl font-bold tracking-tight text-primary">Transaction Detail</h1>
         </div>
-        <h1 className="text-2xl font-bold tracking-tight text-primary">Transaction Detail</h1>
+        <TransactionActionsModal
+          workspaceId={authContext.workspaceId}
+          transaction={{
+            id: txn.id,
+            description: txn.description,
+            merchantName: txn.merchantName,
+            amountMinor: txn.amountMinor,
+            currency: txn.currency,
+            transactionDate: txn.transactionDate,
+            categoryId: txn.categoryId,
+            accountId: primaryAccountId,
+            type: txn.transactionType,
+          }}
+          categories={categories.map((c) => ({ id: c.id, name: c.name }))}
+          accounts={accounts.map((a) => ({ id: a.id, name: a.name, currency: a.currency }))}
+        />
       </header>
 
       <Card>
@@ -79,17 +110,6 @@ export default async function TransactionDetailPage({ params }: { params: Promis
                 </div>
               ))}
             </div>
-          </div>
-
-          <div className="pt-6 border-t border-border">
-            <form action={async () => {
-              "use server"
-              await deleteTransactionAction(authContext.workspaceId, txn.id)
-            }}>
-              <Button type="submit" variant="danger" className="w-full">
-                Delete Transaction
-              </Button>
-            </form>
           </div>
         </div>
       </Card>

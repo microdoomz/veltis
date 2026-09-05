@@ -14,6 +14,7 @@ import {
   PiggyBank, 
   ArrowLeft, 
   Check, 
+  CheckCircle2,
   Search, 
   Sparkles, 
   RefreshCw,
@@ -60,6 +61,13 @@ export default function NewAccountPage() {
   const [isFetchingQuote, setIsFetchingQuote] = useState(false);
   const [quoteNotice, setQuoteNotice] = useState<string | null>(null);
   const [matches, setMatches] = useState<Array<{ name: string; symbol: string }>>([]);
+  const [selectedFund, setSelectedFund] = useState<{
+    name: string;
+    symbol: string;
+    nav?: number;
+    date?: string;
+    provider?: string;
+  } | null>(null);
 
   // Sync currency with workspace baseCurrency once loaded if user hasn't changed it
   useEffect(() => {
@@ -68,7 +76,7 @@ export default function NewAccountPage() {
     }
   }, [baseCurrency]);
 
-  const handleFetchQuote = async (fundNameQuery?: string) => {
+  const handleFetchQuote = async (fundNameQuery?: string, schemeCode?: string) => {
     const q = fundNameQuery || name;
     if (!q.trim()) return;
 
@@ -84,8 +92,17 @@ export default function NewAccountPage() {
         setLiveSymbol(data.symbol || null);
         setLivePriceDate(data.date || null);
         if (data.currency) setCurrency(data.currency);
-        if (data.name && !fundNameQuery) setName(data.name);
-        setQuoteNotice(`Latest NAV verified: ${data.currency || currency} ${data.currentPrice} (${data.date || 'Today'})`);
+        const resolvedName = data.name || q.trim();
+        setName(resolvedName);
+        setSelectedFund({
+          name: resolvedName,
+          symbol: data.symbol || schemeCode || '',
+          nav: data.currentPrice,
+          date: data.date,
+          provider: data.provider,
+        });
+        const sourceInfo = data.consensusCount ? `4-source consensus (${data.consensusCount} sources matched)` : (data.provider || 'Live Registry');
+        setQuoteNotice(`Live NAV verified via ${sourceInfo}: ${data.currency || currency} ${data.currentPrice} (${data.date || 'Today'})`);
         if (data.allMatches) {
           setMatches(data.allMatches);
         }
@@ -231,9 +248,9 @@ export default function NewAccountPage() {
               /* INVESTMENT SPECIFIC FIELDS */
               <div className="space-y-5 border-t border-border pt-5">
                 {/* Fund Name & Live Lookup */}
-                <div className="space-y-2">
+                <div className="space-y-3">
                   <div className="flex items-center justify-between">
-                    <label className="text-sm font-medium">Mutual Fund Full Name *</label>
+                    <label className="text-sm font-medium text-foreground">Mutual Fund Full Name *</label>
                     <button
                       type="button"
                       onClick={() => handleFetchQuote()}
@@ -248,11 +265,45 @@ export default function NewAccountPage() {
                       Fetch Live NAV
                     </button>
                   </div>
+
+                  {/* Confirmed Selection Badge */}
+                  {selectedFund && (
+                    <div className="p-3.5 bg-emerald-500/10 border border-emerald-500/30 rounded-xl flex items-center justify-between gap-3 shadow-xs">
+                      <div className="flex items-start gap-2.5 min-w-0">
+                        <CheckCircle2 className="w-5 h-5 text-emerald-600 dark:text-emerald-400 flex-shrink-0 mt-0.5" />
+                        <div className="min-w-0">
+                          <p className="text-xs font-bold text-emerald-950 dark:text-emerald-200 truncate">
+                            {selectedFund.name}
+                          </p>
+                          <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 mt-1 text-[11px] text-emerald-800 dark:text-emerald-300">
+                            {selectedFund.symbol && <span>Code: <strong>{selectedFund.symbol}</strong></span>}
+                            {livePrice && <span>• NAV: <strong>{currency} {livePrice}</strong></span>}
+                            {livePriceDate && <span>• As of {livePriceDate}</span>}
+                          </div>
+                        </div>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setSelectedFund(null);
+                        }}
+                        className="text-xs text-muted-foreground hover:text-foreground font-medium px-2 py-1 rounded border border-border hover:bg-muted/80 flex-shrink-0 transition-colors"
+                      >
+                        Change
+                      </button>
+                    </div>
+                  )}
+
                   <div className="relative">
                     <Input
                       placeholder="e.g. Parag Parikh Flexi Cap Fund - Direct Plan - Growth"
                       value={name}
-                      onChange={(e) => setName(e.target.value)}
+                      onChange={(e) => {
+                        setName(e.target.value);
+                        if (selectedFund && e.target.value !== selectedFund.name) {
+                          setSelectedFund(null);
+                        }
+                      }}
                       onBlur={() => {
                         if (name.trim().length > 3 && !livePrice) {
                           handleFetchQuote();
@@ -268,22 +319,44 @@ export default function NewAccountPage() {
                   {/* Search Matches dropdown suggestions */}
                   {matches.length > 0 && (
                     <div className="bg-card border border-border rounded-lg p-2 space-y-1 shadow-sm mt-1">
-                      <p className="text-[11px] font-semibold text-muted-foreground uppercase px-2">Suggestions:</p>
-                      {matches.map((m) => (
-                        <button
-                          key={m.symbol}
-                          type="button"
-                          onClick={() => {
-                            setName(m.name);
-                            setMatches([]);
-                            handleFetchQuote(m.name);
-                          }}
-                          className="w-full text-left px-2 py-1.5 rounded hover:bg-muted text-xs text-foreground flex items-center justify-between"
-                        >
-                          <span className="truncate">{m.name}</span>
-                          <span className="text-[10px] text-muted-foreground ml-2">Select</span>
-                        </button>
-                      ))}
+                      <div className="flex items-center justify-between px-2 py-1">
+                        <p className="text-[11px] font-semibold text-muted-foreground uppercase">
+                          Available Matches ({matches.length})
+                        </p>
+                        <span className="text-[10px] text-muted-foreground">Click to select</span>
+                      </div>
+                      {matches.map((m) => {
+                        const isThisSelected = selectedFund?.symbol === m.symbol || name.trim() === m.name.trim();
+                        return (
+                          <button
+                            key={m.symbol}
+                            type="button"
+                            onClick={() => {
+                              setName(m.name);
+                              setSelectedFund({
+                                name: m.name,
+                                symbol: m.symbol,
+                                nav: livePrice || undefined,
+                              });
+                              handleFetchQuote(m.name, m.symbol);
+                            }}
+                            className={`w-full text-left px-2.5 py-2 rounded-md text-xs transition-colors flex items-center justify-between border ${
+                              isThisSelected
+                                ? 'bg-emerald-500/10 border-emerald-500/40 text-emerald-950 dark:text-emerald-200 font-semibold shadow-2xs'
+                                : 'border-transparent hover:bg-muted text-foreground'
+                            }`}
+                          >
+                            <span className="truncate pr-2">{m.name}</span>
+                            {isThisSelected ? (
+                              <span className="inline-flex items-center text-[10px] text-emerald-600 dark:text-emerald-400 font-bold gap-1 flex-shrink-0">
+                                <Check className="w-3.5 h-3.5" /> Selected
+                              </span>
+                            ) : (
+                              <span className="text-[10px] text-muted-foreground ml-2 flex-shrink-0">Select</span>
+                            )}
+                          </button>
+                        );
+                      })}
                     </div>
                   )}
 

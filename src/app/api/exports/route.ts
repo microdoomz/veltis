@@ -4,7 +4,8 @@ import {
   generateCsvExport, 
   generateXlsxExport, 
   generatePdfExport, 
-  generateFullBackup 
+  generateFullBackup,
+  getExportTransactions
 } from '@/lib/services/exports';
 import { z } from 'zod';
 
@@ -32,6 +33,16 @@ export async function GET(req: Request) {
       startDate: data.startDate ? new Date(data.startDate) : new Date('2000-01-01'),
       endDate: data.endDate ? new Date(data.endDate) : new Date('2100-01-01'),
     };
+
+    if (data.format === 'csv' || data.format === 'xlsx' || data.format === 'pdf') {
+      const txs = await getExportTransactions(workspaceId, timeFilter);
+      if (txs.length === 0) {
+        return NextResponse.json(
+          { error: 'No transactions to export for the selected period.' },
+          { status: 400 }
+        );
+      }
+    }
 
     if (data.format === 'csv') {
       const csv = await generateCsvExport(workspaceId, timeFilter);

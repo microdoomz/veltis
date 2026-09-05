@@ -9,7 +9,8 @@ import {
   investmentPosition,
   investmentPriceSnapshot,
   receivable,
-  liability
+  liability,
+  allocation
 } from '../db/schema';
 import { NotFoundError } from '../services/errors';
 import { receivableSettlement, liabilityPayment } from '../db/schema';
@@ -97,7 +98,7 @@ export async function getAvailableMoney(workspaceId: string, dbTx: any = db): Pr
     totalLiquidAssets += BigInt(acc.openingBalance) + BigInt(acc.legSum);
   }
 
-  // 2. Sum of active liens across those same accounts
+  // 2. Sum of active liens and set-aside allocations across those same accounts
   const liensResult = await dbTx
     .select({
       totalLiens: sql<string>`COALESCE(SUM(${accountState.lienAmountMinor}), 0)`
@@ -113,6 +114,24 @@ export async function getAvailableMoney(workspaceId: string, dbTx: any = db): Pr
     );
   const totalLiens = BigInt(liensResult[0]?.totalLiens || 0);
 
+  // Direct active allocations check
+  const allocResult = await dbTx
+    .select({
+      totalAlloc: sql<string>`COALESCE(SUM(${allocation.amountMinor}), 0)`
+    })
+    .from(allocation)
+    .innerJoin(financialAccount, eq(financialAccount.id, allocation.financialAccountId))
+    .where(
+      and(
+        eq(allocation.workspaceId, workspaceId),
+        eq(allocation.status, 'active'),
+        eq(financialAccount.status, 'active'),
+        inArray(financialAccount.accountType, ['bank', 'cash_wallet', 'digital_wallet'])
+      )
+    );
+  const totalAlloc = BigInt(allocResult[0]?.totalAlloc || 0);
+  const totalDeducted = totalLiens > totalAlloc ? totalLiens : totalAlloc;
+
   // 3. Sum of Held For Others
   const heldResult = await dbTx
     .select({
@@ -127,7 +146,7 @@ export async function getAvailableMoney(workspaceId: string, dbTx: any = db): Pr
     );
   const totalHeld = BigInt(heldResult[0]?.totalHeld || 0);
 
-  return totalLiquidAssets - totalLiens - totalHeld;
+  return totalLiquidAssets - totalDeducted - totalHeld;
 }
 
 /**

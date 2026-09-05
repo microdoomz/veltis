@@ -4,7 +4,7 @@ import { checkIdempotency, recordIdempotency } from '@/lib/services/idempotency'
 import { checkRateLimit } from '@/lib/security/rate-limit';
 import { createExpense } from '@/lib/services/transaction';
 import { db } from '@/lib/db';
-import { eq, and } from 'drizzle-orm';
+import { eq, and, ne, sql } from 'drizzle-orm';
 import { financialAccount } from '@/lib/db/schema';
 import { z } from 'zod';
 
@@ -34,7 +34,8 @@ const shortcutExpenseSchema = z.object({
     message: 'Amount must be a positive number greater than 0',
   }),
   description: z.string().optional().transform((v) => v?.trim() || 'Shortcut Expense'),
-  accountId: z.string().uuid().optional(),
+  accountId: z.string().optional(),
+  account: z.string().optional(),
   categoryId: z.string().uuid().optional(),
   currency: z.string().length(3).optional(),
   date: z.string().optional(), // YYYY-MM-DD
@@ -116,40 +117,60 @@ export async function POST(req: NextRequest) {
       return NextResponse.json(existing.responsePayload, { status: 200, headers: corsHeaders });
     }
 
-    // 4. Resolve Account
-    let targetAccountId = data.accountId;
+    // 4. Resolve Account (excluding investments)
+    const accountIdentifier = data.accountId || data.account;
+    let targetAccountId = '';
     let targetAccountCurrency = 'USD';
-    if (!targetAccountId) {
-      // Find a default account if not provided (first active bank or credit or wallet account)
+
+    if (!accountIdentifier) {
+      // Find a default non-investment account (first active bank, card, or wallet)
       const accounts = await db.query.financialAccount.findMany({
         where: and(
           eq(financialAccount.workspaceId, shortcut.workspaceId),
-          eq(financialAccount.status, 'active')
+          eq(financialAccount.status, 'active'),
+          ne(financialAccount.accountType, 'investment')
         ),
         limit: 1,
       });
       if (accounts.length === 0) {
         return NextResponse.json(
-          { error: 'No active accounts found in workspace. Please add an account first.' },
+          { error: 'No active spending accounts found in workspace. Please add a bank account or cash wallet first.' },
           { status: 400, headers: corsHeaders }
         );
       }
       targetAccountId = accounts[0].id;
       targetAccountCurrency = accounts[0].currency;
     } else {
-      // Validate requested account belongs to workspace
-      const account = await db.query.financialAccount.findFirst({
-        where: and(
-          eq(financialAccount.id, targetAccountId),
-          eq(financialAccount.workspaceId, shortcut.workspaceId)
-        ),
-      });
+      const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(accountIdentifier);
+      const account = isUuid
+        ? await db.query.financialAccount.findFirst({
+            where: and(
+              eq(financialAccount.id, accountIdentifier),
+              eq(financialAccount.workspaceId, shortcut.workspaceId)
+            ),
+          })
+        : await db.query.financialAccount.findFirst({
+            where: and(
+              eq(financialAccount.workspaceId, shortcut.workspaceId),
+              sql`LOWER(${financialAccount.name}) LIKE LOWER(${'%' + accountIdentifier + '%'})`
+            ),
+          });
+
       if (!account) {
         return NextResponse.json(
-          { error: 'Account not found or not in workspace' },
+          { error: `Account '${accountIdentifier}' not found in your workspace.` },
           { status: 404, headers: corsHeaders }
         );
       }
+
+      if (account.accountType === 'investment') {
+        return NextResponse.json(
+          { error: 'Expenses cannot be deducted from an Investment account. Please specify a Bank or Cash account.' },
+          { status: 400, headers: corsHeaders }
+        );
+      }
+
+      targetAccountId = account.id;
       targetAccountCurrency = account.currency;
     }
 

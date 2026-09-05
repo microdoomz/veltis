@@ -33,8 +33,13 @@ export async function uploadImportAction(workspaceId: string, formData: FormData
     )
     importId = importRecord.id
   } catch (err: unknown) {
-    const message = err instanceof Error ? err.message : 'Failed to parse CSV statement'
-    redirect(`/imports?error=${encodeURIComponent(message)}`)
+    let message = err instanceof Error ? err.message : 'Failed to parse CSV statement';
+    if (message.includes('Failed query') || message.includes('syntax error')) {
+      message = 'Failed to process statement database records.';
+    } else if (message.length > 120) {
+      message = message.slice(0, 120);
+    }
+    redirect(`/imports?error=${encodeURIComponent(message)}`);
   }
 
   revalidatePath("/imports")

@@ -176,8 +176,11 @@ export const transactionTag = pgTable('transaction_tag', {
 export const allocation = pgTable('allocation', {
   id: uuid('id').defaultRandom().primaryKey(),
   workspaceId: uuid('workspace_id').notNull().references(() => workspace.id, { onDelete: 'cascade' }),
+  financialAccountId: uuid('financial_account_id').references(() => financialAccount.id, { onDelete: 'cascade' }),
   name: text('name').notNull(),
   description: text('description'),
+  amountMinor: bigint('amount_minor', { mode: 'bigint' }).notNull().default(0n),
+  color: text('color'),
   status: allocationStatusEnum('status').notNull(),
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
   updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),

@@ -37,11 +37,18 @@ export function formatMoney(valueMinor: bigint, currency: string = "USD") {
 }
 
 export const Amount = React.forwardRef<HTMLSpanElement, AmountProps>(
-  ({ valueMinor, currency, showSign = false, colorize = "none", className, ...props }, ref) => {
+  ({ valueMinor, currency, showSign = false, colorize = "none", className, onClick, ...props }, ref) => {
     // Some instances might render Amount in environments without PrivacyProvider (e.g. static pages if any), 
     // but the app is fully wrapped in the provider.
-    const privacyContext = React.useContext(PrivacyContext) || { isPrivacyModeEnabled: false, isRevealed: false };
-    const { isPrivacyModeEnabled, isRevealed } = privacyContext;
+    const privacyContext = React.useContext(PrivacyContext) || {
+      isPrivacyModeEnabled: false,
+      isRevealed: false,
+      toggleReveal: () => {},
+      togglePrivacyMode: () => {},
+      temporarilyReveal: () => {},
+      setPrivacyMode: () => {},
+    };
+    const { isPrivacyModeEnabled, isRevealed, toggleReveal } = privacyContext;
     const { baseCurrency } = useCurrency();
     const effectiveCurrency = currency || baseCurrency || "USD";
     const isNegative = valueMinor < 0n;
@@ -51,9 +58,10 @@ export const Amount = React.forwardRef<HTMLSpanElement, AmountProps>(
     // Use absolute value for formatting if we are showing a custom sign
     const absValueMinor = isNegative ? -valueMinor : valueMinor;
     
-    let formatted = "••••••";
+    const isMasked = isPrivacyModeEnabled && !isRevealed;
+    let formatted = "💵 ••••••";
 
-    if (!isPrivacyModeEnabled || isRevealed) {
+    if (!isMasked) {
       formatted = formatMoney(absValueMinor, effectiveCurrency);
       
       // Add explicit plus/minus sign if requested
@@ -79,11 +87,28 @@ export const Amount = React.forwardRef<HTMLSpanElement, AmountProps>(
       if (isNegative) colorClass = "text-positive"
     }
 
+    const handleClick = (e: React.MouseEvent<HTMLSpanElement>) => {
+      if (isPrivacyModeEnabled && toggleReveal) {
+        e.stopPropagation();
+        toggleReveal();
+      }
+      onClick?.(e);
+    };
+
     return (
       <span
         ref={ref}
+        onClick={handleClick}
+        title={
+          isPrivacyModeEnabled
+            ? isRevealed
+              ? "Privacy mode active: click to re-hide"
+              : "Privacy mode active: click to reveal balance"
+            : undefined
+        }
         className={cn(
           "font-mono tabular-nums tracking-tight",
+          isPrivacyModeEnabled && "cursor-pointer select-none hover:opacity-80 transition-opacity",
           colorClass,
           className
         )}

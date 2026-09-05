@@ -5,7 +5,9 @@ import React, { createContext, useContext, useEffect, useState } from 'react';
 type PrivacyContextType = {
   isPrivacyModeEnabled: boolean;
   setPrivacyMode: (enabled: boolean) => void;
+  togglePrivacyMode: () => void;
   temporarilyReveal: () => void;
+  toggleReveal: () => void;
   isRevealed: boolean;
 };
 
@@ -14,6 +16,7 @@ export const PrivacyContext = createContext<PrivacyContextType | undefined>(unde
 export function PrivacyProvider({ children }: { children: React.ReactNode }) {
   const [isPrivacyModeEnabled, setIsPrivacyModeEnabled] = useState(false);
   const [isRevealed, setIsRevealed] = useState(false);
+  const revealTimerRef = React.useRef<NodeJS.Timeout | null>(null);
 
   useEffect(() => {
     // Load from local storage
@@ -22,6 +25,9 @@ export function PrivacyProvider({ children }: { children: React.ReactNode }) {
       // eslint-disable-next-line react-hooks/set-state-in-effect
       setIsPrivacyModeEnabled(true);
     }
+    return () => {
+      if (revealTimerRef.current) clearTimeout(revealTimerRef.current);
+    };
   }, []);
 
   const setPrivacyMode = (enabled: boolean) => {
@@ -32,21 +38,38 @@ export function PrivacyProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
-  const temporarilyReveal = () => {
-    // V1: Simple reveal without biometric prompt. 
-    // This can be replaced with a WebAuthn prompt later.
-    setIsRevealed(true);
-    // Auto-hide after 30 seconds
-    setTimeout(() => {
+  const togglePrivacyMode = () => {
+    setPrivacyMode(!isPrivacyModeEnabled);
+  };
+
+  const toggleReveal = () => {
+    if (revealTimerRef.current) clearTimeout(revealTimerRef.current);
+    if (isRevealed) {
       setIsRevealed(false);
-    }, 30000);
+    } else {
+      setIsRevealed(true);
+      revealTimerRef.current = setTimeout(() => {
+        setIsRevealed(false);
+      }, 15000);
+    }
+  };
+
+  const temporarilyReveal = () => {
+    if (revealTimerRef.current) clearTimeout(revealTimerRef.current);
+    setIsRevealed(true);
+    // Auto-hide after 15 seconds
+    revealTimerRef.current = setTimeout(() => {
+      setIsRevealed(false);
+    }, 15000);
   };
 
   return (
     <PrivacyContext.Provider value={{
       isPrivacyModeEnabled,
       setPrivacyMode,
+      togglePrivacyMode,
       temporarilyReveal,
+      toggleReveal,
       isRevealed
     }}>
       {children}

@@ -7,6 +7,7 @@ import { authClient } from "@/lib/auth/client"
 import { SyncStatus } from "@/components/sync/SyncStatus"
 import { QuickAddFab } from "@/components/layout/quick-add-fab"
 import { useRouter } from "next/navigation"
+import { PrivacyToggle } from "@/components/layout/PrivacyToggle"
 
 const navItems = [
   { href: '/home', label: 'Dashboard', icon: Home },
@@ -18,8 +19,8 @@ const navItems = [
   { href: '/analytics', label: 'Analytics', icon: Target },
   { href: '/budgets', label: 'Budgets', icon: Target },
   { href: '/recurring', label: 'Recurring', icon: Repeat },
-  { href: '/imports', label: 'Imports', icon: Upload },
-  { href: '/exports', label: 'Exports', icon: Download },
+  { href: '/imports', label: 'Imports', icon: Download },
+  { href: '/exports', label: 'Exports', icon: Upload },
   { href: '/settings/shortcuts', label: 'Shortcuts', icon: Zap },
   { href: '/settings', label: 'Settings', icon: Settings },
 ]
@@ -44,8 +45,9 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
       fetchOptions: {
         onSuccess: () => {
           router.push('/login');
-        },
-      },
+          router.refresh();
+        }
+      }
     });
   };
 
@@ -55,14 +57,16 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
       <aside className={`hidden md:flex flex-col border-r border-border bg-card transition-all duration-300 ease-in-out ${isCollapsed ? 'w-20' : 'w-64'}`}>
         <div className="p-4 h-16 flex items-center justify-between">
           {!isCollapsed && <h1 className="text-xl font-bold text-primary tracking-tight px-2">Veltis</h1>}
-          <button 
-            onClick={() => setIsCollapsed(!isCollapsed)}
-            className="p-2 rounded-md hover:bg-muted text-muted-foreground transition-colors mx-auto"
-            aria-label="Toggle Sidebar"
-          >
-            <Menu className={`h-5 w-5 transition-transform duration-300 ${isCollapsed ? 'rotate-0' : 'rotate-90 opacity-0 absolute'}`} />
-            <ChevronLeft className={`h-5 w-5 transition-transform duration-300 ${isCollapsed ? '-rotate-90 opacity-0 absolute' : 'rotate-0'}`} />
-          </button>
+          <div className="flex items-center gap-1 mx-auto">
+            <button 
+              onClick={() => setIsCollapsed(!isCollapsed)}
+              className="p-2 rounded-md hover:bg-muted text-muted-foreground transition-colors mx-auto"
+              aria-label="Toggle Sidebar"
+            >
+              <Menu className={`h-5 w-5 transition-transform duration-300 ${isCollapsed ? 'rotate-0' : 'rotate-90 opacity-0 absolute'}`} />
+              <ChevronLeft className={`h-5 w-5 transition-transform duration-300 ${isCollapsed ? '-rotate-90 opacity-0 absolute' : 'rotate-0'}`} />
+            </button>
+          </div>
         </div>
         
         {!isCollapsed && (
@@ -97,7 +101,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
       
       {/* Mobile Sidebar Drawer */}
       <aside className={`md:hidden fixed inset-y-0 left-0 z-50 w-64 bg-card border-r border-border shadow-lg transform transition-transform duration-300 ease-in-out ${mobileMenuOpen ? 'translate-x-0' : '-translate-x-full'} flex flex-col`}>
-        <div className="p-4 h-14 flex items-center border-b border-border">
+        <div className="p-4 h-14 flex items-center justify-between border-b border-border">
           <h1 className="text-xl font-bold text-primary tracking-tight px-2 flex-1">Veltis</h1>
           <button onClick={() => setMobileMenuOpen(false)} className="p-2 text-muted-foreground">
             <ChevronLeft className="h-5 w-5" />
@@ -127,6 +131,13 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
 
       {/* Main Content Area */}
       <main className="flex-1 flex flex-col h-full min-w-0 overflow-y-auto pb-16 md:pb-0">
+        {/* Desktop Top Bar */}
+        <header className="hidden md:flex items-center justify-end h-12 px-8 border-b border-border/40 bg-card/30 backdrop-blur-sm sticky top-0 z-10">
+          <div className="flex items-center gap-2">
+            <PrivacyToggle />
+          </div>
+        </header>
+
         {/* Mobile Header */}
         <header className="md:hidden flex items-center justify-between h-14 px-4 border-b border-border bg-card sticky top-0 z-10">
           <div className="flex items-center gap-3">
@@ -135,7 +146,10 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
             </button>
             <h1 className="text-lg font-bold text-primary tracking-tight">Veltis</h1>
           </div>
-          <SyncStatus />
+          <div className="flex items-center gap-2">
+            <PrivacyToggle compact />
+            <SyncStatus />
+          </div>
         </header>
         
         <div className="flex-1 p-4 md:p-8 max-w-5xl mx-auto w-full">

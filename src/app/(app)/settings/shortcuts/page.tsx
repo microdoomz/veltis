@@ -1,14 +1,23 @@
 import { requireWorkspaceAccess } from '@/lib/auth/guards';
 import { getActiveShortcutTokens } from '@/lib/services/shortcut';
+import { getAccounts } from '@/lib/services/account';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { deleteShortcutTokenAction } from '@/app/actions/shortcut';
 import { CreateShortcutForm } from './create-form';
-import { Zap, Download, ExternalLink, ShieldCheck, CheckCircle2 } from 'lucide-react';
+import { AccountShortcutsTable } from '@/components/shortcuts/AccountShortcutsTable';
+import { Zap, Download, ExternalLink, ShieldCheck, CheckCircle2, WalletCards } from 'lucide-react';
 
 export default async function ShortcutsPage() {
   const authContext = await requireWorkspaceAccess();
-  const tokens = await getActiveShortcutTokens(authContext.workspaceId);
+  const [tokens, allAccounts] = await Promise.all([
+    getActiveShortcutTokens(authContext.workspaceId),
+    getAccounts(authContext.workspaceId),
+  ]);
+
+  const spendingAccounts = allAccounts.filter(
+    (a) => a.accountType !== 'investment' && a.status === 'active'
+  );
 
   return (
     <div className="max-w-4xl mx-auto py-8 space-y-8">
@@ -60,6 +69,20 @@ export default async function ShortcutsPage() {
             ))}
           </div>
         )}
+      </div>
+
+      {/* Available Spending Accounts */}
+      <div className="space-y-3">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <WalletCards className="w-4 h-4 text-primary" />
+            <h2 className="text-lg font-semibold tracking-tight">Your Accounts (For Shortcuts)</h2>
+          </div>
+          <span className="text-xs text-muted-foreground">Excludes investments</span>
+        </div>
+        <Card className="p-4">
+          <AccountShortcutsTable accounts={spendingAccounts} />
+        </Card>
       </div>
 
       {/* Detailed Setup Instructions */}
@@ -153,7 +176,7 @@ export default async function ShortcutsPage() {
             <div className="space-y-3 w-full">
               <p className="font-semibold text-foreground">Configure Request Body (JSON fields)</p>
               <p className="text-muted-foreground text-xs">
-                Set <strong>Request Body</strong> to <strong>JSON</strong>. Tap <strong>Add new field</strong> for each of the 3 fields below:
+                Set <strong>Request Body</strong> to <strong>JSON</strong>. Tap <strong>Add new field</strong> for the fields below:
               </p>
               <div className="bg-muted/60 p-3 rounded-lg space-y-3 text-xs">
                 {/* Field 1 */}
@@ -181,7 +204,18 @@ export default async function ShortcutsPage() {
                 {/* Field 3 */}
                 <div className="space-y-1 border-t border-border/50 pt-2">
                   <div className="flex items-center gap-2">
-                    <span className="px-1.5 py-0.5 rounded bg-purple-500/10 text-purple-600 dark:text-purple-400 font-bold text-[10px]">Type: Text</span>
+                    <span className="px-1.5 py-0.5 rounded bg-amber-500/10 text-amber-600 dark:text-amber-400 font-bold text-[10px]">Type: Text (Optional)</span>
+                    <strong className="font-mono text-foreground">accountId</strong>
+                  </div>
+                  <p className="text-muted-foreground text-[11px]">
+                    In <strong>Key</strong> enter <code>accountId</code> (or <code>account</code>). In the <strong>Text</strong> field, enter your Account ID or account name from the table above (or select <em>Ask Each Time</em> / <em>Choose from Menu</em>). If omitted, Veltis uses your default active bank account.
+                  </p>
+                </div>
+
+                {/* Field 4 */}
+                <div className="space-y-1 border-t border-border/50 pt-2">
+                  <div className="flex items-center gap-2">
+                    <span className="px-1.5 py-0.5 rounded bg-purple-500/10 text-purple-600 dark:text-purple-400 font-bold text-[10px]">Type: Text (Optional)</span>
                     <strong className="font-mono text-foreground">idempotencyKey</strong>
                   </div>
                   <p className="text-muted-foreground text-[11px]">

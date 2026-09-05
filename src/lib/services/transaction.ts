@@ -1,6 +1,6 @@
 import { db } from '../db';
 import { transaction, transactionLeg } from '../db/schema';
-import { eq } from 'drizzle-orm';
+import { eq, and } from 'drizzle-orm';
 import { InvalidTransactionError } from './errors';
 
 type BaseTransactionParams = {
@@ -422,5 +422,76 @@ export async function createAdjustmentTransaction(
     });
 
     return newTx;
+  });
+}
+
+export async function updateTransaction(params: {
+  transactionId: string;
+  workspaceId: string;
+  description?: string;
+  merchantName?: string;
+  categoryId?: string | null;
+  amountMinor?: bigint;
+  transactionDate?: Date;
+  accountId?: string;
+}) {
+  return await db.transaction(async (tx) => {
+    const existing = await tx.query.transaction.findFirst({
+      where: and(
+        eq(transaction.id, params.transactionId),
+        eq(transaction.workspaceId, params.workspaceId)
+      ),
+    });
+
+    if (!existing) {
+      throw new Error('Transaction not found or unauthorized');
+    }
+
+    const updates: Record<string, unknown> = {
+      updatedAt: new Date(),
+    };
+
+    if (params.description !== undefined) updates.description = params.description;
+    if (params.merchantName !== undefined) updates.merchantName = params.merchantName;
+    if (params.categoryId !== undefined) updates.categoryId = params.categoryId;
+    if (params.transactionDate !== undefined) {
+      updates.transactionDate = params.transactionDate.toISOString().split('T')[0];
+    }
+    if (params.amountMinor !== undefined) {
+      if (params.amountMinor <= 0n) {
+        throw new InvalidTransactionError('Amount must be positive.');
+      }
+      updates.amountMinor = params.amountMinor;
+    }
+
+    const [updated] = await tx
+      .update(transaction)
+      .set(updates)
+      .where(eq(transaction.id, params.transactionId))
+      .returning();
+
+    // If amount changed, update amount on all legs to keep balanced
+    if (params.amountMinor !== undefined) {
+      await tx
+        .update(transactionLeg)
+        .set({ amountMinor: params.amountMinor })
+        .where(eq(transactionLeg.transactionId, params.transactionId));
+    }
+
+    // If account changed, update primary account leg
+    if (params.accountId) {
+      const legs = await tx.query.transactionLeg.findMany({
+        where: eq(transactionLeg.transactionId, params.transactionId),
+      });
+      const accountLeg = legs.find((l) => l.accountId !== null);
+      if (accountLeg) {
+        await tx
+          .update(transactionLeg)
+          .set({ accountId: params.accountId })
+          .where(eq(transactionLeg.id, accountLeg.id));
+      }
+    }
+
+    return updated;
   });
 }

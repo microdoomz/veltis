@@ -6,6 +6,7 @@ import { notFound } from "next/navigation"
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { AccountActionsModal } from "@/components/accounts/AccountActionsModal"
+import { AccountAllocations } from "@/components/accounts/AccountAllocations"
 
 export default async function AccountDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
@@ -19,7 +20,7 @@ export default async function AccountDetailPage({ params }: { params: Promise<{ 
   const transactions = await getAccountTransactions(account.id)
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 max-w-4xl mx-auto pb-20">
       <header className="mb-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
           <div className="flex items-center gap-2 mb-2">
@@ -51,19 +52,14 @@ export default async function AccountDetailPage({ params }: { params: Promise<{ 
         </div>
       </header>
 
-      <Card 
-        className="bg-primary text-primary-foreground border-none relative overflow-hidden"
-        style={{
-          borderTop: account.color ? `6px solid ${account.color}` : undefined,
-        }}
-      >
-        <div className="p-6">
-          <p className="text-primary-foreground/80 font-medium text-sm mb-1">Current Balance</p>
-          <div className="text-4xl font-bold">
-            <Amount valueMinor={account.balanceMinor} currency={account.currency} showSign={false} />
-          </div>
-        </div>
-      </Card>
+      {/* Account Allocations & Set-Aside Money */}
+      {account.accountType !== 'investment' && (
+        <AccountAllocations 
+          accountId={account.id} 
+          currency={account.currency} 
+          totalBalanceMinor={account.balanceMinor} 
+        />
+      )}
 
       <div className="space-y-4">
         <h2 className="text-lg font-semibold tracking-tight">Recent Activity</h2>

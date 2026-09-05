@@ -1,8 +1,10 @@
 import { requireWorkspaceAccess } from "@/lib/auth/guards"
 import { getNetWealth, getAvailableMoney } from "@/lib/ledger/index"
 import { getRecentTransactions, getAccountSummary } from "@/lib/ledger/queries"
+import { getWorkspaceById } from "@/lib/services/workspace"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Amount } from "@/components/ui/amount"
+import { OnboardingBanner } from "@/components/onboarding/OnboardingBanner"
 import { Wallet, CreditCard, Building2, TrendingUp, PiggyBank } from "lucide-react"
 import Link from "next/link"
 import { redirect } from "next/navigation"
@@ -32,11 +34,12 @@ export default async function HomePage() {
   const workspaceId = authContext.workspaceId
 
   // Fetch Core Financial Data concurrently
-  const [netWealth, availableMoney, recentTxns, accounts] = await Promise.all([
+  const [netWealth, availableMoney, recentTxns, accounts, currentWorkspace] = await Promise.all([
     getNetWealth(workspaceId),
     getAvailableMoney(workspaceId),
     getRecentTransactions(workspaceId, 5),
-    getAccountSummary(workspaceId)
+    getAccountSummary(workspaceId),
+    getWorkspaceById(workspaceId),
   ])
 
   // Group accounts for summary
@@ -49,6 +52,11 @@ export default async function HomePage() {
         <h1 className="text-2xl font-bold tracking-tight text-primary">Overview</h1>
         <p className="text-muted-foreground">Here is where you stand financially.</p>
       </header>
+
+      {/* Onboarding Banner for users without accounts */}
+      {accounts.length === 0 && (
+        <OnboardingBanner workspaceName={currentWorkspace?.name} />
+      )}
 
       {/* Hero Balances */}
       <div className="grid gap-4 md:grid-cols-2">

@@ -132,9 +132,10 @@
 | Route | Purpose | Expected Behavior | Auth | Implemented | Tested | Notes |
 | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
 | `/` | Landing page | Product intro, marketing features, demo creds, login/signup CTAs | Public | **IMPLEMENTED** | Yes (Build/Manual) | Shows marketing page if unauthenticated, redirects to `/home` if logged in. |
-| `/login` | User login | Email/password, Google, Apple (disabled) | Public | **IMPLEMENTED** | Yes (E2E & Unit) | Redirects to `/home` if already authenticated. |
-| `/signup` | User registration | New account creation | Public | **IMPLEMENTED** | Yes (E2E) | Creates user and triggers default workspace creation. |
-| `/onboarding` | Workspace setup | Base currency & first account setup | Required | **IMPLEMENTED** | Yes | Submits to `POST /api/accounts` with `updateBaseCurrency: true`. |
+| `/login` | User login | Email/password with show-password toggle, Google, Apple (disabled) | Public | **IMPLEMENTED** | Yes (E2E & Unit) | Redirects to `/home` if already authenticated; redirects `?mode=register` to `/register`. |
+| `/signup` | User registration | New account creation with show & confirm password | Public | **IMPLEMENTED** | Yes (E2E & Unit) | Legacy alias for `/register`; creates user and redirects to `/onboarding`. |
+| `/register` | Dedicated user registration | Full Name, email, password, confirm password, Google auth | Public | **IMPLEMENTED** | Yes (Unit) | Dedicated registration page; password match validation; redirects to `/onboarding`. |
+| `/onboarding` | Workspace setup | Base currency, account type & first account setup | Required | **IMPLEMENTED** | Yes (Unit) | 10 currencies, account types, opening balance, skip option, links to `/home`. |
 | `/forgot-password` | Password reset request | Email form to trigger reset link | Public | **IMPLEMENTED** | Yes | Sends email via Resend. |
 | `/reset-password` | Password reset form | Enter new password via token | Public | **IMPLEMENTED** | Yes | Handled by Better Auth. |
 | `/home` | Financial overview | Total Wealth, Available Money, accounts, recent transactions | Required | **IMPLEMENTED** | Yes (E2E) | Dynamic server component backed by ledger queries. |
@@ -440,6 +441,19 @@ When taking over this project:
 ---
 
 ## 16. Change Log
+
+### 2026-09-05 — Dedicated Register Page, Show/Confirm Password Toggles, and Dashboard Onboarding Banner Sprint
+- **What changed:**
+  1. **Dedicated Registration Route:** Created `src/app/(auth)/register/page.tsx` as a dedicated registration page. Updated `login/page.tsx` to automatically redirect `?mode=register` to `/register`.
+  2. **Password Visibility Toggles:** Implemented `Eye` / `EyeOff` toggles with accessible labels and inset positioning in both `LoginForm.tsx` and `SignupForm.tsx`.
+  3. **Confirm Password & Validation:** Added `confirmPassword` field to `SignupForm.tsx` with independent visibility toggle, password match validation (`password === confirmPassword`), minimum 8-character enforcement, and button loading spinner.
+  4. **Dashboard Onboarding Progress Banner:** Created `src/components/onboarding/OnboardingBanner.tsx` and integrated it into `src/app/(app)/home/page.tsx`. When a user has 0 accounts, the banner displays 50% progress, explains the requirement, and provides direct CTAs to "Continue Onboarding" and "Add Account".
+  5. **Enhanced Onboarding Wizard:** Updated `OnboardingForm.tsx` to support all 10 currencies (`USD`, `EUR`, `GBP`, `INR`, `JPY`, `CAD`, `AUD`, `CHF`, `SGD`, `AED`), account types (Checking, Savings, Cash, Credit Card, Investment), loading spinner, and an optional "Skip setup for now" link.
+  6. **Automated Testing:** Added `tests/components/AuthForms.test.tsx` (6 tests) and `tests/components/OnboardingBanner.test.tsx` (3 tests), and expanded `tests/components/LoginForm.test.tsx` (8 tests). Total test suite now spans 45 test files and 181 tests (100% passing).
+- **Why it changed:** User requested a separate registration page, show password option on login and register, confirm password for registration, and an onboarding progress banner on the dashboard for logged-in users who haven't completed onboarding.
+- **Files affected:** 10 files modified/created.
+- **Tests run:** 45 test suites passed, 181 tests passed (100% pass rate). Production Next.js Turbopack build verified.
+- **Result:** Clear separation between login and registration with show/hide password convenience, strong confirmation validation, and guidance for incomplete onboarding.
 
 ### 2026-09-05 — Settings Profile & Security Features + Instant Prefetch & Streaming Skeletons Sprint
 - **What changed:**

@@ -50,7 +50,7 @@ export default async function RootPage() {
             <Link href="/login">
               <Button variant="ghost" size="sm">Sign In</Button>
             </Link>
-            <Link href="/login">
+            <Link href="/register">
               <Button size="sm">Get Started</Button>
             </Link>
           </div>
@@ -223,7 +223,7 @@ export default async function RootPage() {
           </div>
           <div className="flex items-center gap-6">
             <Link href="/login" className="hover:text-foreground transition-colors">Sign In</Link>
-            <Link href="/login?mode=register" className="hover:text-foreground transition-colors">Register</Link>
+            <Link href="/register" className="hover:text-foreground transition-colors">Register</Link>
             <a href="#features" className="hover:text-foreground transition-colors">Features</a>
           </div>
         </div>

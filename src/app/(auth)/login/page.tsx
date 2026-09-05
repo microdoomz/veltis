@@ -2,7 +2,16 @@ import { LoginForm } from '@/components/auth/LoginForm';
 import { requireUser } from '@/lib/auth/guards';
 import { redirect } from 'next/navigation';
 
-export default async function LoginPage() {
+export default async function LoginPage({
+  searchParams,
+}: {
+  searchParams?: Promise<{ mode?: string }>;
+}) {
+  const resolvedParams = searchParams ? await searchParams : undefined;
+  if (resolvedParams?.mode === 'register') {
+    redirect('/register');
+  }
+
   // If the user is already authenticated, don't let them stay on the login page
   let session = null;
   try {

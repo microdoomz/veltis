@@ -5,10 +5,13 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { authClient } from '@/lib/auth/client';
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
+import { Eye, EyeOff } from 'lucide-react';
 
 export function LoginForm() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const router = useRouter();
@@ -19,6 +22,7 @@ export function LoginForm() {
     router.prefetch?.('/accounts');
     router.prefetch?.('/transactions');
     router.prefetch?.('/settings');
+    router.prefetch?.('/register');
   }, [router]);
 
   const handleEmailLogin = async (e: React.FormEvent) => {
@@ -80,19 +84,38 @@ export function LoginForm() {
           />
         </div>
         <div className="space-y-2">
-          <Input 
-            type="password" 
-            placeholder="Password" 
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            required
-            disabled={loading}
-          />
+          <div className="relative">
+            <Input 
+              type={showPassword ? 'text' : 'password'} 
+              placeholder="Password" 
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              required
+              disabled={loading}
+              className="pr-10"
+            />
+            <button
+              type="button"
+              onClick={() => setShowPassword(!showPassword)}
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors focus:outline-none"
+              aria-label={showPassword ? 'Hide password' : 'Show password'}
+              tabIndex={-1}
+            >
+              {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+            </button>
+          </div>
         </div>
         <Button type="submit" className="w-full" loading={loading}>
           {loading ? 'Signing in...' : 'Sign in with Email'}
         </Button>
       </form>
+
+      <div className="text-center text-sm text-muted-foreground">
+        Don&apos;t have an account?{' '}
+        <Link href="/register" className="text-primary hover:underline font-medium">
+          Create an account
+        </Link>
+      </div>
 
       <div className="relative">
         <div className="absolute inset-0 flex items-center">

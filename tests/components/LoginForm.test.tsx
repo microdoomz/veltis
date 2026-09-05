@@ -100,4 +100,24 @@ describe('LoginForm Component', () => {
     const appleBtn = screen.getByRole('button', { name: /Continue with Apple/i });
     expect(appleBtn.hasAttribute('disabled')).toBe(true);
   });
+
+  it('toggles password visibility when toggle button is clicked', () => {
+    render(<LoginForm />);
+    const passwordInput = screen.getByPlaceholderText('Password');
+    expect(passwordInput.getAttribute('type')).toBe('password');
+
+    const toggleBtn = screen.getByLabelText(/Show password/i);
+    fireEvent.click(toggleBtn);
+    expect(passwordInput.getAttribute('type')).toBe('text');
+
+    const hideBtn = screen.getByLabelText(/Hide password/i);
+    fireEvent.click(hideBtn);
+    expect(passwordInput.getAttribute('type')).toBe('password');
+  });
+
+  it('renders link to registration page', () => {
+    render(<LoginForm />);
+    const registerLink = screen.getByRole('link', { name: /Create an account/i });
+    expect(registerLink.getAttribute('href')).toBe('/register');
+  });
 });

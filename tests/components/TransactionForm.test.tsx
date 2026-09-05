@@ -16,7 +16,8 @@ vi.mock('@/components/sync/SyncProvider', () => ({
 
 const mockPush = vi.fn();
 vi.mock('next/navigation', () => ({
-  useRouter: () => ({ push: mockPush })
+  useRouter: () => ({ push: mockPush, refresh: vi.fn(), prefetch: vi.fn() }),
+  useSearchParams: () => ({ get: () => null }),
 }));
 
 describe('TransactionForm Offline Sync Integration', () => {
@@ -95,5 +96,11 @@ describe('TransactionForm Offline Sync Integration', () => {
         destAccountId: 'acc-2'
       }));
     });
+  });
+
+  it('preselects initialType tab when provided', () => {
+    render(<TransactionForm workspaceId="ws-1" initialType="income" accounts={accounts} categories={categories} />);
+    const saveBtn = screen.getByRole('button', { name: /Save Income/i });
+    expect(saveBtn).toBeDefined();
   });
 });

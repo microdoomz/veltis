@@ -42,7 +42,7 @@ export function QuickAddFab() {
                 className="flex flex-col items-center gap-2 p-3 rounded-xl hover:bg-muted active:bg-muted transition-colors"
               >
                 <div className="bg-danger/10 text-danger p-3 rounded-full">
-                  <ArrowDown className="w-6 h-6" />
+                  <ArrowUp className="w-6 h-6" />
                 </div>
                 <span className="text-xs font-medium">Expense</span>
               </Link>
@@ -52,7 +52,7 @@ export function QuickAddFab() {
                 className="flex flex-col items-center gap-2 p-3 rounded-xl hover:bg-muted active:bg-muted transition-colors"
               >
                 <div className="bg-positive/10 text-positive p-3 rounded-full">
-                  <ArrowUp className="w-6 h-6" />
+                  <ArrowDown className="w-6 h-6" />
                 </div>
                 <span className="text-xs font-medium">Income</span>
               </Link>

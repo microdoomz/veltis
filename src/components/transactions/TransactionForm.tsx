@@ -5,7 +5,7 @@ import { useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Card, CardContent } from "@/components/ui/card"
-import { useRouter } from "next/navigation"
+import { useRouter, useSearchParams } from "next/navigation"
 import { enqueueTransaction, OfflineTransactionPayload } from "@/lib/sync/db"
 import { useSync } from "@/components/sync/SyncProvider"
 
@@ -14,17 +14,31 @@ type Category = { id: string; name: string }
 
 export function TransactionForm({
   workspaceId,
+  initialType = "expense",
   accounts,
   categories
 }: {
   workspaceId: string
+  initialType?: "expense" | "income" | "transfer"
   accounts: Account[]
   categories: Category[]
 }) {
-  const [type, setType] = useState<"expense" | "income" | "transfer">("expense")
+  const searchParams = useSearchParams()
+  const paramType = searchParams?.get("type") as "expense" | "income" | "transfer" | null
+  const defaultType = (paramType === "income" || paramType === "transfer" || paramType === "expense")
+    ? paramType
+    : initialType;
+
+  const [type, setType] = useState<"expense" | "income" | "transfer">(defaultType)
   const [loading, setLoading] = useState(false)
   const router = useRouter()
   const { triggerSync } = useSync()
+
+  React.useEffect(() => {
+    if (paramType === "income" || paramType === "transfer" || paramType === "expense") {
+      setType(paramType)
+    }
+  }, [paramType])
 
   const [errorMsg, setErrorMsg] = useState<string | null>(null)
 

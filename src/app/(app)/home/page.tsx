@@ -66,7 +66,7 @@ export default async function HomePage() {
           </CardHeader>
           <CardContent>
             <div className="text-4xl font-bold">
-              <Amount valueMinor={netWealth} showSign={false} />
+              <Amount valueMinor={netWealth} currency={currentWorkspace?.baseCurrency || 'USD'} showSign={false} />
             </div>
           </CardContent>
         </Card>
@@ -77,7 +77,7 @@ export default async function HomePage() {
           </CardHeader>
           <CardContent>
             <div className="text-4xl font-bold text-foreground">
-              <Amount valueMinor={availableMoney} showSign={false} />
+              <Amount valueMinor={availableMoney} currency={currentWorkspace?.baseCurrency || 'USD'} showSign={false} />
             </div>
           </CardContent>
         </Card>
@@ -89,19 +89,37 @@ export default async function HomePage() {
           <h2 className="text-lg font-semibold tracking-tight">Your Accounts</h2>
           <div className="space-y-3">
             {assetAccounts.map(acc => (
-              <Card key={acc.id}>
+              <Card 
+                key={acc.id}
+                style={{ borderLeft: acc.color ? `4px solid ${acc.color}` : undefined }}
+              >
                 <div className="flex items-center justify-between p-4">
                   <div className="flex items-center gap-3">
-                    <div className="p-2 bg-muted rounded-full">
+                    <div 
+                      className="p-2 rounded-full"
+                      style={{
+                        backgroundColor: acc.color ? `${acc.color}20` : 'var(--muted)',
+                        color: acc.color || 'inherit',
+                      }}
+                    >
                       {getAccountIcon(acc.accountType)}
                     </div>
                     <div>
-                      <p className="font-medium text-sm">{acc.name}</p>
+                      <div className="flex items-center gap-1.5">
+                        <p className="font-medium text-sm">{acc.name}</p>
+                        {acc.color && (
+                          <span 
+                            className="inline-block w-2 h-2 rounded-full" 
+                            style={{ backgroundColor: acc.color }} 
+                            title="Account Color"
+                          />
+                        )}
+                      </div>
                       <p className="text-xs text-muted-foreground capitalize">{acc.accountType.replace('_', ' ')}</p>
                     </div>
                   </div>
                   <div className="text-right">
-                    <Amount valueMinor={acc.balanceMinor} colorize="default" className="font-medium" />
+                    <Amount valueMinor={acc.balanceMinor} currency={acc.currency} colorize="default" className="font-medium" />
                   </div>
                 </div>
               </Card>
@@ -111,20 +129,38 @@ export default async function HomePage() {
               <div className="pt-4 space-y-3">
                 <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">Liabilities</h3>
                 {liabilityAccounts.map(acc => (
-                  <Card key={acc.id} className="border-danger/20">
+                  <Card 
+                    key={acc.id} 
+                    className="border-danger/20"
+                    style={{ borderLeft: acc.color ? `4px solid ${acc.color}` : undefined }}
+                  >
                     <div className="flex items-center justify-between p-4">
                       <div className="flex items-center gap-3">
-                        <div className="p-2 bg-danger/10 rounded-full">
+                        <div 
+                          className="p-2 rounded-full"
+                          style={{
+                            backgroundColor: acc.color ? `${acc.color}20` : 'rgba(239, 68, 68, 0.1)',
+                            color: acc.color || 'inherit',
+                          }}
+                        >
                           {getAccountIcon(acc.accountType)}
                         </div>
                         <div>
-                          <p className="font-medium text-sm">{acc.name}</p>
+                          <div className="flex items-center gap-1.5">
+                            <p className="font-medium text-sm">{acc.name}</p>
+                            {acc.color && (
+                              <span 
+                                className="inline-block w-2 h-2 rounded-full" 
+                                style={{ backgroundColor: acc.color }} 
+                              />
+                            )}
+                          </div>
                           <p className="text-xs text-muted-foreground capitalize">{acc.accountType.replace('_', ' ')}</p>
                         </div>
                       </div>
                       <div className="text-right">
                         {/* Note: Credit cards usually have negative ledger balances representing debt. */}
-                        <Amount valueMinor={acc.balanceMinor} colorize="default" className="font-medium" />
+                        <Amount valueMinor={acc.balanceMinor} currency={acc.currency} colorize="default" className="font-medium" />
                       </div>
                     </div>
                   </Card>

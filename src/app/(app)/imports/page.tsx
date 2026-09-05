@@ -7,7 +7,14 @@ import { Input } from "@/components/ui/input"
 import { uploadImportAction } from "@/app/actions/import"
 import Link from "next/link"
 
-export default async function ImportsPage() {
+import { AlertCircle } from "lucide-react"
+
+export default async function ImportsPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ error?: string }>
+}) {
+  const { error } = await searchParams
   const authContext = await requireWorkspaceAccess()
   
   const [imports, accounts] = await Promise.all([
@@ -19,8 +26,21 @@ export default async function ImportsPage() {
     <div className="space-y-6">
       <header className="mb-6">
         <h1 className="text-2xl font-bold tracking-tight text-primary">Statement Imports</h1>
-        <p className="text-muted-foreground text-sm">Upload CSV files from your bank.</p>
+        <p className="text-muted-foreground text-sm">Upload CSV bank statements to reconcile and import transactions.</p>
       </header>
+
+      {error && (
+        <div className="p-4 bg-destructive/10 border border-destructive/30 rounded-xl text-destructive text-sm flex items-start gap-3">
+          <AlertCircle className="w-5 h-5 flex-shrink-0 mt-0.5" />
+          <div className="space-y-1">
+            <p className="font-semibold">Import Error</p>
+            <p className="text-xs leading-relaxed">{decodeURIComponent(error)}</p>
+            <p className="text-[11px] text-destructive/80 mt-1">
+              Tip: Make sure your CSV has column headers for <strong>Date</strong> (e.g. YYYY-MM-DD or DD/MM/YYYY) and <strong>Amount</strong> (or Debit and Credit).
+            </p>
+          </div>
+        </div>
+      )}
 
       <Card className="p-6 mb-8">
         <h2 className="text-lg font-semibold mb-4">New Import</h2>

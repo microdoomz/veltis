@@ -2,7 +2,9 @@
 
 import React, { useCallback, useEffect, useState } from 'react';
 import { InvestmentActions } from './InvestmentActions';
-import { RefreshCw, TrendingUp, AlertTriangle } from 'lucide-react';
+import { RefreshCw, TrendingUp, AlertTriangle, Plus } from 'lucide-react';
+import { useCurrency } from '@/components/layout/CurrencyProvider';
+import Link from 'next/link';
 
 interface InvestmentAccount {
   id: string;
@@ -88,8 +90,8 @@ export function InvestmentDashboard({ workspaceId }: { workspaceId: string }) {
   const totalGainMinor = totalCurrentValueMinor - totalInvestedMinor;
   const isPositive = totalGainMinor >= 0n;
 
-  // For simplicity, we just use the first account's currency or USD
-  const baseCurrency = accounts[0]?.currency || 'USD';
+  const { baseCurrency: workspaceCurrency } = useCurrency();
+  const baseCurrency = accounts[0]?.currency || workspaceCurrency || 'USD';
 
   return (
     <div className="space-y-6">
@@ -131,15 +133,31 @@ export function InvestmentDashboard({ workspaceId }: { workspaceId: string }) {
         </div>
       </div>
 
-      <InvestmentActions workspaceId={workspaceId} accounts={accounts} positions={positions} onUpdate={fetchInvestments} />
+      <div className="flex items-center justify-between">
+        <InvestmentActions workspaceId={workspaceId} accounts={accounts} positions={positions} onUpdate={fetchInvestments} />
+        <Link 
+          href="/accounts/new" 
+          className="inline-flex items-center px-4 py-2 bg-primary text-primary-foreground text-sm font-medium rounded-lg hover:opacity-90 transition-opacity"
+        >
+          <Plus className="w-4 h-4 mr-1.5" />
+          Add Investment
+        </Link>
+      </div>
 
       {/* Holdings */}
       <h2 className="text-lg font-semibold text-slate-900 dark:text-white mt-8 mb-4">Holdings</h2>
       
       {positions.length === 0 ? (
-        <div className="text-center p-8 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl">
-          <TrendingUp className="w-10 h-10 mx-auto text-slate-300 dark:text-slate-600 mb-3" />
+        <div className="text-center p-8 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl space-y-3">
+          <TrendingUp className="w-10 h-10 mx-auto text-slate-300 dark:text-slate-600" />
           <p className="text-slate-500 dark:text-slate-400">No investment positions found.</p>
+          <Link 
+            href="/accounts/new"
+            className="inline-flex items-center text-sm font-semibold text-primary hover:underline"
+          >
+            <Plus className="w-4 h-4 mr-1" />
+            Add your first mutual fund or investment
+          </Link>
         </div>
       ) : (
         <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl overflow-hidden">

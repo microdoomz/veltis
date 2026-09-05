@@ -2,6 +2,7 @@
 import * as React from "react"
 import { cn } from "@/lib/utils"
 import { PrivacyContext } from "@/components/layout/PrivacyProvider"
+import { useCurrency } from "@/components/layout/CurrencyProvider"
 import { motion, AnimatePresence } from "framer-motion"
 
 interface AmountProps extends React.HTMLAttributes<HTMLSpanElement> {
@@ -36,11 +37,13 @@ export function formatMoney(valueMinor: bigint, currency: string = "USD") {
 }
 
 export const Amount = React.forwardRef<HTMLSpanElement, AmountProps>(
-  ({ valueMinor, currency = "USD", showSign = false, colorize = "none", className, ...props }, ref) => {
+  ({ valueMinor, currency, showSign = false, colorize = "none", className, ...props }, ref) => {
     // Some instances might render Amount in environments without PrivacyProvider (e.g. static pages if any), 
     // but the app is fully wrapped in the provider.
     const privacyContext = React.useContext(PrivacyContext) || { isPrivacyModeEnabled: false, isRevealed: false };
     const { isPrivacyModeEnabled, isRevealed } = privacyContext;
+    const { baseCurrency } = useCurrency();
+    const effectiveCurrency = currency || baseCurrency || "USD";
     const isNegative = valueMinor < 0n;
     const isPositive = valueMinor > 0n;
     const isZero = valueMinor === 0n;
@@ -51,7 +54,7 @@ export const Amount = React.forwardRef<HTMLSpanElement, AmountProps>(
     let formatted = "••••••";
 
     if (!isPrivacyModeEnabled || isRevealed) {
-      formatted = formatMoney(absValueMinor, currency);
+      formatted = formatMoney(absValueMinor, effectiveCurrency);
       
       // Add explicit plus/minus sign if requested
       if (showSign) {
@@ -59,7 +62,7 @@ export const Amount = React.forwardRef<HTMLSpanElement, AmountProps>(
         if (isPositive) formatted = "+" + formatted;
       } else if (isNegative) {
          // Just native negative representation (usually handles it nicely, but Intl often puts `-₹` instead of `₹-`)
-         formatted = formatMoney(valueMinor, currency);
+         formatted = formatMoney(valueMinor, effectiveCurrency);
       }
     }
 

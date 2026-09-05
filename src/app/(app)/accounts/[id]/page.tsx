@@ -5,6 +5,7 @@ import { Amount } from "@/components/ui/amount"
 import { notFound } from "next/navigation"
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
+import { AccountActionsModal } from "@/components/accounts/AccountActionsModal"
 
 export default async function AccountDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
@@ -19,30 +20,47 @@ export default async function AccountDetailPage({ params }: { params: Promise<{ 
 
   return (
     <div className="space-y-6">
-      <header className="mb-6 flex items-center justify-between">
+      <header className="mb-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
           <div className="flex items-center gap-2 mb-2">
             <Link href="/accounts" className="text-muted-foreground text-sm hover:text-foreground hover:underline">
               &larr; Back to Accounts
             </Link>
           </div>
-          <h1 className="text-2xl font-bold tracking-tight text-primary">{account.name}</h1>
-          <p className="text-muted-foreground capitalize">{account.accountType.replace('_', ' ')}</p>
+          <div className="flex items-center gap-3">
+            <h1 className="text-2xl font-bold tracking-tight text-primary">{account.name}</h1>
+            {account.color && (
+              <span 
+                className="w-3.5 h-3.5 rounded-full ring-2 ring-background inline-block" 
+                style={{ backgroundColor: account.color }}
+                title="Account Accent Color"
+              />
+            )}
+          </div>
+          <p className="text-muted-foreground capitalize">
+            {account.accountType.replace('_', ' ')} &bull; {account.institutionName || 'Manual Account'}
+          </p>
         </div>
-        <div>
+        <div className="flex items-center gap-2 flex-wrap">
+          <AccountActionsModal account={account} />
           <Link href={`/accounts/${account.id}/reconcile`}>
-            <Button variant="outline">
+            <Button variant="outline" size="sm">
               Reconcile Account
             </Button>
           </Link>
         </div>
       </header>
 
-      <Card className="bg-primary text-primary-foreground border-none">
+      <Card 
+        className="bg-primary text-primary-foreground border-none relative overflow-hidden"
+        style={{
+          borderTop: account.color ? `6px solid ${account.color}` : undefined,
+        }}
+      >
         <div className="p-6">
           <p className="text-primary-foreground/80 font-medium text-sm mb-1">Current Balance</p>
           <div className="text-4xl font-bold">
-            <Amount valueMinor={account.balanceMinor} showSign={false} />
+            <Amount valueMinor={account.balanceMinor} currency={account.currency} showSign={false} />
           </div>
         </div>
       </Card>
@@ -76,6 +94,7 @@ export default async function AccountDetailPage({ params }: { params: Promise<{ 
                     {/* If this is an expense, we show it as negative, unless it's a transfer leaving the account */}
                     <Amount 
                       valueMinor={txn.transactionType === 'expense' || txn.transactionType === 'credit_card_purchase' ? -txn.amountMinor : txn.amountMinor} 
+                      currency={txn.currency || account.currency}
                       colorize="inverted" 
                       showSign={true}
                       className="font-medium" 

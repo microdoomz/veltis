@@ -72,3 +72,66 @@ export async function getAccountById(workspaceId: string, accountId: string) {
 
   return acc;
 }
+
+export const updateAccountSchema = z.object({
+  name: z.string().min(1, 'Account name is required').optional(),
+  accountType: z.enum(['bank', 'cash_wallet', 'digital_wallet', 'investment', 'credit_card']).optional(),
+  institutionName: z.string().optional().nullable(),
+  currency: z.string().length(3).optional(),
+  color: z.string().optional().nullable(),
+  iconKey: z.string().optional().nullable(),
+});
+
+export async function updateAccount(
+  workspaceId: string,
+  accountId: string,
+  data: z.infer<typeof updateAccountSchema>
+) {
+  const existing = await getAccountById(workspaceId, accountId);
+  if (!existing) {
+    throw new NotFoundError('Account not found');
+  }
+
+  const updateFields: Record<string, unknown> = {
+    updatedAt: new Date(),
+  };
+
+  if (data.name !== undefined) updateFields.name = data.name.trim();
+  if (data.accountType !== undefined) updateFields.accountType = data.accountType;
+  if (data.institutionName !== undefined) updateFields.institutionName = data.institutionName?.trim() || null;
+  if (data.currency !== undefined) updateFields.currency = data.currency.trim().toUpperCase();
+  if (data.color !== undefined) updateFields.color = data.color;
+  if (data.iconKey !== undefined) updateFields.iconKey = data.iconKey;
+
+  const [updated] = await db.update(financialAccount)
+    .set(updateFields)
+    .where(and(
+      eq(financialAccount.id, accountId),
+      eq(financialAccount.workspaceId, workspaceId)
+    ))
+    .returning();
+
+  return updated;
+}
+
+export async function deleteAccount(workspaceId: string, accountId: string) {
+  const existing = await getAccountById(workspaceId, accountId);
+  if (!existing) {
+    throw new NotFoundError('Account not found');
+  }
+
+  // Soft-delete account by marking archived & recording deletedAt
+  const [archived] = await db.update(financialAccount)
+    .set({
+      status: 'archived',
+      deletedAt: new Date(),
+      updatedAt: new Date(),
+    })
+    .where(and(
+      eq(financialAccount.id, accountId),
+      eq(financialAccount.workspaceId, workspaceId)
+    ))
+    .returning();
+
+  return archived;
+}

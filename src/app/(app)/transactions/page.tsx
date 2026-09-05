@@ -67,6 +67,7 @@ export default async function TransactionsPage(
                     <div className="md:hidden text-right flex flex-col items-end">
                       <Amount 
                         valueMinor={txn.transactionType === 'expense' || txn.transactionType === 'credit_card_purchase' ? -txn.amountMinor : txn.amountMinor} 
+                        currency={txn.currency}
                         colorize="inverted" 
                         showSign={true}
                         className="font-medium" 
@@ -108,6 +109,7 @@ export default async function TransactionsPage(
                   <div className="hidden md:flex flex-col items-end justify-center text-right">
                     <Amount 
                       valueMinor={txn.transactionType === 'expense' || txn.transactionType === 'credit_card_purchase' ? -txn.amountMinor : txn.amountMinor} 
+                      currency={txn.currency}
                       colorize="inverted" 
                       showSign={true}
                       className="font-medium text-sm" 

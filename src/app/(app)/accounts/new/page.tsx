@@ -1,11 +1,24 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Building2, CreditCard, Wallet, TrendingUp, PiggyBank, ArrowLeft, Check } from 'lucide-react';
+import { useCurrency } from '@/components/layout/CurrencyProvider';
+import { 
+  Building2, 
+  CreditCard, 
+  Wallet, 
+  TrendingUp, 
+  PiggyBank, 
+  ArrowLeft, 
+  Check, 
+  Search, 
+  Sparkles, 
+  RefreshCw,
+  Repeat
+} from 'lucide-react';
 import Link from 'next/link';
 
 const accountTypes = [
@@ -13,7 +26,7 @@ const accountTypes = [
   { id: 'credit_card', label: 'Credit Card', description: 'Revolving credit facilities', icon: CreditCard },
   { id: 'digital_wallet', label: 'Digital Wallet', description: 'PayPal, Apple Cash, etc.', icon: Wallet },
   { id: 'cash_wallet', label: 'Cash Wallet', description: 'Physical cash on hand', icon: PiggyBank },
-  { id: 'investment', label: 'Investment', description: 'Brokerage and trading accounts', icon: TrendingUp },
+  { id: 'investment', label: 'Investment', description: 'Mutual funds, SIPs, stocks & ETFs', icon: TrendingUp },
 ] as const;
 
 const colorOptions = [
@@ -28,19 +41,77 @@ const colorOptions = [
 
 export default function NewAccountPage() {
   const router = useRouter();
+  const { baseCurrency } = useCurrency();
+
   const [accountType, setAccountType] = useState<'bank' | 'cash_wallet' | 'digital_wallet' | 'investment' | 'credit_card'>('bank');
   const [name, setName] = useState('');
   const [institutionName, setInstitutionName] = useState('');
-  const [currency, setCurrency] = useState('USD');
+  const [currency, setCurrency] = useState(baseCurrency || 'USD');
   const [openingBalance, setOpeningBalance] = useState('');
   const [color, setColor] = useState(colorOptions[0].value);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  // Investment specific state
+  const [sipMonthlyAmount, setSipMonthlyAmount] = useState('');
+  const [livePrice, setLivePrice] = useState<number | null>(null);
+  const [liveSymbol, setLiveSymbol] = useState<string | null>(null);
+  const [livePriceDate, setLivePriceDate] = useState<string | null>(null);
+  const [isFetchingQuote, setIsFetchingQuote] = useState(false);
+  const [quoteNotice, setQuoteNotice] = useState<string | null>(null);
+  const [matches, setMatches] = useState<Array<{ name: string; symbol: string }>>([]);
+
+  // Sync currency with workspace baseCurrency once loaded if user hasn't changed it
+  useEffect(() => {
+    if (baseCurrency) {
+      setCurrency(baseCurrency);
+    }
+  }, [baseCurrency]);
+
+  const handleFetchQuote = async (fundNameQuery?: string) => {
+    const q = fundNameQuery || name;
+    if (!q.trim()) return;
+
+    setIsFetchingQuote(true);
+    setQuoteNotice(null);
+
+    try {
+      const res = await fetch(`/api/investments/quote?query=${encodeURIComponent(q.trim())}`);
+      const data = await res.json();
+
+      if (data.found && data.currentPrice) {
+        setLivePrice(data.currentPrice);
+        setLiveSymbol(data.symbol || null);
+        setLivePriceDate(data.date || null);
+        if (data.currency) setCurrency(data.currency);
+        if (data.name && !fundNameQuery) setName(data.name);
+        setQuoteNotice(`Latest NAV verified: ${data.currency || currency} ${data.currentPrice} (${data.date || 'Today'})`);
+        if (data.allMatches) {
+          setMatches(data.allMatches);
+        }
+      } else {
+        setQuoteNotice(data.message || 'Could not fetch live NAV automatically. You can proceed with manual tracking.');
+      }
+    } catch {
+      setQuoteNotice('Could not connect to live market data. Proceeding with manual invested balance.');
+    } finally {
+      setIsFetchingQuote(false);
+    }
+  };
+
+  const isInvestment = accountType === 'investment';
+
+  // Calculated investment metrics
+  const totalInvestedNum = parseFloat(openingBalance) || 0;
+  const currentNav = livePrice || 0;
+  const calculatedUnits = currentNav > 0 && totalInvestedNum > 0 ? (totalInvestedNum / currentNav) : 0;
+  const estimatedCurrentValue = currentNav > 0 && calculatedUnits > 0 ? calculatedUnits * currentNav : totalInvestedNum;
+  const estimatedGain = estimatedCurrentValue - totalInvestedNum;
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!name.trim()) {
-      setError('Account name is required');
+      setError(isInvestment ? 'Mutual fund full name is required' : 'Account name is required');
       return;
     }
 
@@ -48,17 +119,28 @@ export default function NewAccountPage() {
     setError(null);
 
     try {
+      const payload: Record<string, unknown> = {
+        name: name.trim(),
+        accountType,
+        institutionName: institutionName.trim() || undefined,
+        currency,
+        balance: totalInvestedNum,
+        color,
+      };
+
+      if (isInvestment) {
+        payload.symbol = liveSymbol || undefined;
+        payload.currentPrice = currentNav > 0 ? currentNav : undefined;
+        payload.units = calculatedUnits > 0 ? calculatedUnits.toFixed(4) : undefined;
+        if (parseFloat(sipMonthlyAmount) > 0) {
+          payload.sipMonthlyAmount = parseFloat(sipMonthlyAmount);
+        }
+      }
+
       const res = await fetch('/api/accounts', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          name: name.trim(),
-          accountType,
-          institutionName: institutionName.trim() || undefined,
-          currency,
-          balance: parseFloat(openingBalance) || 0,
-          color,
-        }),
+        body: JSON.stringify(payload),
       });
 
       if (!res.ok) {
@@ -85,15 +167,23 @@ export default function NewAccountPage() {
         </Link>
         <div>
           <h1 className="text-2xl font-bold tracking-tight text-primary">New Account</h1>
-          <p className="text-sm text-muted-foreground">Add a financial account to track your wealth.</p>
+          <p className="text-sm text-muted-foreground">
+            {isInvestment 
+              ? 'Add a mutual fund holding to track total wealth, live NAV, and monthly SIPs.' 
+              : 'Add a financial account to track your money and net wealth.'}
+          </p>
         </div>
       </div>
 
       <form onSubmit={handleSubmit}>
         <Card>
           <CardHeader>
-            <CardTitle>Account Details</CardTitle>
-            <CardDescription>Select an account type and enter initial balance details.</CardDescription>
+            <CardTitle>{isInvestment ? 'Investment Details' : 'Account Details'}</CardTitle>
+            <CardDescription>
+              {isInvestment
+                ? 'Specify the mutual fund name, currency, total invested amount, and monthly SIP commitment.'
+                : 'Select an account type and enter initial balance details.'}
+            </CardDescription>
           </CardHeader>
           <CardContent className="space-y-6">
             {error && (
@@ -113,7 +203,10 @@ export default function NewAccountPage() {
                     <button
                       key={t.id}
                       type="button"
-                      onClick={() => setAccountType(t.id)}
+                      onClick={() => {
+                        setAccountType(t.id);
+                        setError(null);
+                      }}
                       className={`flex items-start gap-3 p-3 rounded-lg border text-left transition-all ${
                         isSelected
                           ? 'border-primary bg-primary/5 ring-1 ring-primary'
@@ -133,62 +226,232 @@ export default function NewAccountPage() {
               </div>
             </div>
 
-            {/* Account Name */}
-            <div className="space-y-2">
-              <label className="text-sm font-medium">Account Name *</label>
-              <Input
-                placeholder="e.g. Main Checking, Savings, Chase Sapphire"
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                required
-              />
-            </div>
+            {/* DYNAMIC FORM FIELDS */}
+            {isInvestment ? (
+              /* INVESTMENT SPECIFIC FIELDS */
+              <div className="space-y-5 border-t border-border pt-5">
+                {/* Fund Name & Live Lookup */}
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <label className="text-sm font-medium">Mutual Fund Full Name *</label>
+                    <button
+                      type="button"
+                      onClick={() => handleFetchQuote()}
+                      disabled={isFetchingQuote || !name.trim()}
+                      className="text-xs font-semibold text-primary hover:underline flex items-center gap-1 disabled:opacity-50"
+                    >
+                      {isFetchingQuote ? (
+                        <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                      ) : (
+                        <Search className="w-3.5 h-3.5" />
+                      )}
+                      Fetch Live NAV
+                    </button>
+                  </div>
+                  <div className="relative">
+                    <Input
+                      placeholder="e.g. Parag Parikh Flexi Cap Fund - Direct Plan - Growth"
+                      value={name}
+                      onChange={(e) => setName(e.target.value)}
+                      onBlur={() => {
+                        if (name.trim().length > 3 && !livePrice) {
+                          handleFetchQuote();
+                        }
+                      }}
+                      required
+                    />
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    Please enter the official full name of the mutual fund or ETF.
+                  </p>
 
-            {/* Institution Name */}
-            <div className="space-y-2">
-              <label className="text-sm font-medium">Financial Institution</label>
-              <Input
-                placeholder="e.g. Chase, Bank of America, HDFC, Revolut"
-                value={institutionName}
-                onChange={(e) => setInstitutionName(e.target.value)}
-              />
-            </div>
+                  {/* Search Matches dropdown suggestions */}
+                  {matches.length > 0 && (
+                    <div className="bg-card border border-border rounded-lg p-2 space-y-1 shadow-sm mt-1">
+                      <p className="text-[11px] font-semibold text-muted-foreground uppercase px-2">Suggestions:</p>
+                      {matches.map((m) => (
+                        <button
+                          key={m.symbol}
+                          type="button"
+                          onClick={() => {
+                            setName(m.name);
+                            setMatches([]);
+                            handleFetchQuote(m.name);
+                          }}
+                          className="w-full text-left px-2 py-1.5 rounded hover:bg-muted text-xs text-foreground flex items-center justify-between"
+                        >
+                          <span className="truncate">{m.name}</span>
+                          <span className="text-[10px] text-muted-foreground ml-2">Select</span>
+                        </button>
+                      ))}
+                    </div>
+                  )}
 
-            {/* Currency & Opening Balance */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <label className="text-sm font-medium">Currency</label>
-                <select
-                  value={currency}
-                  onChange={(e) => setCurrency(e.target.value)}
-                  className="flex h-10 w-full items-center justify-between rounded-md border border-border bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
-                >
-                  <option value="USD">USD ($)</option>
-                  <option value="EUR">EUR (€)</option>
-                  <option value="GBP">GBP (£)</option>
-                  <option value="INR">INR (₹)</option>
-                  <option value="JPY">JPY (¥)</option>
-                  <option value="CAD">CAD ($)</option>
-                  <option value="AUD">AUD ($)</option>
-                  <option value="SGD">SGD ($)</option>
-                </select>
+                  {quoteNotice && (
+                    <p className="text-xs font-medium text-teal-600 dark:text-teal-400 flex items-center gap-1.5 mt-1">
+                      <Sparkles className="w-3.5 h-3.5 flex-shrink-0" />
+                      {quoteNotice}
+                    </p>
+                  )}
+                </div>
+
+                {/* Currency & Total Invested */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium">Currency</label>
+                    <select
+                      value={currency}
+                      onChange={(e) => setCurrency(e.target.value)}
+                      className="flex h-10 w-full items-center justify-between rounded-md border border-border bg-background px-3 py-2 text-sm"
+                    >
+                      <option value="INR">INR (₹)</option>
+                      <option value="USD">USD ($)</option>
+                      <option value="EUR">EUR (€)</option>
+                      <option value="GBP">GBP (£)</option>
+                      <option value="JPY">JPY (¥)</option>
+                      <option value="CAD">CAD ($)</option>
+                      <option value="AUD">AUD ($)</option>
+                      <option value="SGD">SGD ($)</option>
+                    </select>
+                  </div>
+
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium">Total Invested Amount *</label>
+                    <Input
+                      type="number"
+                      step="0.01"
+                      placeholder="e.g. 50000"
+                      value={openingBalance}
+                      onChange={(e) => setOpeningBalance(e.target.value)}
+                      required
+                    />
+                    <p className="text-xs text-muted-foreground">Total money you have invested so far</p>
+                  </div>
+                </div>
+
+                {/* Monthly SIP Amount */}
+                <div className="space-y-2">
+                  <div className="flex items-center gap-1.5">
+                    <Repeat className="w-4 h-4 text-primary" />
+                    <label className="text-sm font-medium">SIP Each Month</label>
+                  </div>
+                  <Input
+                    type="number"
+                    step="0.01"
+                    placeholder="e.g. 5000 (Optional)"
+                    value={sipMonthlyAmount}
+                    onChange={(e) => setSipMonthlyAmount(e.target.value)}
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    If you have a recurring monthly SIP, enter the monthly instalment amount.
+                  </p>
+                </div>
+
+                {/* Live Valuation & Position Summary Card */}
+                {totalInvestedNum > 0 && (
+                  <div className="p-4 bg-muted/40 border border-border rounded-xl space-y-3">
+                    <div className="flex items-center justify-between text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                      <span>Investment Overview & Market Value</span>
+                      {livePriceDate && <span>NAV Date: {livePriceDate}</span>}
+                    </div>
+
+                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 pt-1">
+                      <div>
+                        <p className="text-xs text-muted-foreground">Invested Amount</p>
+                        <p className="text-base font-bold text-foreground font-mono">
+                          {currency} {totalInvestedNum.toLocaleString()}
+                        </p>
+                      </div>
+
+                      <div>
+                        <p className="text-xs text-muted-foreground">Current NAV / Price</p>
+                        <p className="text-base font-bold text-primary font-mono">
+                          {currentNav > 0 ? `${currency} ${currentNav}` : 'Tracking at cost'}
+                        </p>
+                      </div>
+
+                      <div>
+                        <p className="text-xs text-muted-foreground">Est. Current Value</p>
+                        <p className="text-base font-bold text-emerald-600 dark:text-emerald-400 font-mono">
+                          {currency} {estimatedCurrentValue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                        </p>
+                      </div>
+                    </div>
+
+                    {currentNav > 0 && calculatedUnits > 0 && (
+                      <div className="text-xs text-muted-foreground pt-1 border-t border-border/50 flex justify-between">
+                        <span>Calculated Units: <strong className="text-foreground">{calculatedUnits.toFixed(4)}</strong></span>
+                        {estimatedGain !== 0 && (
+                          <span className={estimatedGain >= 0 ? 'text-emerald-600 font-medium' : 'text-rose-600 font-medium'}>
+                            {estimatedGain >= 0 ? `+${currency} ${estimatedGain.toFixed(2)}` : `-${currency} ${Math.abs(estimatedGain).toFixed(2)}`}
+                          </span>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
+            ) : (
+              /* STANDARD ACCOUNT FIELDS (Bank, Card, Wallet) */
+              <div className="space-y-4">
+                {/* Account Name */}
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">Account Name *</label>
+                  <Input
+                    placeholder="e.g. Main Checking, Savings, Chase Sapphire"
+                    value={name}
+                    onChange={(e) => setName(e.target.value)}
+                    required
+                  />
+                </div>
 
-              <div className="space-y-2">
-                <label className="text-sm font-medium">Opening Balance</label>
-                <Input
-                  type="number"
-                  step="0.01"
-                  placeholder="0.00"
-                  value={openingBalance}
-                  onChange={(e) => setOpeningBalance(e.target.value)}
-                />
-                <p className="text-xs text-muted-foreground">Initial balance on this account</p>
+                {/* Institution Name */}
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">Financial Institution</label>
+                  <Input
+                    placeholder="e.g. Chase, Bank of America, HDFC, Revolut"
+                    value={institutionName}
+                    onChange={(e) => setInstitutionName(e.target.value)}
+                  />
+                </div>
+
+                {/* Currency & Opening Balance */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium">Currency</label>
+                    <select
+                      value={currency}
+                      onChange={(e) => setCurrency(e.target.value)}
+                      className="flex h-10 w-full items-center justify-between rounded-md border border-border bg-background px-3 py-2 text-sm"
+                    >
+                      <option value="USD">USD ($)</option>
+                      <option value="EUR">EUR (€)</option>
+                      <option value="GBP">GBP (£)</option>
+                      <option value="INR">INR (₹)</option>
+                      <option value="JPY">JPY (¥)</option>
+                      <option value="CAD">CAD ($)</option>
+                      <option value="AUD">AUD ($)</option>
+                      <option value="SGD">SGD ($)</option>
+                    </select>
+                  </div>
+
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium">Opening Balance</label>
+                    <Input
+                      type="number"
+                      step="0.01"
+                      placeholder="0.00"
+                      value={openingBalance}
+                      onChange={(e) => setOpeningBalance(e.target.value)}
+                    />
+                    <p className="text-xs text-muted-foreground">Initial balance on this account</p>
+                  </div>
+                </div>
               </div>
-            </div>
+            )}
 
-            {/* Color Theme */}
-            <div className="space-y-2">
+            {/* Color Theme (Shared across all account types) */}
+            <div className="space-y-2 border-t border-border pt-4">
               <label className="text-sm font-medium">Account Color Theme</label>
               <div className="flex items-center gap-3 pt-1">
                 {colorOptions.map((c) => (
@@ -213,7 +476,7 @@ export default function NewAccountPage() {
               <Button type="button" variant="outline">Cancel</Button>
             </Link>
             <Button type="submit" disabled={loading}>
-              {loading ? 'Creating...' : 'Create Account'}
+              {loading ? 'Creating...' : isInvestment ? 'Add Investment' : 'Create Account'}
             </Button>
           </CardFooter>
         </Card>

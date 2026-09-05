@@ -12,24 +12,33 @@ export async function uploadImportAction(workspaceId: string, formData: FormData
   const file = formData.get("file") as File
   const accountId = formData.get("accountId") as string
 
-  if (!file || !accountId) throw new Error("File and Account ID required")
+  if (!file || !accountId || !file.name) {
+    redirect(`/imports?error=${encodeURIComponent('Please select both an account and a CSV file.')}`)
+  }
 
-  const rateLimit = await checkRateLimit(`import:user:${authContext.session.user.id}`, 5, 60)
-  if (!rateLimit.success) throw new Error("Rate limit exceeded. Please try again later.")
+  const rateLimit = await checkRateLimit(`import:user:${authContext.session.user.id}`, 10, 60)
+  if (!rateLimit.success) {
+    redirect(`/imports?error=${encodeURIComponent('Rate limit exceeded. Please wait a moment before trying again.')}`)
+  }
 
-
-  const text = await file.text()
-  
-  const importRecord = await processCsvImport(
-    text,
-    file.name,
-    authContext.workspaceId,
-    accountId,
-    authContext.session.user.id
-  )
+  let importId: string
+  try {
+    const text = await file.text()
+    const importRecord = await processCsvImport(
+      text,
+      file.name,
+      authContext.workspaceId,
+      accountId,
+      authContext.session.user.id
+    )
+    importId = importRecord.id
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : 'Failed to parse CSV statement'
+    redirect(`/imports?error=${encodeURIComponent(message)}`)
+  }
 
   revalidatePath("/imports")
-  redirect(`/imports/${importRecord.id}`)
+  redirect(`/imports/${importId}`)
 }
 
 export async function reviewRowAction(workspaceId: string, formData: FormData) {

@@ -43,8 +43,8 @@ export default async function BudgetsPage() {
 
             <div>
               <div className="flex justify-between text-sm mb-1">
-                <span>Spent: <Amount valueMinor={budget.spentMinor} colorize="none" /></span>
-                <span className="text-muted-foreground">Total: <Amount valueMinor={budget.amountMinor} colorize="none" /></span>
+                <span>Spent: <Amount valueMinor={budget.spentMinor} currency={budget.currency} colorize="none" /></span>
+                <span className="text-muted-foreground">Total: <Amount valueMinor={budget.amountMinor} currency={budget.currency} colorize="none" /></span>
               </div>
               <div className="h-2 bg-muted rounded-full overflow-hidden">
                 <div 
@@ -53,7 +53,7 @@ export default async function BudgetsPage() {
                 />
               </div>
               <div className="text-xs text-right mt-1 text-muted-foreground">
-                <Amount valueMinor={budget.remainingMinor} colorize="none" /> remaining
+                <Amount valueMinor={budget.remainingMinor} currency={budget.currency} colorize="none" /> remaining
               </div>
             </div>
           </Card>

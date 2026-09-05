@@ -54,20 +54,38 @@ export default async function AccountsPage() {
               {accs.map(acc => (
                 <ListItem key={acc.id}>
                   <Link href={`/accounts/${acc.id}`} className="block h-full">
-                    <Card className="h-full elevation-low hover:elevation-medium hover:border-primary/50 transition-all cursor-pointer">
+                    <Card 
+                      className="h-full elevation-low hover:elevation-medium hover:border-primary/50 transition-all cursor-pointer overflow-hidden"
+                      style={{ borderLeft: acc.color ? `4px solid ${acc.color}` : undefined }}
+                    >
                       <div className="p-4 flex flex-col justify-between h-full gap-4">
                         <div className="flex items-center gap-3">
-                          <div className="p-2 bg-muted rounded-full">
+                          <div 
+                            className="p-2 rounded-full"
+                            style={{
+                              backgroundColor: acc.color ? `${acc.color}20` : 'var(--muted)',
+                              color: acc.color || 'inherit',
+                            }}
+                          >
                             {getAccountIcon(acc.accountType)}
                           </div>
                           <div>
-                            <p className="font-medium text-sm">{acc.name}</p>
+                            <div className="flex items-center gap-1.5">
+                              <p className="font-medium text-sm">{acc.name}</p>
+                              {acc.color && (
+                                <span 
+                                  className="inline-block w-2.5 h-2.5 rounded-full ring-1 ring-background" 
+                                  style={{ backgroundColor: acc.color }} 
+                                  title="Accent Color"
+                                />
+                              )}
+                            </div>
                             <p className="text-xs text-muted-foreground">{acc.institutionName || 'Manual Account'}</p>
                           </div>
                         </div>
                         <div className="flex justify-between items-end">
                           <span className="text-xs text-muted-foreground">Balance</span>
-                          <Amount valueMinor={acc.balanceMinor} className="font-semibold text-lg" colorize="default" />
+                          <Amount valueMinor={acc.balanceMinor} currency={acc.currency} className="font-semibold text-lg" colorize="default" />
                         </div>
                       </div>
                     </Card>

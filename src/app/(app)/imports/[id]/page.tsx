@@ -36,7 +36,7 @@ export default async function ImportReviewPage({ params }: { params: Promise<{ i
                   <p className="text-xs text-destructive font-semibold uppercase mt-1">Possible Duplicate</p>
                 )}
               </div>
-              <Amount valueMinor={row.direction === 'debit' ? -row.amountMinor : row.amountMinor} colorize="inverted" showSign={true} />
+              <Amount valueMinor={row.direction === 'debit' ? -row.amountMinor : row.amountMinor} currency={row.currency} colorize="inverted" showSign={true} />
             </div>
 
             {row.reviewStatus === 'pending' ? (

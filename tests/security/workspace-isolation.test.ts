@@ -16,9 +16,7 @@ vi.mock('@/lib/auth/auth', () => ({
 vi.mock('next/headers', () => ({
   headers: vi.fn(() => new Headers())
 }));
-
-import { auth } from '@/lib/auth/auth';
-
+import { auth } from '../../src/lib/auth/auth';
 describe('Workspace Isolation & Strict Access Control', () => {
   let userA: string;
   let userB: string;

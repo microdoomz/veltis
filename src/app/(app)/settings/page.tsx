@@ -5,6 +5,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { TaxonomyManager } from '@/components/settings/TaxonomyManager';
 import { ProfileSettings } from '@/components/settings/ProfileSettings';
 import { SecuritySettings } from '@/components/settings/SecuritySettings';
+import { PrivacySettings } from '@/app/(app)/settings/privacy/privacy-settings';
 import { cn } from '@/lib/utils';
 import { CheckCircle2, ShieldCheck, Sparkles } from 'lucide-react';
 
@@ -34,8 +35,9 @@ export default function SettingsPage() {
         </div>
         
         {/* General / Profile Tab */}
-        <div className={cn("space-y-4 mt-6", activeTab === 'general' ? 'block' : 'hidden')}>
+        <div className={cn("space-y-6 mt-6", activeTab === 'general' ? 'block' : 'hidden')}>
           <ProfileSettings />
+          <PrivacySettings />
         </div>
         
         {/* Taxonomy Management Tab */}

@@ -78,21 +78,26 @@ export default function NewAccountPage() {
 
   const handleFetchQuote = async (fundNameQuery?: string, schemeCode?: string) => {
     const q = fundNameQuery || name;
-    if (!q.trim()) return;
+    if (!q.trim() && !schemeCode) return;
 
     setIsFetchingQuote(true);
     setQuoteNotice(null);
 
     try {
-      const res = await fetch(`/api/investments/quote?query=${encodeURIComponent(q.trim())}`);
+      const url = schemeCode
+        ? `/api/investments/quote?schemeCode=${encodeURIComponent(schemeCode)}&query=${encodeURIComponent(q.trim())}`
+        : `/api/investments/quote?query=${encodeURIComponent(q.trim())}`;
+      const res = await fetch(url);
       const data = await res.json();
 
       if (data.found && data.currentPrice) {
         setLivePrice(data.currentPrice);
-        setLiveSymbol(data.symbol || null);
+        setLiveSymbol(data.symbol || schemeCode || null);
         setLivePriceDate(data.date || null);
         if (data.currency) setCurrency(data.currency);
-        const resolvedName = data.name || q.trim();
+        
+        // If schemeCode was explicitly selected by user, preserve that exact name and symbol
+        const resolvedName = schemeCode ? q.trim() : (data.name || q.trim());
         setName(resolvedName);
         setSelectedFund({
           name: resolvedName,
@@ -103,7 +108,7 @@ export default function NewAccountPage() {
         });
         const sourceInfo = data.consensusCount ? `4-source consensus (${data.consensusCount} sources matched)` : (data.provider || 'Live Registry');
         setQuoteNotice(`Live NAV verified via ${sourceInfo}: ${data.currency || currency} ${data.currentPrice} (${data.date || 'Today'})`);
-        if (data.allMatches) {
+        if (data.allMatches && !schemeCode) {
           setMatches(data.allMatches);
         }
       } else {

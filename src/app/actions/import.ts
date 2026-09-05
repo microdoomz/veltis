@@ -1,7 +1,7 @@
 "use server"
 
 import { requireStrictWorkspaceAccess } from "@/lib/auth/guards"
-import { processCsvImport, commitImportRow, rejectImportRow } from "@/lib/services/import"
+import { processCsvImport, commitImportRow, rejectImportRow, deleteImportBatch, bulkReviewImportRows } from "@/lib/services/import"
 import { checkRateLimit } from "@/lib/security/rate-limit"
 import { revalidatePath } from "next/cache"
 import { redirect } from "next/navigation"
@@ -68,3 +68,24 @@ export async function reviewRowAction(workspaceId: string, formData: FormData) {
   revalidatePath(`/imports/${importId}`)
   revalidatePath(`/transactions`)
 }
+
+export async function deleteImportBatchAction(workspaceId: string, importId: string) {
+  const authContext = await requireStrictWorkspaceAccess(workspaceId)
+  await deleteImportBatch(importId, authContext.workspaceId)
+  revalidatePath("/imports")
+  return { success: true }
+}
+
+export async function bulkReviewRowsAction(
+  workspaceId: string,
+  importId: string,
+  rowIds: string[],
+  action: 'accept' | 'reject'
+) {
+  const authContext = await requireStrictWorkspaceAccess(workspaceId)
+  await bulkReviewImportRows(authContext.workspaceId, authContext.session.user.id, rowIds, action)
+  revalidatePath(`/imports/${importId}`)
+  revalidatePath(`/transactions`)
+  return { success: true }
+}
+

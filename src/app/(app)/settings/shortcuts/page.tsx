@@ -3,10 +3,10 @@ import { getActiveShortcutTokens } from '@/lib/services/shortcut';
 import { getAccounts } from '@/lib/services/account';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { deleteShortcutTokenAction } from '@/app/actions/shortcut';
 import { CreateShortcutForm } from './create-form';
 import { AccountShortcutsTable } from '@/components/shortcuts/AccountShortcutsTable';
-import { Zap, Download, ExternalLink, ShieldCheck, CheckCircle2, WalletCards } from 'lucide-react';
+import { RevokeTokenButton } from '@/components/shortcuts/RevokeTokenButton';
+import { Zap, Download, ExternalLink, ShieldCheck, CheckCircle2, WalletCards, ListFilter } from 'lucide-react';
 
 export default async function ShortcutsPage() {
   const authContext = await requireWorkspaceAccess();
@@ -59,12 +59,10 @@ export default async function ShortcutsPage() {
                     {token.lastUsedAt && ` • Last used: ${new Date(token.lastUsedAt).toLocaleDateString()}`}
                   </p>
                 </div>
-                <form action={deleteShortcutTokenAction.bind(null, authContext.workspaceId)}>
-                  <input type="hidden" name="tokenId" value={token.id} />
-                  <Button variant="outline" size="sm" type="submit" className="text-destructive hover:bg-destructive/10">
-                    Revoke
-                  </Button>
-                </form>
+                <RevokeTokenButton
+                  workspaceId={authContext.workspaceId}
+                  tokenId={token.id}
+                />
               </Card>
             ))}
           </div>
@@ -202,14 +200,28 @@ export default async function ShortcutsPage() {
                 </div>
 
                 {/* Field 3 */}
-                <div className="space-y-1 border-t border-border/50 pt-2">
+                <div className="space-y-1.5 border-t border-border/50 pt-2.5">
                   <div className="flex items-center gap-2">
-                    <span className="px-1.5 py-0.5 rounded bg-amber-500/10 text-amber-600 dark:text-amber-400 font-bold text-[10px]">Type: Text (Optional)</span>
+                    <span className="px-1.5 py-0.5 rounded bg-amber-500/15 text-amber-600 dark:text-amber-400 font-bold text-[10px]">Type: Text (Required)</span>
                     <strong className="font-mono text-foreground">accountId</strong>
                   </div>
-                  <p className="text-muted-foreground text-[11px]">
-                    In <strong>Key</strong> enter <code>accountId</code> (or <code>account</code>). In the <strong>Text</strong> field, enter your Account ID or account name from the table above (or select <em>Ask Each Time</em> / <em>Choose from Menu</em>). If omitted, Veltis uses your default active bank account.
+                  <p className="text-muted-foreground text-[11px] leading-relaxed">
+                    In <strong>Key</strong> enter <code>accountId</code>. In the <strong>Text</strong> field, enter your Account ID from the table above.
                   </p>
+                  <div className="p-3 bg-muted/40 rounded-lg border border-border/60 text-[11px] space-y-1.5 mt-1.5">
+                    <p className="font-semibold text-foreground flex items-center gap-1.5">
+                      <ListFilter className="w-3.5 h-3.5 text-primary" />
+                      Pro Tip: Create an Interactive Account Dropdown in iOS Shortcuts
+                    </p>
+                    <p className="text-muted-foreground leading-relaxed">
+                      To choose which account to charge every time you run the shortcut:
+                    </p>
+                    <ol className="list-decimal list-inside space-y-1 text-muted-foreground pl-1">
+                      <li>Add a <strong>Choose from Menu</strong> action at the start of your shortcut, listing your accounts (e.g. &ldquo;HDFC Bank&rdquo;, &ldquo;Cash&rdquo;, &ldquo;ICICI&rdquo;).</li>
+                      <li>Under each option, add a <strong>Text</strong> action and paste that account&apos;s exact <strong>Account ID</strong> from the table above.</li>
+                      <li>In this <code>accountId</code> JSON field, select <strong>Menu Result</strong> as the text variable. When triggered, your iPhone will show an interactive menu so you choose your account on the fly!</li>
+                    </ol>
+                  </div>
                 </div>
 
                 {/* Field 4 */}

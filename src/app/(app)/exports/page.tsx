@@ -93,8 +93,8 @@ export default function ExportsPage() {
         </CardHeader>
         <CardContent className="space-y-6">
           {error && (
-            <div className="p-3 bg-destructive/10 border border-destructive/20 text-destructive text-sm rounded-lg flex items-center gap-2">
-              <AlertCircle className="h-4 w-4 shrink-0" />
+            <div className="p-4 bg-red-500/15 border border-red-500/40 text-red-600 dark:text-red-400 text-sm font-semibold rounded-xl flex items-center gap-3 shadow-xs animate-in fade-in duration-200">
+              <AlertCircle className="h-5 w-5 shrink-0 text-red-600 dark:text-red-400" />
               <span>{error}</span>
             </div>
           )}

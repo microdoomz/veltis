@@ -14,15 +14,17 @@ type PrivacyContextType = {
 export const PrivacyContext = createContext<PrivacyContextType | undefined>(undefined);
 
 export function PrivacyProvider({ children }: { children: React.ReactNode }) {
-  const [isPrivacyModeEnabled, setIsPrivacyModeEnabled] = useState(false);
+  const [isPrivacyModeEnabled, setIsPrivacyModeEnabled] = useState(true);
   const [isRevealed, setIsRevealed] = useState(false);
   const revealTimerRef = React.useRef<NodeJS.Timeout | null>(null);
 
   useEffect(() => {
-    // Load from local storage
+    // Load from local storage, defaulting to true if not explicitly set to false
     const saved = localStorage.getItem('veltis_privacy_mode');
-    if (saved === 'true') {
+    if (saved === 'false') {
       // eslint-disable-next-line react-hooks/set-state-in-effect
+      setIsPrivacyModeEnabled(false);
+    } else {
       setIsPrivacyModeEnabled(true);
     }
     return () => {
@@ -77,10 +79,19 @@ export function PrivacyProvider({ children }: { children: React.ReactNode }) {
   );
 }
 
-export function usePrivacy() {
+export function usePrivacy(): PrivacyContextType {
   const context = useContext(PrivacyContext);
   if (context === undefined) {
-    throw new Error('usePrivacy must be used within a PrivacyProvider');
+    return {
+      isPrivacyModeEnabled: true,
+      setPrivacyMode: () => {},
+      togglePrivacyMode: () => {},
+      temporarilyReveal: () => {},
+      toggleReveal: () => {},
+      isRevealed: false,
+    };
   }
   return context;
 }
+
+

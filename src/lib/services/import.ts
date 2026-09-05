@@ -205,8 +205,8 @@ export async function processCsvImport(
 
   // Check for explicit Dr/Cr indicator column first
   const typeIdx = headers.findIndex((h) =>
-    /^(cr\s*[\/\-]\s*dr|dr\s*[\/\-]\s*cr|type|txn\s*type|transaction\s*type|type\s*of\s*transaction)$/i.test(h) ||
-    /cr\s*\/\s*dr|dr\s*\/\s*cr/i.test(h)
+    /^(cr\s*[\/\-]?\s*dr|dr\s*[\/\-]?\s*cr|type|txn\s*type|transaction\s*type|type\s*of\s*transaction|indicator|dr\s*cr|cr\s*dr)$/i.test(h) ||
+    /cr\s*[\/\-]?\s*dr|dr\s*[\/\-]?\s*cr/i.test(h)
   );
 
   // Check for separate Debit / Credit columns vs single Amount column
@@ -218,13 +218,15 @@ export async function processCsvImport(
   const debitIdx = headers.findIndex((h, idx) =>
     idx !== typeIdx && (
       /^(debit|withdrawal|withdrawals|paid\s*out|dr|expense|outflow|debit\s*amt|withdrawal\s*amt|debit\s*amount|withdrawal\s*amount)$/i.test(h) ||
-      (/\b(debit|withdrawal)\b/i.test(h) && !/credit|deposit|cr/i.test(h))
+      (/\b(debit|withdrawal)\b/i.test(h) && !/credit|deposit/i.test(h)) ||
+      (/\bwithdrawal\b/i.test(h))
     )
   );
   const creditIdx = headers.findIndex((h, idx) =>
     idx !== typeIdx && (
       /^(credit|deposit|deposits|paid\s*in|cr|income|inflow|credit\s*amt|deposit\s*amt|credit\s*amount|deposit\s*amount)$/i.test(h) ||
-      (/\b(credit|deposit)\b/i.test(h) && !/debit|withdrawal|dr/i.test(h))
+      (/\b(credit|deposit)\b/i.test(h) && !/debit|withdrawal/i.test(h)) ||
+      (/\bdeposit\b/i.test(h))
     )
   );
 
@@ -291,18 +293,39 @@ export async function processCsvImport(
           continue;
         }
       } else if (amtIdx !== -1) {
+        const rawAmtCell = (parts[amtIdx] || '').trim().toLowerCase();
         amountFloat = cleanAmount(parts[amtIdx]);
         if (amountFloat === 0) continue;
 
         if (typeIdx !== -1 && parts[typeIdx]) {
           const typeStr = parts[typeIdx].trim().toLowerCase();
-          if (typeStr.includes('cr') || typeStr === 'c' || typeStr.includes('deposit')) {
+          if (typeStr.includes('cr') || typeStr === 'c' || typeStr.includes('deposit') || typeStr.includes('credit')) {
             direction = 'credit';
           } else {
             direction = 'debit';
           }
+        } else if (rawAmtCell.includes('cr') || rawAmtCell.endsWith('c')) {
+          direction = 'credit';
+        } else if (rawAmtCell.includes('dr') || rawAmtCell.endsWith('d')) {
+          direction = 'debit';
         } else {
-          direction = amountFloat < 0 ? 'debit' : 'credit';
+          // Check narration and row context for top 15 bank formats (UPI/CR, UPI/DR, SALARY, INTEREST, ATM, POS, etc.)
+          const descText = desc.toLowerCase();
+          const rowText = parts.join(' ').toLowerCase();
+          if (
+            /\b(cr|credit|credited|deposit|deposited|salary|interest|refund|cashback|dividend|upi\s*[\/-]?\s*cr|neft\s*[\/-]?\s*cr|imps\s*[\/-]?\s*cr|by\s+transfer|transfer\s+from)\b/i.test(descText) ||
+            /\b(cr|credit|deposit)\b/i.test(rowText)
+          ) {
+            direction = 'credit';
+          } else if (
+            amountFloat < 0 ||
+            /\b(dr|debit|debited|withdrawal|withdrawn|purchase|charges|fee|tax|bill|atm|pos|swiggy|zomato|amazon|uber|ola|upi\s*[\/-]?\s*dr|neft\s*[\/-]?\s*dr|imps\s*[\/-]?\s*dr|to\s+transfer|transfer\s+to)\b/i.test(descText) ||
+            /\b(dr|debit|withdrawal)\b/i.test(rowText)
+          ) {
+            direction = 'debit';
+          } else {
+            direction = amountFloat < 0 ? 'debit' : 'credit';
+          }
         }
       } else if (debitIdx !== -1) {
         amountFloat = cleanAmount(parts[debitIdx]);
@@ -456,3 +479,45 @@ export async function rejectImportRow(rowId: string, workspaceId: string) {
     reviewStatus: 'rejected',
   }).where(eq(statementImportRow.id, rowId));
 }
+
+export async function deleteImportBatch(importId: string, workspaceId: string) {
+  const importRecord = await db.query.statementImport.findFirst({
+    where: and(
+      eq(statementImport.id, importId),
+      eq(statementImport.workspaceId, workspaceId)
+    ),
+  });
+  if (!importRecord) return false;
+
+  await db.transaction(async (tx) => {
+    await tx.delete(statementImportRow).where(eq(statementImportRow.statementImportId, importId));
+    await tx.delete(statementImport).where(eq(statementImport.id, importId));
+  });
+  return true;
+}
+
+export async function bulkReviewImportRows(
+  workspaceId: string,
+  userId: string,
+  rowIds: string[],
+  action: 'accept' | 'reject'
+) {
+  if (!rowIds.length) return;
+
+  for (const rowId of rowIds) {
+    if (action === 'accept') {
+      try {
+        await commitImportRow(rowId, workspaceId, userId);
+      } catch (err) {
+        console.error(`Failed to commit row ${rowId}:`, err);
+      }
+    } else {
+      try {
+        await rejectImportRow(rowId, workspaceId);
+      } catch (err) {
+        console.error(`Failed to reject row ${rowId}:`, err);
+      }
+    }
+  }
+}
+

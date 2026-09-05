@@ -24,6 +24,7 @@ afterEach(() => {
 
 describe('Privacy Mode & Amount Masking', () => {
   it('renders unmasked amount when privacy mode is disabled', () => {
+    localStorage.setItem('veltis_privacy_mode', 'false');
     render(
       <PrivacyProvider>
         <Amount valueMinor={150000n} currency="USD" />
@@ -33,8 +34,7 @@ describe('Privacy Mode & Amount Masking', () => {
     expect(screen.getByText('$1,500.00')).toBeDefined();
   });
 
-  it('renders masked amount with cash emoji 💵 •••••• when privacy mode is active', () => {
-    localStorage.setItem('veltis_privacy_mode', 'true');
+  it('renders masked amount with cash emoji 💵 •••••• by default when privacy mode is active', () => {
     render(
       <PrivacyProvider>
         <Amount valueMinor={150000n} currency="USD" />
@@ -45,7 +45,6 @@ describe('Privacy Mode & Amount Masking', () => {
   });
 
   it('toggles reveal on click when privacy mode is active', () => {
-    localStorage.setItem('veltis_privacy_mode', 'true');
     render(
       <PrivacyProvider>
         <Amount valueMinor={150000n} currency="USD" />
@@ -73,16 +72,18 @@ describe('Privacy Mode & Amount Masking', () => {
       </PrivacyProvider>
     );
 
-    expect(screen.getByText('$2,500.00')).toBeDefined();
+    // Default is active (masked)
+    expect(screen.getByText('💵 ••••••')).toBeDefined();
 
     const toggleBtn = screen.getByRole('button', { name: /Toggle Privacy Mode/i });
     fireEvent.click(toggleBtn);
 
-    // Now masked
-    expect(screen.getByText('💵 ••••••')).toBeDefined();
-
-    // Toggle back off
-    fireEvent.click(toggleBtn);
+    // Now unmasked
     expect(screen.getByText('$2,500.00')).toBeDefined();
+
+    // Toggle back on
+    fireEvent.click(toggleBtn);
+    expect(screen.getByText('💵 ••••••')).toBeDefined();
   });
 });
+

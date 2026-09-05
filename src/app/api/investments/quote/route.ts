@@ -87,33 +87,41 @@ export async function GET(req: Request) {
   try {
     const { searchParams } = new URL(req.url);
     const query = searchParams.get('query') || searchParams.get('name') || '';
+    const schemeCodeParam = searchParams.get('schemeCode') || searchParams.get('code') || '';
 
-    if (!query.trim()) {
-      return NextResponse.json({ error: 'Query parameter is required' }, { status: 400 });
+    if (!query.trim() && !schemeCodeParam) {
+      return NextResponse.json({ error: 'Query or schemeCode parameter is required' }, { status: 400 });
     }
 
     const trimmedQuery = query.trim();
     const quoteResults: QuoteSourceResult[] = [];
 
-    // 1. Search schemes via MFAPI
+    // 1. Search schemes via MFAPI or use explicit schemeCode if provided
     let topScheme: SchemeSearchItem | null = null;
     let allMatches: SchemeSearchItem[] = [];
 
-    try {
-      const searchRes = await fetch(`https://api.mfapi.in/mf/search?q=${encodeURIComponent(trimmedQuery)}`, {
-        next: { revalidate: 3600 },
-      });
-      if (searchRes.ok) {
-        const schemes: SchemeSearchItem[] = await searchRes.json();
-        if (Array.isArray(schemes) && schemes.length > 0) {
-          // Rank schemes by exactness score
-          schemes.sort((a, b) => scoreMatch(b.schemeName, trimmedQuery) - scoreMatch(a.schemeName, trimmedQuery));
-          topScheme = schemes[0];
-          allMatches = schemes;
+    if (schemeCodeParam && !isNaN(parseInt(schemeCodeParam, 10))) {
+      topScheme = {
+        schemeCode: parseInt(schemeCodeParam, 10),
+        schemeName: trimmedQuery || `Scheme ${schemeCodeParam}`,
+      };
+    } else {
+      try {
+        const searchRes = await fetch(`https://api.mfapi.in/mf/search?q=${encodeURIComponent(trimmedQuery)}`, {
+          next: { revalidate: 3600 },
+        });
+        if (searchRes.ok) {
+          const schemes: SchemeSearchItem[] = await searchRes.json();
+          if (Array.isArray(schemes) && schemes.length > 0) {
+            // Rank schemes by exactness score
+            schemes.sort((a, b) => scoreMatch(b.schemeName, trimmedQuery) - scoreMatch(a.schemeName, trimmedQuery));
+            topScheme = schemes[0];
+            allMatches = schemes;
+          }
         }
+      } catch (err) {
+        console.warn('MFAPI search error:', err);
       }
-    } catch (err) {
-      console.warn('MFAPI search error:', err);
     }
 
     // If top Indian Mutual Fund scheme is found, query 4 consensus sources

@@ -79,9 +79,11 @@ export function ListContainer({
 export function ListItem({
   children,
   className,
+  onClick,
 }: {
   children: React.ReactNode
   className?: string
+  onClick?: () => void
 }) {
   return (
     <motion.div
@@ -90,6 +92,7 @@ export function ListItem({
         visible: { opacity: 1, y: 0, transition: { ease: "easeOut", duration: 0.2 } },
       }}
       className={className}
+      onClick={onClick}
     >
       {children}
     </motion.div>

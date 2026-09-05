@@ -1,11 +1,11 @@
 import { requireWorkspaceAccess } from "@/lib/auth/guards"
-import { getNetWealth, getAvailableMoney } from "@/lib/ledger/index"
+import { getNetWealth, getLiquidSummary } from "@/lib/ledger/index"
 import { getRecentTransactions, getAccountSummary } from "@/lib/ledger/queries"
 import { getWorkspaceById } from "@/lib/services/workspace"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Amount } from "@/components/ui/amount"
 import { OnboardingBanner } from "@/components/onboarding/OnboardingBanner"
-import { Wallet, CreditCard, Building2, TrendingUp, PiggyBank } from "lucide-react"
+import { Wallet, CreditCard, Building2, TrendingUp, PiggyBank, ShieldCheck, Lock } from "lucide-react"
 import Link from "next/link"
 import { redirect } from "next/navigation"
 
@@ -34,9 +34,9 @@ export default async function HomePage() {
   const workspaceId = authContext.workspaceId
 
   // Fetch Core Financial Data concurrently
-  const [netWealth, availableMoney, recentTxns, accounts, currentWorkspace] = await Promise.all([
+  const [netWealth, liquidSummary, recentTxns, accounts, currentWorkspace] = await Promise.all([
     getNetWealth(workspaceId),
-    getAvailableMoney(workspaceId),
+    getLiquidSummary(workspaceId),
     getRecentTransactions(workspaceId, 5),
     getAccountSummary(workspaceId),
     getWorkspaceById(workspaceId),
@@ -60,28 +60,64 @@ export default async function HomePage() {
 
       {/* Hero Balances */}
       <div className="grid gap-4 md:grid-cols-2">
-        <Card className="bg-primary text-primary-foreground border-none">
+        <Card className="bg-primary text-primary-foreground border-none shadow-sm flex flex-col justify-between">
           <CardHeader className="pb-2">
-            <CardTitle className="text-primary-foreground/80 font-medium">Total Wealth</CardTitle>
+            <CardTitle className="text-primary-foreground/80 text-sm font-medium">Total Wealth</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-4xl font-bold">
+            <div className="text-4xl font-bold tracking-tight">
               <Amount valueMinor={netWealth} currency={currentWorkspace?.baseCurrency || 'USD'} showSign={false} />
             </div>
+            <p className="text-xs text-primary-foreground/70 mt-3">
+              Net balance across all accounts &amp; investments
+            </p>
           </CardContent>
         </Card>
 
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-muted-foreground font-medium">Available Money</CardTitle>
+        <Card className="border border-border/80 shadow-sm flex flex-col justify-between">
+          <CardHeader className="pb-2 flex flex-row items-center justify-between space-y-0">
+            <CardTitle className="text-muted-foreground text-sm font-medium">Liquid Balance</CardTitle>
+            <span className="text-[11px] font-medium text-muted-foreground bg-muted/60 px-2 py-0.5 rounded-md">
+              Bank &amp; Cash
+            </span>
           </CardHeader>
-          <CardContent>
-            <div className="text-4xl font-bold text-foreground">
-              <Amount valueMinor={availableMoney} currency={currentWorkspace?.baseCurrency || 'USD'} showSign={false} />
+          <CardContent className="space-y-3">
+            <div className="text-4xl font-bold text-foreground tracking-tight">
+              <Amount valueMinor={liquidSummary.totalLiquid} currency={currentWorkspace?.baseCurrency || 'USD'} showSign={false} />
+            </div>
+
+            {/* Sub-metrics */}
+            <div className="grid grid-cols-2 gap-3 pt-2.5 border-t border-border/60">
+              <div className="space-y-0.5">
+                <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                  <ShieldCheck className="w-3.5 h-3.5 text-positive" />
+                  <span>Free to spend</span>
+                </div>
+                <Amount
+                  valueMinor={liquidSummary.freeToSpend}
+                  currency={currentWorkspace?.baseCurrency || 'USD'}
+                  showSign={false}
+                  className="text-sm font-bold text-positive"
+                />
+              </div>
+
+              <div className="space-y-0.5">
+                <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                  <Lock className="w-3.5 h-3.5 text-amber-500" />
+                  <span>Allocated money</span>
+                </div>
+                <Amount
+                  valueMinor={liquidSummary.totalAllocated}
+                  currency={currentWorkspace?.baseCurrency || 'USD'}
+                  showSign={false}
+                  className="text-sm font-bold text-amber-600 dark:text-amber-400"
+                />
+              </div>
             </div>
           </CardContent>
         </Card>
       </div>
+
 
       <div className="grid gap-6 md:grid-cols-2">
         {/* Account Summary */}
@@ -206,7 +242,7 @@ export default async function HomePage() {
                       {/* For expense, show negative if we want, or just let colorize handle it based on type */}
                       <Amount 
                         valueMinor={txn.transactionType === 'expense' || txn.transactionType === 'credit_card_purchase' ? -txn.amountMinor : txn.amountMinor} 
-                        colorize="inverted" 
+                        colorize="default" 
                         showSign={true}
                         className="font-medium" 
                       />

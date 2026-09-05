@@ -89,6 +89,7 @@ export const Amount = React.forwardRef<HTMLSpanElement, AmountProps>(
 
     const handleClick = (e: React.MouseEvent<HTMLSpanElement>) => {
       if (isPrivacyModeEnabled && toggleReveal) {
+        e.preventDefault();
         e.stopPropagation();
         toggleReveal();
       }

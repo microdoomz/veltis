@@ -2,12 +2,13 @@
 
 import Link from "next/link"
 import { useState, useEffect } from "react"
-import { Home, ListOrdered, WalletCards, Plus, Target, Repeat, Upload, Zap, Menu, LogOut, ChevronLeft, Settings, Download, TrendingUp, ArrowDownLeft, ArrowUpRight } from "lucide-react"
+import { Home, ListOrdered, WalletCards, Plus, Target, Repeat, Upload, Zap, Menu, LogOut, ChevronLeft, Settings, Download, TrendingUp, ArrowDownLeft, ArrowUpRight, LineChart, PiggyBank, Loader2 } from "lucide-react"
 import { authClient } from "@/lib/auth/client"
 import { SyncStatus } from "@/components/sync/SyncStatus"
 import { QuickAddFab } from "@/components/layout/quick-add-fab"
-import { useRouter } from "next/navigation"
+import { useRouter, usePathname } from "next/navigation"
 import { PrivacyToggle } from "@/components/layout/PrivacyToggle"
+import { cn } from "@/lib/utils"
 
 const navItems = [
   { href: '/home', label: 'Dashboard', icon: Home },
@@ -16,8 +17,8 @@ const navItems = [
   { href: '/investments', label: 'Investments', icon: TrendingUp },
   { href: '/receivables', label: 'Receivables', icon: ArrowDownLeft },
   { href: '/liabilities', label: 'Liabilities', icon: ArrowUpRight },
-  { href: '/analytics', label: 'Analytics', icon: Target },
-  { href: '/budgets', label: 'Budgets', icon: Target },
+  { href: '/analytics', label: 'Analytics', icon: LineChart },
+  { href: '/budgets', label: 'Budgets', icon: PiggyBank },
   { href: '/recurring', label: 'Recurring', icon: Repeat },
   { href: '/imports', label: 'Imports', icon: Download },
   { href: '/exports', label: 'Exports', icon: Upload },
@@ -28,7 +29,9 @@ const navItems = [
 export function AppLayout({ children }: { children: React.ReactNode }) {
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [isLoggingOut, setIsLoggingOut] = useState(false);
   const router = useRouter();
+  const pathname = usePathname();
 
   useEffect(() => {
     // Proactively prefetch all primary application routes for instantaneous navigation
@@ -41,11 +44,15 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
   }, [router]);
 
   const handleLogout = async () => {
+    setIsLoggingOut(true);
     await authClient.signOut({
       fetchOptions: {
         onSuccess: () => {
           router.push('/login');
           router.refresh();
+        },
+        onError: () => {
+          setIsLoggingOut(false);
         }
       }
     });
@@ -87,9 +94,17 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
             {!isCollapsed && <span>New</span>}
           </Link>
           
-          <button onClick={handleLogout} className={`flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive justify-center md:justify-start ${isCollapsed ? 'justify-center' : ''}`}>
-            <LogOut className="h-5 w-5 flex-shrink-0" />
-            {!isCollapsed && <span>Log out</span>}
+          <button 
+            onClick={handleLogout} 
+            disabled={isLoggingOut}
+            className={`flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive justify-center md:justify-start ${isCollapsed ? 'justify-center' : ''}`}
+          >
+            {isLoggingOut ? (
+              <Loader2 className="h-5 w-5 flex-shrink-0 animate-spin text-destructive" />
+            ) : (
+              <LogOut className="h-5 w-5 flex-shrink-0" />
+            )}
+            {!isCollapsed && <span>{isLoggingOut ? "Logging out..." : "Log out"}</span>}
           </button>
         </div>
       </aside>
@@ -108,23 +123,39 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
           </button>
         </div>
         <nav className="flex-1 px-4 space-y-2 py-4 overflow-y-auto">
-          {navItems.map((item) => (
-            <Link
-              key={item.href}
-              href={item.href}
-              prefetch={true}
-              onClick={() => setMobileMenuOpen(false)}
-              className="flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
-            >
-              <item.icon className="h-5 w-5 flex-shrink-0" />
-              <span>{item.label}</span>
-            </Link>
-          ))}
+          {navItems.map((item) => {
+            const isActive = pathname === item.href || (item.href !== '/home' && pathname?.startsWith(item.href));
+            return (
+              <Link
+                key={item.href}
+                href={item.href}
+                prefetch={true}
+                onClick={() => setMobileMenuOpen(false)}
+                className={cn(
+                  "flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors",
+                  isActive
+                    ? "bg-primary/15 text-primary font-semibold border-l-2 border-primary"
+                    : "text-muted-foreground hover:bg-muted hover:text-foreground"
+                )}
+              >
+                <item.icon className={cn("h-5 w-5 flex-shrink-0", isActive ? "text-primary fill-primary/20" : "")} />
+                <span>{item.label}</span>
+              </Link>
+            );
+          })}
         </nav>
         <div className="p-4 border-t border-border">
-          <button onClick={handleLogout} className="flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive">
-            <LogOut className="h-5 w-5 flex-shrink-0" />
-            <span>Log out</span>
+          <button 
+            onClick={handleLogout} 
+            disabled={isLoggingOut}
+            className="flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive"
+          >
+            {isLoggingOut ? (
+              <Loader2 className="h-5 w-5 flex-shrink-0 animate-spin text-destructive" />
+            ) : (
+              <LogOut className="h-5 w-5 flex-shrink-0" />
+            )}
+            <span>{isLoggingOut ? "Logging out..." : "Log out"}</span>
           </button>
         </div>
       </aside>
@@ -165,35 +196,50 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
         <QuickAddFab />
         
         <MobileNavLink href="/accounts" icon={WalletCards} label="Accounts" />
-        <MobileNavLink href="/analytics" icon={Target} label="Analytics" />
+        <MobileNavLink href="/analytics" icon={LineChart} label="Analytics" />
       </nav>
     </div>
   )
 }
 
 function NavLink({ href, icon: Icon, label, isCollapsed }: { href: string; icon: React.ElementType; label: string; isCollapsed: boolean }) {
+  const pathname = usePathname();
+  const isActive = pathname === href || (href !== '/home' && pathname?.startsWith(href));
+
   return (
     <Link
       href={href}
       prefetch={true}
-      className={`flex items-center gap-3 rounded-lg py-2 text-sm font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground ${isCollapsed ? 'justify-center px-0' : 'px-3'}`}
+      className={cn(
+        "flex items-center gap-3 rounded-lg py-2 text-sm font-medium transition-colors",
+        isCollapsed ? "justify-center px-0" : "px-3",
+        isActive
+          ? "bg-primary/15 text-primary font-semibold border-l-2 border-primary shadow-2xs"
+          : "text-muted-foreground hover:bg-muted hover:text-foreground"
+      )}
       title={isCollapsed ? label : undefined}
     >
-      <Icon className="h-5 w-5 flex-shrink-0" />
+      <Icon className={cn("h-5 w-5 flex-shrink-0 transition-transform", isActive ? "text-primary fill-primary/20 scale-105" : "")} />
       {!isCollapsed && <span>{label}</span>}
     </Link>
   )
 }
 
 function MobileNavLink({ href, icon: Icon, label }: { href: string; icon: React.ElementType; label: string }) {
+  const pathname = usePathname();
+  const isActive = pathname === href || (href !== '/home' && pathname?.startsWith(href));
+
   return (
     <Link
       href={href}
       prefetch={true}
-      className="flex flex-col items-center justify-center w-16 text-muted-foreground hover:text-primary transition-colors"
+      className={cn(
+        "flex flex-col items-center justify-center w-16 transition-colors",
+        isActive ? "text-primary font-semibold" : "text-muted-foreground hover:text-primary"
+      )}
     >
-      <Icon className="h-6 w-6 mb-1" />
-      <span className="text-[10px] font-medium">{label}</span>
+      <Icon className={cn("h-6 w-6 mb-1 transition-transform", isActive ? "text-primary fill-primary/20 scale-110" : "")} />
+      <span className={cn("text-[10px]", isActive ? "font-bold text-primary" : "font-medium")}>{label}</span>
     </Link>
   )
 }

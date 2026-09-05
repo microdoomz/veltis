@@ -1,0 +1,461 @@
+"use client"
+
+import { useState, useTransition } from "react"
+import { Card } from "@/components/ui/card"
+import { Button } from "@/components/ui/button"
+import { Amount } from "@/components/ui/amount"
+import { reviewRowAction, bulkReviewRowsAction } from "@/app/actions/import"
+import {
+  CheckCircle2,
+  XCircle,
+  Clock,
+  ArrowUpRight,
+  ArrowDownLeft,
+  Loader2,
+  CheckSquare,
+  Square,
+  Filter,
+} from "lucide-react"
+
+interface ImportRow {
+  id: string
+  statementImportId: string
+  rowNumber: number
+  transactionDate: string
+  amountMinor: bigint | number
+  currency: string
+  description: string
+  direction: string
+  reviewStatus: string
+  duplicateStatus: string
+  committedTransactionId?: string | null
+}
+
+interface ImportRecord {
+  id: string
+  workspaceId: string
+  originalFilename: string
+  status: string
+  createdAt: Date
+  rows: ImportRow[]
+}
+
+interface Category {
+  id: string
+  name: string
+}
+
+export function ImportReviewView({
+  workspaceId,
+  importRecord,
+  categories,
+}: {
+  workspaceId: string
+  importRecord: ImportRecord
+  categories: Category[]
+}) {
+  const [selectedIds, setSelectedIds] = useState<string[]>([])
+  const [statusFilter, setStatusFilter] = useState<"all" | "pending" | "accepted" | "rejected">("all")
+  const [directionFilter, setDirectionFilter] = useState<"all" | "credit" | "debit">("all")
+  const [isPending, startTransition] = useTransition()
+
+  const rows = importRecord.rows || []
+  const totalCount = rows.length
+  const pendingCount = rows.filter((r) => r.reviewStatus === "pending").length
+  const acceptedCount = rows.filter((r) => r.reviewStatus === "accepted").length
+  const rejectedCount = rows.filter((r) => r.reviewStatus === "rejected").length
+
+  // Filtered rows
+  const filteredRows = rows.filter((row) => {
+    if (statusFilter !== "all" && row.reviewStatus !== statusFilter) return false
+    if (directionFilter !== "all" && row.direction !== directionFilter) return false
+    return true
+  })
+
+  const visiblePendingRows = filteredRows.filter((r) => r.reviewStatus === "pending")
+  const allVisiblePendingSelected =
+    visiblePendingRows.length > 0 &&
+    visiblePendingRows.every((r) => selectedIds.includes(r.id))
+
+  const toggleSelectAllVisible = () => {
+    if (allVisiblePendingSelected) {
+      const visibleIds = new Set(visiblePendingRows.map((r) => r.id))
+      setSelectedIds(selectedIds.filter((id) => !visibleIds.has(id)))
+    } else {
+      const visibleIds = visiblePendingRows.map((r) => r.id)
+      setSelectedIds(Array.from(new Set([...selectedIds, ...visibleIds])))
+    }
+  }
+
+  const toggleSelectRow = (id: string) => {
+    if (selectedIds.includes(id)) {
+      setSelectedIds(selectedIds.filter((i) => i !== id))
+    } else {
+      setSelectedIds([...selectedIds, id])
+    }
+  }
+
+  const handleBulkAction = (action: "accept" | "reject", targetIds?: string[]) => {
+    const ids = targetIds || selectedIds
+    if (!ids.length) return
+
+    startTransition(async () => {
+      await bulkReviewRowsAction(workspaceId, importRecord.id, ids, action)
+      setSelectedIds((prev) => prev.filter((id) => !ids.includes(id)))
+    })
+  }
+
+  return (
+    <div className="space-y-6">
+      {/* Counters Header */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+        <div className="p-4 rounded-xl border border-border bg-card shadow-sm">
+          <p className="text-xs text-muted-foreground font-medium">Total Rows</p>
+          <p className="text-2xl font-bold text-foreground mt-1">{totalCount}</p>
+        </div>
+        <div className="p-4 rounded-xl border border-amber-500/20 bg-amber-500/5 shadow-sm">
+          <div className="flex items-center gap-1.5 text-xs text-amber-600 dark:text-amber-400 font-medium">
+            <Clock className="w-3.5 h-3.5" />
+            <span>Pending Review</span>
+          </div>
+          <p className="text-2xl font-bold text-amber-600 dark:text-amber-400 mt-1">{pendingCount}</p>
+        </div>
+        <div className="p-4 rounded-xl border border-positive/20 bg-positive/5 shadow-sm">
+          <div className="flex items-center gap-1.5 text-xs text-positive font-medium">
+            <CheckCircle2 className="w-3.5 h-3.5" />
+            <span>Accepted</span>
+          </div>
+          <p className="text-2xl font-bold text-positive mt-1">{acceptedCount}</p>
+        </div>
+        <div className="p-4 rounded-xl border border-destructive/20 bg-destructive/5 shadow-sm">
+          <div className="flex items-center gap-1.5 text-xs text-destructive font-medium">
+            <XCircle className="w-3.5 h-3.5" />
+            <span>Rejected</span>
+          </div>
+          <p className="text-2xl font-bold text-destructive mt-1">{rejectedCount}</p>
+        </div>
+      </div>
+
+      {/* Controls: Bulk Actions & Filters */}
+      <Card className="p-4 border border-border/80 rounded-xl space-y-4 shadow-sm">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          {/* Filters */}
+          <div className="flex flex-wrap items-center gap-2">
+            <div className="flex items-center gap-1.5 text-xs text-muted-foreground font-medium mr-1">
+              <Filter className="w-3.5 h-3.5" />
+              <span>Filter:</span>
+            </div>
+
+            {/* Status pill filter */}
+            <div className="inline-flex rounded-lg border border-border p-0.5 bg-muted/30 text-xs">
+              {(["all", "pending", "accepted", "rejected"] as const).map((st) => (
+                <button
+                  key={st}
+                  type="button"
+                  onClick={() => setStatusFilter(st)}
+                  className={`px-2.5 py-1 rounded-md capitalize font-medium transition-all ${
+                    statusFilter === st
+                      ? "bg-background text-foreground shadow-sm"
+                      : "text-muted-foreground hover:text-foreground"
+                  }`}
+                >
+                  {st}
+                </button>
+              ))}
+            </div>
+
+            {/* Income / Expense filter */}
+            <div className="inline-flex rounded-lg border border-border p-0.5 bg-muted/30 text-xs">
+              <button
+                type="button"
+                onClick={() => setDirectionFilter("all")}
+                className={`px-2.5 py-1 rounded-md font-medium transition-all ${
+                  directionFilter === "all"
+                    ? "bg-background text-foreground shadow-sm"
+                    : "text-muted-foreground hover:text-foreground"
+                }`}
+              >
+                All Flow
+              </button>
+              <button
+                type="button"
+                onClick={() => setDirectionFilter("credit")}
+                className={`px-2.5 py-1 rounded-md font-medium flex items-center gap-1 transition-all ${
+                  directionFilter === "credit"
+                    ? "bg-positive/10 text-positive shadow-sm font-semibold"
+                    : "text-muted-foreground hover:text-positive"
+                }`}
+              >
+                <ArrowDownLeft className="w-3 h-3" />
+                Income
+              </button>
+              <button
+                type="button"
+                onClick={() => setDirectionFilter("debit")}
+                className={`px-2.5 py-1 rounded-md font-medium flex items-center gap-1 transition-all ${
+                  directionFilter === "debit"
+                    ? "bg-danger/10 text-danger shadow-sm font-semibold"
+                    : "text-muted-foreground hover:text-danger"
+                }`}
+              >
+                <ArrowUpRight className="w-3 h-3" />
+                Expense
+              </button>
+            </div>
+          </div>
+
+          {/* Bulk Buttons */}
+          <div className="flex items-center gap-2">
+            {pendingCount > 0 && (
+              <>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => {
+                    const allPendingIds = rows
+                      .filter((r) => r.reviewStatus === "pending")
+                      .map((r) => r.id)
+                    handleBulkAction("accept", allPendingIds)
+                  }}
+                  disabled={isPending}
+                  className="h-8 text-xs font-semibold text-positive border-positive/30 hover:bg-positive/10"
+                >
+                  {isPending ? <Loader2 className="w-3.5 h-3.5 animate-spin mr-1.5" /> : <CheckCircle2 className="w-3.5 h-3.5 mr-1.5" />}
+                  Commit All Pending ({pendingCount})
+                </Button>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => {
+                    const allPendingIds = rows
+                      .filter((r) => r.reviewStatus === "pending")
+                      .map((r) => r.id)
+                    handleBulkAction("reject", allPendingIds)
+                  }}
+                  disabled={isPending}
+                  className="h-8 text-xs font-semibold text-destructive border-destructive/30 hover:bg-destructive/10"
+                >
+                  {isPending ? <Loader2 className="w-3.5 h-3.5 animate-spin mr-1.5" /> : <XCircle className="w-3.5 h-3.5 mr-1.5" />}
+                  Reject All Pending
+                </Button>
+              </>
+            )}
+          </div>
+        </div>
+
+        {/* Selected rows action bar */}
+        {selectedIds.length > 0 && (
+          <div className="flex items-center justify-between p-2.5 rounded-lg bg-primary/10 border border-primary/20 text-sm">
+            <span className="font-semibold text-foreground text-xs sm:text-sm">
+              {selectedIds.length} row{selectedIds.length > 1 ? "s" : ""} selected
+            </span>
+            <div className="flex items-center gap-2">
+              <Button
+                size="sm"
+                onClick={() => handleBulkAction("accept")}
+                disabled={isPending}
+                className="h-7 text-xs bg-positive hover:bg-positive/90 text-white font-medium"
+              >
+                {isPending ? <Loader2 className="w-3 h-3 animate-spin mr-1" /> : <CheckCircle2 className="w-3 h-3 mr-1" />}
+                Commit Selected
+              </Button>
+              <Button
+                size="sm"
+                variant="danger"
+                onClick={() => handleBulkAction("reject")}
+                disabled={isPending}
+                className="h-7 text-xs font-medium"
+              >
+                {isPending ? <Loader2 className="w-3 h-3 animate-spin mr-1" /> : <XCircle className="w-3 h-3 mr-1" />}
+                Reject Selected
+              </Button>
+              <Button
+                size="sm"
+                variant="ghost"
+                onClick={() => setSelectedIds([])}
+                disabled={isPending}
+                className="h-7 text-xs"
+              >
+                Clear
+              </Button>
+            </div>
+          </div>
+        )}
+      </Card>
+
+      {/* Select All Pending checkbox header */}
+      {visiblePendingRows.length > 0 && (
+        <div className="flex items-center gap-2 px-1">
+          <button
+            type="button"
+            onClick={toggleSelectAllVisible}
+            className="flex items-center gap-2 text-xs font-medium text-muted-foreground hover:text-foreground transition-colors"
+          >
+            {allVisiblePendingSelected ? (
+              <CheckSquare className="w-4 h-4 text-primary" />
+            ) : (
+              <Square className="w-4 h-4 text-muted-foreground" />
+            )}
+            <span>Select all visible pending rows ({visiblePendingRows.length})</span>
+          </button>
+        </div>
+      )}
+
+      {/* Rows List */}
+      <div className="space-y-3">
+        {filteredRows.map((row) => {
+          const isPendingRow = row.reviewStatus === "pending"
+          const isSelected = selectedIds.includes(row.id)
+          const isDebit = row.direction === "debit"
+
+          return (
+            <Card
+              key={row.id}
+              className={`p-4 flex flex-col gap-3 rounded-xl border transition-all ${
+                isSelected
+                  ? "border-primary bg-primary/5 shadow-sm"
+                  : row.duplicateStatus !== "none"
+                  ? "border-destructive/60 bg-destructive/5"
+                  : !isPendingRow
+                  ? "opacity-60 bg-muted/20 border-border/60"
+                  : "border-border/80 hover:border-border"
+              }`}
+            >
+              <div className="flex items-start justify-between gap-3">
+                <div className="flex items-start gap-3">
+                  {isPendingRow ? (
+                    <button
+                      type="button"
+                      onClick={() => toggleSelectRow(row.id)}
+                      className="mt-0.5 text-muted-foreground hover:text-primary transition-colors flex-shrink-0"
+                    >
+                      {isSelected ? (
+                        <CheckSquare className="w-4 h-4 text-primary" />
+                      ) : (
+                        <Square className="w-4 h-4" />
+                      )}
+                    </button>
+                  ) : (
+                    <div className="w-4 flex-shrink-0" />
+                  )}
+
+                  <div className="space-y-1">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="text-xs font-semibold text-muted-foreground">
+                        {row.transactionDate}
+                      </span>
+                      <span
+                        className={`inline-flex items-center gap-0.5 text-[11px] font-semibold px-2 py-0.5 rounded-full ${
+                          isDebit
+                            ? "bg-danger/10 text-danger border border-danger/20"
+                            : "bg-positive/10 text-positive border border-positive/20"
+                        }`}
+                      >
+                        {isDebit ? (
+                          <>
+                            <ArrowUpRight className="w-3 h-3" />
+                            Expense
+                          </>
+                        ) : (
+                          <>
+                            <ArrowDownLeft className="w-3 h-3" />
+                            Income
+                          </>
+                        )}
+                      </span>
+                      {row.duplicateStatus !== "none" && (
+                        <span className="text-[10px] font-bold uppercase tracking-wider text-destructive bg-destructive/15 px-2 py-0.5 rounded-md border border-destructive/30">
+                          Possible Duplicate
+                        </span>
+                      )}
+                    </div>
+                    <p className="text-sm font-medium text-foreground leading-snug">{row.description}</p>
+                  </div>
+                </div>
+
+                <div className="text-right flex-shrink-0">
+                  <Amount
+                    valueMinor={BigInt(isDebit ? -Number(row.amountMinor) : Number(row.amountMinor))}
+                    currency={row.currency}
+                    colorize="default"
+                    showSign={true}
+                    className="font-bold text-base"
+                  />
+                </div>
+              </div>
+
+              {/* Action row */}
+              {isPendingRow ? (
+                <form
+                  action={reviewRowAction.bind(null, workspaceId)}
+                  className="flex flex-wrap sm:flex-nowrap gap-2 bg-muted/40 p-2.5 rounded-lg items-center border border-border/50 mt-1"
+                >
+                  <input type="hidden" name="rowId" value={row.id} />
+                  <input type="hidden" name="importId" value={importRecord.id} />
+
+                  <div className="flex-1 min-w-[180px]">
+                    <select
+                      name="categoryId"
+                      className="w-full h-8 rounded-md text-xs border border-border bg-background px-2.5 text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
+                    >
+                      <option value="">Select Category (Optional)</option>
+                      {categories.map((c) => (
+                        <option key={c.id} value={c.id}>
+                          {c.name}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div className="flex items-center gap-2">
+                    <Button
+                      type="submit"
+                      name="action"
+                      value="commit"
+                      size="sm"
+                      className="h-8 px-3 text-xs bg-positive hover:bg-positive/90 text-white font-medium"
+                    >
+                      <CheckCircle2 className="w-3.5 h-3.5 mr-1" />
+                      Commit
+                    </Button>
+                    <Button
+                      type="submit"
+                      name="action"
+                      value="reject"
+                      variant="outline"
+                      size="sm"
+                      className="h-8 px-3 text-xs text-destructive border-destructive/40 hover:bg-destructive/10 font-medium"
+                    >
+                      <XCircle className="w-3.5 h-3.5 mr-1" />
+                      Reject
+                    </Button>
+                  </div>
+                </form>
+              ) : (
+                <div className="flex items-center gap-1.5 text-xs text-muted-foreground font-medium pt-1 border-t border-border/40">
+                  {row.reviewStatus === "accepted" ? (
+                    <span className="inline-flex items-center gap-1 text-positive font-semibold">
+                      <CheckCircle2 className="w-3.5 h-3.5" />
+                      Committed to Ledger
+                    </span>
+                  ) : (
+                    <span className="inline-flex items-center gap-1 text-destructive font-semibold">
+                      <XCircle className="w-3.5 h-3.5" />
+                      Rejected
+                    </span>
+                  )}
+                </div>
+              )}
+            </Card>
+          )
+        })}
+
+        {filteredRows.length === 0 && (
+          <Card className="p-8 text-center border-dashed border-border rounded-xl">
+            <p className="text-sm text-muted-foreground">No statement rows match the current filters.</p>
+          </Card>
+        )}
+      </div>
+    </div>
+  )
+}

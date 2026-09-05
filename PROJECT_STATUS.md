@@ -442,6 +442,15 @@ When taking over this project:
 
 ## 16. Change Log
 
+### 2026-09-05 — Quick Add FAB Arrow Correction and Subtab Pre-selection
+- **What changed:**
+  1. **Quick Add FAB Arrow Icons:** Updated `quick-add-fab.tsx` to set arrow upwards (`ArrowUp`) for Expense (money out) and arrow downwards (`ArrowDown`) for Income (money in).
+  2. **Transaction Form Subtab Pre-selection:** Updated `NewTransactionPage` (`transactions/new/page.tsx`) to extract the `type` search param and pass `initialType` into `TransactionForm`. Updated `TransactionForm.tsx` to support `initialType` and `useSearchParams()`, dynamically pre-selecting the corresponding subtab (Expense, Income, or Transfer) when launched from the FAB.
+  3. **Testing:** Added test in `TransactionForm.test.tsx` verifying `initialType` pre-selection; all 45 test files passing.
+- **Why it changed:** Improved mobile UX so tapping Expense, Income, or Transfer opens directly to the intended subtab, and corrected the arrow directions.
+- **Files affected:** `src/components/layout/quick-add-fab.tsx`, `src/app/(app)/transactions/new/page.tsx`, `src/components/transactions/TransactionForm.tsx`, `tests/components/TransactionForm.test.tsx`.
+- **Tests run:** 45 test suites passing, 184 tests passing (100%).
+
 ### 2026-09-05 — Dedicated Register Page, Show/Confirm Password Toggles, and Dashboard Onboarding Banner Sprint
 - **What changed:**
   1. **Dedicated Registration Route:** Created `src/app/(auth)/register/page.tsx` as a dedicated registration page. Updated `login/page.tsx` to automatically redirect `?mode=register` to `/register`.

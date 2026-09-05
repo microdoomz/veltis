@@ -14,7 +14,7 @@ export const createReceivableSchema = z.object({
   expectedDate: z.date().optional(),
   note: z.string().optional(),
   sourceAccountId: z.string().uuid().optional(),
-  createdByUserId: z.string().uuid(),
+  createdByUserId: z.string().min(1),
 });
 
 export async function createReceivable(data: z.infer<typeof createReceivableSchema>) {
@@ -54,7 +54,7 @@ export const settleReceivableSchema = z.object({
   destAccountId: z.string().uuid(),
   amountMinor: z.bigint().min(1n),
   settledAt: z.date(),
-  createdByUserId: z.string().uuid(),
+  createdByUserId: z.string().min(1),
 });
 
 export async function settleReceivable(data: z.infer<typeof settleReceivableSchema>) {

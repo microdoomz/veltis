@@ -28,6 +28,7 @@ export function OnboardingForm() {
           type: 'checking',
           currency,
           balance: parseFloat(openingBalance) || 0,
+          updateBaseCurrency: true,
         })
       });
 

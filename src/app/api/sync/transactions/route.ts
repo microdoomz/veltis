@@ -3,6 +3,9 @@ import { requireUser, requireStrictWorkspaceAccess } from '@/lib/auth/guards';
 import { checkIdempotency, recordIdempotency } from '@/lib/services/idempotency';
 import { createExpense, createIncome, createTransfer } from '@/lib/services/transaction';
 import { checkRateLimit } from '@/lib/security/rate-limit';
+import { db } from '@/lib/db';
+import { financialAccount } from '@/lib/db/schema';
+import { eq } from 'drizzle-orm';
 import { z } from 'zod';
 
 const syncItemSchema = z.object({
@@ -19,6 +22,7 @@ const baseSchema = z.object({
   workspaceId: z.string().uuid("workspaceId is required"),
   amountMajor: z.coerce.number().positive("Amount must be positive"),
   accountId: z.string().min(1, "Account is required"),
+  currency: z.string().length(3).optional(),
   transactionDate: z.string().min(1, "Date is required"),
   description: z.string().optional().transform(v => v === "" ? undefined : v),
   categoryId: z.string().optional().transform(v => v === "" ? undefined : v),
@@ -29,6 +33,7 @@ const transferSchema = z.object({
   amountMajor: z.coerce.number().positive("Amount must be positive"),
   sourceAccountId: z.string().min(1, "Source account is required"),
   destAccountId: z.string().min(1, "Destination account is required"),
+  currency: z.string().length(3).optional(),
   transactionDate: z.string().min(1, "Date is required"),
   description: z.string().optional().transform(v => v === "" ? undefined : v),
 });
@@ -77,13 +82,21 @@ export async function POST(req: Request) {
         if (item.type === 'expense' || item.type === 'income') {
           const validPayload = parsedPayload.data as z.infer<typeof baseSchema>;
           const amountMinor = BigInt(Math.round(validPayload.amountMajor * 100));
+
+          let currency = validPayload.currency?.toUpperCase();
+          if (!currency) {
+            const acc = await db.query.financialAccount.findFirst({
+              where: eq(financialAccount.id, validPayload.accountId),
+            });
+            currency = acc?.currency || 'USD';
+          }
           
           if (item.type === 'expense') {
             await createExpense({
               workspaceId,
               createdByUserId: userContext.user.id,
               amountMinor,
-              currency: "INR",
+              currency,
               transactionDate: new Date(validPayload.transactionDate),
               description: validPayload.description,
               categoryId: validPayload.categoryId,
@@ -95,7 +108,7 @@ export async function POST(req: Request) {
               workspaceId,
               createdByUserId: userContext.user.id,
               amountMinor,
-              currency: "INR",
+              currency,
               transactionDate: new Date(validPayload.transactionDate),
               description: validPayload.description,
               categoryId: validPayload.categoryId,
@@ -106,12 +119,20 @@ export async function POST(req: Request) {
         } else if (item.type === 'transfer') {
           const validPayload = parsedPayload.data as z.infer<typeof transferSchema>;
           const amountMinor = BigInt(Math.round(validPayload.amountMajor * 100));
+
+          let currency = validPayload.currency?.toUpperCase();
+          if (!currency) {
+            const acc = await db.query.financialAccount.findFirst({
+              where: eq(financialAccount.id, validPayload.sourceAccountId),
+            });
+            currency = acc?.currency || 'USD';
+          }
           
           await createTransfer({
             workspaceId,
             createdByUserId: userContext.user.id,
             amountMinor,
-            currency: "INR",
+            currency,
             transactionDate: new Date(validPayload.transactionDate),
             description: validPayload.description,
             sourceAccountId: validPayload.sourceAccountId,

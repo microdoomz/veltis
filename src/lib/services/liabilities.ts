@@ -15,7 +15,7 @@ export const createLiabilitySchema = z.object({
   dueDate: z.date().optional(),
   note: z.string().optional(),
   destAccountId: z.string().uuid().optional(),
-  createdByUserId: z.string().uuid(),
+  createdByUserId: z.string().min(1),
 });
 
 export async function createLiability(data: z.infer<typeof createLiabilitySchema>) {
@@ -56,7 +56,7 @@ export const payLiabilitySchema = z.object({
   sourceAccountId: z.string().uuid(),
   amountMinor: z.bigint().min(1n),
   paidAt: z.date(),
-  createdByUserId: z.string().uuid(),
+  createdByUserId: z.string().min(1),
 });
 
 export async function payLiability(data: z.infer<typeof payLiabilitySchema>) {

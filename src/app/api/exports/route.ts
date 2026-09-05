@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { requireStrictWorkspaceAccess } from '@/lib/auth/guards';
+import { requireWorkspaceAccess } from '@/lib/auth/guards';
 import { 
   generateCsvExport, 
   generateXlsxExport, 
@@ -9,7 +9,7 @@ import {
 import { z } from 'zod';
 
 const querySchema = z.object({
-  workspaceId: z.string().uuid(),
+  workspaceId: z.string().uuid().optional(),
   format: z.enum(['csv', 'xlsx', 'pdf', 'json']),
   startDate: z.string().optional(),
   endDate: z.string().optional(),
@@ -19,13 +19,14 @@ export async function GET(req: Request) {
   try {
     const url = new URL(req.url);
     const data = querySchema.parse({
-      workspaceId: url.searchParams.get('workspaceId'),
+      workspaceId: url.searchParams.get('workspaceId') || undefined,
       format: url.searchParams.get('format'),
       startDate: url.searchParams.get('startDate') || undefined,
       endDate: url.searchParams.get('endDate') || undefined,
     });
 
-    await requireStrictWorkspaceAccess(data.workspaceId);
+    const authContext = await requireWorkspaceAccess(data.workspaceId);
+    const workspaceId = authContext.workspaceId;
 
     const timeFilter = {
       startDate: data.startDate ? new Date(data.startDate) : new Date('2000-01-01'),
@@ -33,7 +34,7 @@ export async function GET(req: Request) {
     };
 
     if (data.format === 'csv') {
-      const csv = await generateCsvExport(data.workspaceId, timeFilter);
+      const csv = await generateCsvExport(workspaceId, timeFilter);
       return new NextResponse(csv, {
         headers: {
           'Content-Type': 'text/csv',
@@ -43,7 +44,7 @@ export async function GET(req: Request) {
     }
 
     if (data.format === 'xlsx') {
-      const buffer = await generateXlsxExport(data.workspaceId, timeFilter);
+      const buffer = await generateXlsxExport(workspaceId, timeFilter);
       return new NextResponse(buffer as unknown as BodyInit, {
         headers: {
           'Content-Type': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
@@ -53,7 +54,7 @@ export async function GET(req: Request) {
     }
 
     if (data.format === 'pdf') {
-      const buffer = await generatePdfExport(data.workspaceId, timeFilter);
+      const buffer = await generatePdfExport(workspaceId, timeFilter);
       return new NextResponse(buffer as unknown as BodyInit, {
         headers: {
           'Content-Type': 'application/pdf',
@@ -63,7 +64,7 @@ export async function GET(req: Request) {
     }
 
     if (data.format === 'json') {
-      const backup = await generateFullBackup(data.workspaceId);
+      const backup = await generateFullBackup(workspaceId);
       // We convert bigints to strings so JSON.stringify works via NextResponse.json
       const jsonStr = JSON.stringify(backup, (key, value) =>
         typeof value === 'bigint' ? value.toString() : value

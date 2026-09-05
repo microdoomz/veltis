@@ -37,6 +37,11 @@ export default async function AccountsPage() {
           <h1 className="text-2xl font-bold tracking-tight text-primary">Accounts</h1>
           <p className="text-muted-foreground">All your linked financial accounts.</p>
         </div>
+        <Link href="/accounts/new">
+          <Button size="sm">
+            <Plus className="w-4 h-4 mr-2" /> Add Account
+          </Button>
+        </Link>
       </header>
 
       <div className="space-y-8">

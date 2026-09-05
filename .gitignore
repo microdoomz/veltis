@@ -42,3 +42,5 @@ next-env.d.ts
 
 # Veltis planning / internal documentation
 Building Docs/
+AGENTS.md
+CLAUDE.md

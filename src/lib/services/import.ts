@@ -1,5 +1,5 @@
 import { db } from '../db';
-import { statementImport, statementImportRow, transaction } from '../db/schema';
+import { statementImport, statementImportRow, transaction, financialAccount } from '../db/schema';
 import { eq, and, sql } from 'drizzle-orm';
 import { createExpense, createIncome } from './transaction';
 
@@ -27,6 +27,11 @@ export async function processCsvImport(
   const amtIdx = headers.indexOf('amount');
 
   return await db.transaction(async (tx) => {
+    const account = await tx.query.financialAccount.findFirst({
+      where: eq(financialAccount.id, accountId),
+    });
+    const currency = account?.currency || 'USD';
+
     const [importRecord] = await tx.insert(statementImport).values({
       workspaceId,
       financialAccountId: accountId,
@@ -61,7 +66,7 @@ export async function processCsvImport(
         transactionDate: dateStr,
         description: desc,
         amountMinor,
-        currency: 'USD', // simplified
+        currency,
         direction: direction as 'debit' | 'credit',
         duplicateStatus: 'none' as const,
         reviewStatus: 'pending' as const,

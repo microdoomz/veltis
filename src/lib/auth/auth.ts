@@ -22,7 +22,17 @@ function getBaseURL() {
 
 export const auth = betterAuth({
   baseURL: getBaseURL(),
-  trustedOrigins: ["http://localhost:3000", "http://127.0.0.1:3000"],
+  trustedOrigins: Array.from(
+    new Set([
+      "http://localhost:3000",
+      "http://127.0.0.1:3000",
+      getBaseURL(),
+      ...(process.env.APP_BASE_URL ? [process.env.APP_BASE_URL] : []),
+      ...(process.env.VERCEL_PROJECT_PRODUCTION_URL ? [`https://${process.env.VERCEL_PROJECT_PRODUCTION_URL}`] : []),
+      ...(process.env.VERCEL_URL ? [`https://${process.env.VERCEL_URL}`] : []),
+      "https://veltismoney.vercel.app",
+    ])
+  ),
   database: drizzleAdapter(db, {
     provider: 'pg',
   }),

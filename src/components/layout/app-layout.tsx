@@ -2,7 +2,7 @@
 
 import Link from "next/link"
 import { useState } from "react"
-import { Home, ListOrdered, WalletCards, Plus, MoreHorizontal, Target, Repeat, Upload, Zap, Menu, LogOut, ChevronLeft, Settings, Download } from "lucide-react"
+import { Home, ListOrdered, WalletCards, Plus, MoreHorizontal, Target, Repeat, Upload, Zap, Menu, LogOut, ChevronLeft, Settings, Download, TrendingUp, ArrowDownLeft, ArrowUpRight } from "lucide-react"
 import { authClient } from "@/lib/auth/client"
 import { SyncStatus } from "@/components/sync/SyncStatus"
 import { QuickAddFab } from "@/components/layout/quick-add-fab"
@@ -12,13 +12,16 @@ const navItems = [
   { href: '/home', label: 'Dashboard', icon: Home },
   { href: '/accounts', label: 'Accounts', icon: WalletCards },
   { href: '/transactions', label: 'Transactions', icon: ListOrdered },
+  { href: '/investments', label: 'Investments', icon: TrendingUp },
+  { href: '/receivables', label: 'Receivables', icon: ArrowDownLeft },
+  { href: '/liabilities', label: 'Liabilities', icon: ArrowUpRight },
   { href: '/analytics', label: 'Analytics', icon: Target },
   { href: '/budgets', label: 'Budgets', icon: Target },
   { href: '/recurring', label: 'Recurring', icon: Repeat },
   { href: '/imports', label: 'Imports', icon: Upload },
+  { href: '/exports', label: 'Exports', icon: Download },
   { href: '/settings/shortcuts', label: 'Shortcuts', icon: Zap },
   { href: '/settings', label: 'Settings', icon: Settings },
-  { href: '/exports', label: 'Exports', icon: Download },
 ]
 
 export function AppLayout({ children }: { children: React.ReactNode }) {

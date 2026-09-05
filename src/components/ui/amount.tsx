@@ -11,22 +11,32 @@ interface AmountProps extends React.HTMLAttributes<HTMLSpanElement> {
   colorize?: "none" | "default" | "inverted";
 }
 
-export function formatMoney(valueMinor: bigint, currency: string = "INR") {
-  // For V1, assuming INR with 2 decimal places.
-  // We divide by 100 to get major units.
-  const major = Number(valueMinor) / 100
+const currencyLocaleMap: Record<string, string> = {
+  INR: "en-IN",
+  USD: "en-US",
+  GBP: "en-GB",
+  EUR: "de-DE",
+  JPY: "ja-JP",
+  CAD: "en-CA",
+  AUD: "en-AU",
+  SGD: "en-SG",
+};
+
+export function formatMoney(valueMinor: bigint, currency: string = "USD") {
+  const major = Number(valueMinor) / 100;
+  const upperCurrency = currency.toUpperCase();
+  const locale = currencyLocaleMap[upperCurrency] || "en-US";
   
-  // Format with standard Intl.NumberFormat
-  return new Intl.NumberFormat("en-IN", {
+  return new Intl.NumberFormat(locale, {
     style: "currency",
-    currency: currency,
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  }).format(major)
+    currency: upperCurrency,
+    minimumFractionDigits: upperCurrency === 'JPY' ? 0 : 2,
+    maximumFractionDigits: upperCurrency === 'JPY' ? 0 : 2,
+  }).format(major);
 }
 
 export const Amount = React.forwardRef<HTMLSpanElement, AmountProps>(
-  ({ valueMinor, currency = "INR", showSign = false, colorize = "none", className, ...props }, ref) => {
+  ({ valueMinor, currency = "USD", showSign = false, colorize = "none", className, ...props }, ref) => {
     // Some instances might render Amount in environments without PrivacyProvider (e.g. static pages if any), 
     // but the app is fully wrapped in the provider.
     const privacyContext = React.useContext(PrivacyContext) || { isPrivacyModeEnabled: false, isRevealed: false };

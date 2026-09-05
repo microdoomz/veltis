@@ -13,6 +13,7 @@ const shortcutExpenseSchema = z.object({
   description: z.string().min(1),
   accountId: z.string().uuid().optional(),
   categoryId: z.string().uuid().optional(),
+  currency: z.string().length(3).optional(),
   date: z.string().optional(), // YYYY-MM-DD
   idempotencyKey: z.string().min(1)
 });
@@ -61,6 +62,7 @@ export async function POST(req: NextRequest) {
 
     // 4. Resolve Account
     let targetAccountId = data.accountId;
+    let targetAccountCurrency = 'USD';
     if (!targetAccountId) {
       // Find a default account if not provided (just pick the first active bank/credit account)
       const accounts = await db.query.financialAccount.findMany({
@@ -74,6 +76,7 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ error: 'No active accounts found in workspace' }, { status: 400 });
       }
       targetAccountId = accounts[0].id;
+      targetAccountCurrency = accounts[0].currency;
     } else {
       // Validate requested account belongs to workspace
       const account = await db.query.financialAccount.findFirst({
@@ -85,16 +88,19 @@ export async function POST(req: NextRequest) {
       if (!account) {
         return NextResponse.json({ error: 'Account not found or not in workspace' }, { status: 404 });
       }
+      targetAccountCurrency = account.currency;
     }
 
+    const txnCurrency = (data.currency || targetAccountCurrency).toUpperCase();
+
     // 5. Create Transaction (Domain Logic)
-    const amountMinor = BigInt(Math.round(data.amount * 100)); // USD simplified
+    const amountMinor = BigInt(Math.round(data.amount * 100));
     const transactionDate = data.date ? new Date(data.date) : new Date();
 
     const txn = await createExpense({
       workspaceId: shortcut.workspaceId,
       amountMinor,
-      currency: 'USD',
+      currency: txnCurrency,
       transactionDate,
       accountId: targetAccountId,
       categoryId: data.categoryId,
@@ -108,8 +114,8 @@ export async function POST(req: NextRequest) {
       success: true,
       transactionId: txn.id,
       amount: data.amount,
-      description: data.description,
-      status: 'created'
+      currency: txnCurrency,
+      date: transactionDate.toISOString().split('T')[0]
     };
 
     // 7. Record Idempotency

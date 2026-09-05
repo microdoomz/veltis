@@ -20,8 +20,8 @@ const baseSchema = z.object({
   amountMajor: z.coerce.number().positive("Amount must be positive"),
   accountId: z.string().min(1, "Account is required"),
   transactionDate: z.string().min(1, "Date is required"),
-  description: z.string().optional(),
-  categoryId: z.string().optional(),
+  description: z.string().optional().transform(v => v === "" ? undefined : v),
+  categoryId: z.string().optional().transform(v => v === "" ? undefined : v),
 });
 
 const transferSchema = z.object({
@@ -30,7 +30,7 @@ const transferSchema = z.object({
   sourceAccountId: z.string().min(1, "Source account is required"),
   destAccountId: z.string().min(1, "Destination account is required"),
   transactionDate: z.string().min(1, "Date is required"),
-  description: z.string().optional(),
+  description: z.string().optional().transform(v => v === "" ? undefined : v),
 });
 
 export async function POST(req: Request) {

@@ -26,22 +26,27 @@ export function TransactionForm({
   const router = useRouter()
   const { triggerSync } = useSync()
 
+  const [errorMsg, setErrorMsg] = useState<string | null>(null)
+
   async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault()
     setLoading(true)
+    setErrorMsg(null)
     try {
       const formData = new FormData(e.currentTarget)
       
+      const desc = formData.get("description") as string
       const payload: OfflineTransactionPayload = {
         workspaceId,
         amountMajor: parseFloat(formData.get("amount") as string),
         transactionDate: formData.get("transactionDate") as string,
-        description: (formData.get("description") as string) || undefined,
+        description: desc?.trim() || undefined,
       }
 
       if (type === "expense" || type === "income") {
         payload.accountId = formData.get("accountId") as string;
-        payload.categoryId = (formData.get("categoryId") as string) || undefined;
+        const catId = formData.get("categoryId") as string;
+        payload.categoryId = catId?.trim() || undefined;
       } else if (type === "transfer") {
         payload.sourceAccountId = formData.get("sourceAccountId") as string;
         payload.destAccountId = formData.get("destAccountId") as string;
@@ -56,7 +61,7 @@ export function TransactionForm({
       router.refresh()
     } catch (error) {
       console.error(error)
-      alert("Failed to save transaction.")
+      setErrorMsg(error instanceof Error ? error.message : "Failed to save transaction.")
     } finally {
       setLoading(false)
     }
@@ -90,6 +95,11 @@ export function TransactionForm({
 
       <CardContent className="pt-6">
         <form onSubmit={onSubmit} className="space-y-4">
+          {errorMsg && (
+            <div className="p-3 text-sm text-destructive-foreground bg-destructive/10 rounded-md border border-destructive/20">
+              {errorMsg}
+            </div>
+          )}
           <div>
             <label className="block text-sm font-medium text-muted-foreground mb-1">Amount</label>
             <div className="relative">

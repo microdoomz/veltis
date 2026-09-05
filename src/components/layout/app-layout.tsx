@@ -23,15 +23,21 @@ const navItems = [
 
 export function AppLayout({ children }: { children: React.ReactNode }) {
   const [isCollapsed, setIsCollapsed] = useState(false);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const router = useRouter();
 
   const handleLogout = async () => {
-    await authClient.signOut();
-    router.push('/login');
+    await authClient.signOut({
+      fetchOptions: {
+        onSuccess: () => {
+          router.push('/login');
+        },
+      },
+    });
   };
 
   return (
-    <div className="flex h-screen w-full bg-background">
+    <div className="flex h-screen w-full bg-background overflow-hidden">
       {/* Desktop Sidebar */}
       <aside className={`hidden md:flex flex-col border-r border-border bg-card transition-all duration-300 ease-in-out ${isCollapsed ? 'w-20' : 'w-64'}`}>
         <div className="p-4 h-16 flex items-center justify-between">
@@ -41,7 +47,8 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
             className="p-2 rounded-md hover:bg-muted text-muted-foreground transition-colors mx-auto"
             aria-label="Toggle Sidebar"
           >
-            {isCollapsed ? <Menu className="h-5 w-5" /> : <ChevronLeft className="h-5 w-5" />}
+            <Menu className={`h-5 w-5 transition-transform duration-300 ${isCollapsed ? 'rotate-0' : 'rotate-90 opacity-0 absolute'}`} />
+            <ChevronLeft className={`h-5 w-5 transition-transform duration-300 ${isCollapsed ? '-rotate-90 opacity-0 absolute' : 'rotate-0'}`} />
           </button>
         </div>
         
@@ -60,7 +67,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
         <div className="p-4 border-t border-border flex flex-col gap-2">
           <Link href="/transactions/new" className={`flex w-full items-center justify-center gap-2 rounded-md bg-primary py-2.5 text-sm font-medium text-primary-foreground shadow transition-colors hover:bg-primary/90 ${isCollapsed ? 'px-0' : 'px-4'}`}>
             <Plus className="h-5 w-5" />
-            {!isCollapsed && <span>New Transaction</span>}
+            {!isCollapsed && <span>New</span>}
           </Link>
           
           <button onClick={handleLogout} className={`flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive justify-center md:justify-start ${isCollapsed ? 'justify-center' : ''}`}>
@@ -70,11 +77,50 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
         </div>
       </aside>
 
+      {/* Mobile Sidebar Overlay */}
+      {mobileMenuOpen && (
+        <div className="md:hidden fixed inset-0 z-40 bg-background/80 backdrop-blur-sm" onClick={() => setMobileMenuOpen(false)} />
+      )}
+      
+      {/* Mobile Sidebar Drawer */}
+      <aside className={`md:hidden fixed inset-y-0 left-0 z-50 w-64 bg-card border-r border-border shadow-lg transform transition-transform duration-300 ease-in-out ${mobileMenuOpen ? 'translate-x-0' : '-translate-x-full'} flex flex-col`}>
+        <div className="p-4 h-14 flex items-center border-b border-border">
+          <h1 className="text-xl font-bold text-primary tracking-tight px-2 flex-1">Veltis</h1>
+          <button onClick={() => setMobileMenuOpen(false)} className="p-2 text-muted-foreground">
+            <ChevronLeft className="h-5 w-5" />
+          </button>
+        </div>
+        <nav className="flex-1 px-4 space-y-2 py-4 overflow-y-auto">
+          {navItems.map((item) => (
+            <Link
+              key={item.href}
+              href={item.href}
+              onClick={() => setMobileMenuOpen(false)}
+              className="flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+            >
+              <item.icon className="h-5 w-5 flex-shrink-0" />
+              <span>{item.label}</span>
+            </Link>
+          ))}
+        </nav>
+        <div className="p-4 border-t border-border">
+          <button onClick={handleLogout} className="flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive">
+            <LogOut className="h-5 w-5 flex-shrink-0" />
+            <span>Log out</span>
+          </button>
+        </div>
+      </aside>
+
       {/* Main Content Area */}
       <main className="flex-1 flex flex-col h-full min-w-0 overflow-y-auto pb-16 md:pb-0">
         {/* Mobile Header */}
         <header className="md:hidden flex items-center justify-between h-14 px-4 border-b border-border bg-card sticky top-0 z-10">
-          <h1 className="text-lg font-bold text-primary tracking-tight">Veltis</h1>
+          <div className="flex items-center gap-3">
+            <button onClick={() => setMobileMenuOpen(true)} className="p-1 -ml-1 text-muted-foreground hover:text-foreground">
+              <Menu className="h-6 w-6" />
+            </button>
+            <h1 className="text-lg font-bold text-primary tracking-tight">Veltis</h1>
+          </div>
           <SyncStatus />
         </header>
         
@@ -84,14 +130,14 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
       </main>
 
       {/* Mobile Bottom Navigation */}
-      <nav className="md:hidden fixed bottom-0 left-0 right-0 h-16 bg-card border-t border-border flex items-center justify-around z-50 px-2 pb-safe">
+      <nav className="md:hidden fixed bottom-0 left-0 right-0 h-16 bg-card border-t border-border flex items-center justify-around z-30 px-2 pb-safe">
         <MobileNavLink href="/home" icon={Home} label="Home" />
         <MobileNavLink href="/transactions" icon={ListOrdered} label="Txns" />
         
         <QuickAddFab />
         
         <MobileNavLink href="/accounts" icon={WalletCards} label="Accounts" />
-        <MobileNavLink href="/more" icon={MoreHorizontal} label="More" />
+        <MobileNavLink href="/analytics" icon={Target} label="Analytics" />
       </nav>
     </div>
   )

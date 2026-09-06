@@ -64,7 +64,7 @@ export default async function TransactionDetailPage({ params }: { params: Promis
             <p className="text-4xl font-bold">
               <Amount 
                 valueMinor={txn.transactionType === 'expense' || txn.transactionType === 'credit_card_purchase' ? -txn.amountMinor : txn.amountMinor} 
-                colorize="inverted" 
+                colorize="default" 
                 showSign={true}
               />
             </p>

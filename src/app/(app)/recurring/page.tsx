@@ -42,7 +42,7 @@ export default async function RecurringPage() {
                 </div>
                 <Amount 
                   valueMinor={item.type === 'expense' ? -item.expectedAmountMinor : item.expectedAmountMinor} 
-                  colorize="inverted" 
+                  colorize="default" 
                   showSign={true} 
                   className="text-base font-bold"
                 />

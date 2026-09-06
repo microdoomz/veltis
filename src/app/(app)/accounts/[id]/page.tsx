@@ -63,7 +63,7 @@ export default async function AccountDetailPage({ params }: { params: Promise<{ 
 
       <div className="space-y-4">
         <h2 className="text-lg font-semibold tracking-tight">Recent Activity</h2>
-        <Card>
+        <Card className="min-w-0 overflow-hidden">
           <div className="divide-y divide-border">
             {transactions.length === 0 ? (
               <div className="p-8 text-center text-muted-foreground">
@@ -71,13 +71,13 @@ export default async function AccountDetailPage({ params }: { params: Promise<{ 
               </div>
             ) : (
               transactions.map((txn) => (
-                <div key={txn.id} className="flex items-center justify-between p-4 hover:bg-muted/50 transition-colors gap-3">
+                <div key={txn.id} className="flex items-center justify-between p-4 hover:bg-muted/50 transition-colors gap-3 min-w-0">
                   <div className="min-w-0 flex-1">
-                    <p className="font-medium text-sm truncate">
+                    <p className="font-medium text-sm truncate" title={txn.description || undefined}>
                       {txn.description || (txn.transactionType === 'expense' ? 'Expense' : txn.transactionType === 'income' ? 'Income' : 'Transfer')}
                     </p>
                     <div className="text-xs text-muted-foreground flex items-center gap-2 mt-1 truncate">
-                      <span>{new Date(txn.transactionDate).toLocaleDateString()}</span>
+                      <span className="shrink-0">{new Date(txn.transactionDate).toLocaleDateString()}</span>
                       {txn.category && (
                         <>
                           <span>&bull;</span>
@@ -87,11 +87,11 @@ export default async function AccountDetailPage({ params }: { params: Promise<{ 
                     </div>
                   </div>
                   <div className="text-right flex flex-col items-end shrink-0 whitespace-nowrap pl-2">
-                    {/* If this is an expense, we show it as negative, unless it's a transfer leaving the account */}
+                    {/* If this is an expense, we show it as negative with minus and red; income is positive with plus and green */}
                     <Amount 
                       valueMinor={txn.transactionType === 'expense' || txn.transactionType === 'credit_card_purchase' ? -txn.amountMinor : txn.amountMinor} 
                       currency={txn.currency || account.currency}
-                      colorize="inverted" 
+                      colorize="default" 
                       showSign={true}
                       className="font-medium" 
                     />

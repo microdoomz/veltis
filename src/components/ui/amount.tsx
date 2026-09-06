@@ -76,17 +76,12 @@ export const Amount = React.forwardRef<HTMLSpanElement, AmountProps>(
       }
     }
 
-    // Determine coloring
+    // Determine coloring: Income/positive is always green (+), Expense/negative is always red (-)
     let colorClass = ""
-    if (colorize === "default") {
-      if (isPositive) colorClass = "text-positive"
-      if (isNegative) colorClass = "text-danger"
+    if (colorize === "default" || colorize === "inverted") {
+      if (isPositive) colorClass = "text-emerald-600 dark:text-emerald-400"
+      if (isNegative) colorClass = "text-rose-600 dark:text-rose-400"
       if (isZero) colorClass = "text-muted-foreground"
-    } else if (colorize === "inverted") {
-      // Sometimes an expense (negative) is expected and doesn't need to be red, 
-      // or income (positive) means less debt so it's good/bad depending on context.
-      if (isPositive) colorClass = "text-danger"
-      if (isNegative) colorClass = "text-positive"
     }
 
     if (isRefreshing) {

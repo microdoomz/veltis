@@ -92,9 +92,9 @@ export default async function AccountsPage() {
                       style={{ borderLeft: acc.color ? `4px solid ${acc.color}` : undefined }}
                     >
                       <div className="p-4 flex flex-col justify-between h-full gap-4">
-                        <div className="flex items-center gap-3">
+                        <div className="flex items-center gap-3 min-w-0">
                           <div 
-                            className="p-2 rounded-full"
+                            className="p-2 rounded-full shrink-0"
                             style={{
                               backgroundColor: acc.color ? `${acc.color}20` : 'var(--muted)',
                               color: acc.color || 'inherit',
@@ -102,23 +102,23 @@ export default async function AccountsPage() {
                           >
                             {getAccountIcon(acc.accountType)}
                           </div>
-                          <div>
-                            <div className="flex items-center gap-1.5">
-                              <p className="font-medium text-sm">{acc.name}</p>
+                          <div className="min-w-0 flex-1">
+                            <div className="flex items-center gap-1.5 min-w-0">
+                              <p className="font-medium text-sm truncate" title={acc.name}>{acc.name}</p>
                               {acc.color && (
                                 <span 
-                                  className="inline-block w-2.5 h-2.5 rounded-full ring-1 ring-background" 
+                                  className="inline-block w-2.5 h-2.5 rounded-full ring-1 ring-background shrink-0" 
                                   style={{ backgroundColor: acc.color }} 
                                   title="Accent Color"
                                 />
                               )}
                             </div>
-                            <p className="text-xs text-muted-foreground">{acc.institutionName || 'Manual Account'}</p>
+                            <p className="text-xs text-muted-foreground truncate">{acc.institutionName || 'Manual Account'}</p>
                           </div>
                         </div>
-                        <div className="flex justify-between items-end">
-                          <span className="text-xs text-muted-foreground">Total Balance</span>
-                          <Amount valueMinor={acc.balanceMinor} currency={acc.currency} className="font-semibold text-lg" colorize="default" />
+                        <div className="flex justify-between items-end gap-2">
+                          <span className="text-xs text-muted-foreground shrink-0">Total Balance</span>
+                          <Amount valueMinor={acc.balanceMinor} currency={acc.currency} className="font-semibold text-lg shrink-0 whitespace-nowrap" colorize="default" />
                         </div>
 
                         {acc.allocations && acc.allocations.length > 0 && (

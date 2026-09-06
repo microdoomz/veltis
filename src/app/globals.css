@@ -95,3 +95,36 @@ body {
 .elevation-medium {
   box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
 }
+
+/* Universal no-scrollbar utility */
+.no-scrollbar {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+  width: 0;
+  height: 0;
+}
+
+/* Remove ugly scrollbar on desktop site across all pages while keeping 100% scrolling functionality */
+@media (min-width: 768px) {
+  html,
+  body,
+  main,
+  aside nav,
+  .no-scrollbar-desktop {
+    scrollbar-width: none !important;
+    -ms-overflow-style: none !important;
+  }
+
+  html::-webkit-scrollbar,
+  body::-webkit-scrollbar,
+  main::-webkit-scrollbar,
+  aside nav::-webkit-scrollbar,
+  .no-scrollbar-desktop::-webkit-scrollbar {
+    display: none !important;
+    width: 0px !important;
+    height: 0px !important;
+  }
+}

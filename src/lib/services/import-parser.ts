@@ -408,69 +408,14 @@ export async function parseExcelStatement(buffer: Buffer): Promise<ParsedStateme
   return parseTableRows(tableRows);
 }
 
-function ensurePdfEnvironment() {
-  if (typeof globalThis.DOMMatrix === 'undefined') {
-    class SimpleDOMMatrix {
-      a = 1; b = 0; c = 0; d = 1; e = 0; f = 0;
-      m11 = 1; m12 = 0; m13 = 0; m14 = 0;
-      m21 = 0; m22 = 1; m23 = 0; m24 = 0;
-      m31 = 0; m32 = 0; m33 = 1; m34 = 0;
-      m41 = 0; m42 = 0; m43 = 0; m44 = 1;
-      is2D = true;
-      isIdentity = true;
-      constructor(init?: any) {}
-      scaleSelf(sx = 1, sy = sx) { return this; }
-      translateSelf(tx = 0, ty = 0) { return this; }
-      rotateSelf(rot = 0) { return this; }
-      multiply(m?: any) { return this; }
-      inverse() { return this; }
-      transformPoint(p?: any) { return p || { x: 0, y: 0, z: 0, w: 1 }; }
-    }
-    globalThis.DOMMatrix = SimpleDOMMatrix as any;
-  }
-
-  if (typeof globalThis.ImageData === 'undefined') {
-    class SimpleImageData {
-      width: number;
-      height: number;
-      data: Uint8ClampedArray;
-      constructor(w: number, h: number) {
-        this.width = w;
-        this.height = h;
-        this.data = new Uint8ClampedArray(w * h * 4);
-      }
-    }
-    globalThis.ImageData = SimpleImageData as any;
-  }
-
-  if (typeof globalThis.Path2D === 'undefined') {
-    class SimplePath2D {
-      addPath() {}
-      closePath() {}
-      moveTo() {}
-      lineTo() {}
-      bezierCurveTo() {}
-      quadraticCurveTo() {}
-      arc() {}
-      arcTo() {}
-      ellipse() {}
-      rect() {}
-    }
-    globalThis.Path2D = SimplePath2D as any;
-  }
-}
-
 /**
  * Parses PDF bank statements with heuristics for Top 15 Indian Banks:
  * SBI, HDFC, ICICI, Kotak Mahindra, Axis, Bank of Baroda, PNB, Canara, Union Bank, IndusInd, Federal Bank, Yes Bank, IDBI, Standard Chartered, HSBC.
  */
 export async function parsePdfStatement(buffer: Buffer): Promise<ParsedStatementRow[]> {
-  ensurePdfEnvironment();
-  const { PDFParse } = await import('pdf-parse');
-  const parser = new PDFParse({ data: buffer });
-  const pdfData = await parser.getText();
-  const text = pdfData.text || '';
-  if (!text.trim()) {
+  const { extractText } = await import('unpdf');
+  const { text } = await extractText(new Uint8Array(buffer), { mergePages: true });
+  if (!text || !text.trim()) {
     throw new Error('Could not extract text from this PDF statement. The PDF might be password-protected or scanned as an image.');
   }
 

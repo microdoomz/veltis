@@ -337,27 +337,31 @@ export default async function ShortcutsPage() {
         </div>
 
         {/* Direct Shortcut Download Section */}
-        <div className="p-5 border border-dashed border-border rounded-xl bg-muted/20 flex flex-col sm:flex-row items-center justify-between gap-4">
+        <div className="p-5 border border-primary/20 bg-primary/5 rounded-xl flex flex-col sm:flex-row items-center justify-between gap-4">
           <div className="space-y-1 text-center sm:text-left">
             <div className="flex items-center justify-center sm:justify-start gap-2">
-              <h3 className="font-semibold text-sm">Download Pre-configured Shortcut</h3>
-              <span className="text-[10px] font-semibold bg-amber-500/15 text-amber-600 dark:text-amber-400 px-2 py-0.5 rounded-full">
-                Coming Soon
+              <h3 className="font-semibold text-sm text-foreground">Download Pre-configured iOS Shortcut</h3>
+              <span className="text-[10px] font-semibold bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 px-2 py-0.5 rounded-full flex items-center gap-1">
+                <ShieldCheck className="w-3 h-3" /> Ready to Install
               </span>
             </div>
             <p className="text-xs text-muted-foreground max-w-md">
-              Download our ready-made iOS Shortcut file. Once downloaded, open it, locate the <strong>Authorization</strong> header, and paste your generated token into the text field.
+              Download our ready-made iOS Shortcut file. Open it on your iPhone, iPad, or Mac to automatically install the Veltis shortcut. Then simply paste your generated access token when prompted.
             </p>
           </div>
 
-          <Button 
-            disabled 
-            variant="outline" 
-            className="flex-shrink-0 flex items-center gap-2 opacity-60 cursor-not-allowed"
+          <a 
+            href="/api/shortcuts/download" 
+            download="Veltis.shortcut"
+            className="flex-shrink-0"
           >
-            <Download className="w-4 h-4" />
-            Download Shortcut (.shortcut)
-          </Button>
+            <Button 
+              className="flex items-center gap-2 shadow-sm"
+            >
+              <Download className="w-4 h-4" />
+              Download Veltis.shortcut
+            </Button>
+          </a>
         </div>
       </Card>
     </div>

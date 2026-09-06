@@ -21,6 +21,13 @@ export default async function ImportsPage({
     getAccountSummary(authContext.workspaceId)
   ])
 
+  const serializedImports = imports.map((imp) => ({
+    id: imp.id,
+    originalFilename: imp.originalFilename,
+    status: imp.status,
+    createdAt: imp.createdAt instanceof Date ? imp.createdAt.toISOString() : String(imp.createdAt),
+  }))
+
   return (
     <div className="space-y-6 max-w-5xl mx-auto">
       <header className="mb-6">
@@ -59,7 +66,7 @@ export default async function ImportsPage({
       <div className="space-y-4">
         <h2 className="text-lg font-semibold text-foreground">Previous Imports</h2>
         <ImportBatchList
-          initialImports={imports}
+          initialImports={serializedImports}
           workspaceId={authContext.workspaceId}
         />
       </div>

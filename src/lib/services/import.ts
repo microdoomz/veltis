@@ -2,7 +2,7 @@ import { db } from '../db';
 import { statementImport, statementImportRow, transaction, transactionLeg, financialAccount } from '../db/schema';
 import { eq, and, sql } from 'drizzle-orm';
 import { createExpense, createIncome } from './transaction';
-import { parseStatementFile, ParsedStatementRow } from './import-parser';
+import type { ParsedStatementRow } from './import-parser';
 
 export async function processMultiFormatImport(
   buffer: Buffer,
@@ -12,6 +12,7 @@ export async function processMultiFormatImport(
   userId: string,
   isReferenceOnly: boolean = false
 ) {
+  const { parseStatementFile } = await import('./import-parser');
   const parsedRows = await parseStatementFile(buffer, filename);
 
   return await db.transaction(async (tx) => {

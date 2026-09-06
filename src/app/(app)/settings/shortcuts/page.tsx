@@ -88,8 +88,45 @@ export default async function ShortcutsPage() {
         <div>
           <h2 className="text-lg font-bold tracking-tight text-foreground">Step-by-Step iPhone Setup Instructions</h2>
           <p className="text-xs text-muted-foreground mt-1">
-            Follow these exact steps in Apple&#39;s Shortcuts app on your iPhone or iPad.
+            Follow these exact steps in Apple&#39;s Shortcuts app on your iPhone or iPad for logging both Expenses and Incomes.
           </p>
+        </div>
+
+        {/* API Endpoints Overview */}
+        <div className="grid sm:grid-cols-2 gap-4">
+          <div className="p-4 rounded-xl bg-rose-500/10 border border-rose-500/20 space-y-2">
+            <div className="flex items-center justify-between">
+              <span className="font-semibold text-xs text-rose-600 dark:text-rose-400 uppercase tracking-wider">
+                1. Record Expense
+              </span>
+              <span className="text-[10px] bg-rose-500/20 text-rose-700 dark:text-rose-300 font-bold px-2 py-0.5 rounded">
+                POST
+              </span>
+            </div>
+            <p className="font-mono text-xs break-all bg-background/80 p-2 rounded border border-border/60">
+              https://veltismoney.vercel.app/api/shortcuts/expense
+            </p>
+            <p className="text-[11px] text-muted-foreground">
+              Deducts balance from selected account and records an expense ledger transaction.
+            </p>
+          </div>
+
+          <div className="p-4 rounded-xl bg-emerald-500/10 border border-emerald-500/20 space-y-2">
+            <div className="flex items-center justify-between">
+              <span className="font-semibold text-xs text-emerald-600 dark:text-emerald-400 uppercase tracking-wider">
+                2. Record Income
+              </span>
+              <span className="text-[10px] bg-emerald-500/20 text-emerald-700 dark:text-emerald-300 font-bold px-2 py-0.5 rounded">
+                POST
+              </span>
+            </div>
+            <p className="font-mono text-xs break-all bg-background/80 p-2 rounded border border-border/60">
+              https://veltismoney.vercel.app/api/shortcuts/income
+            </p>
+            <p className="text-[11px] text-muted-foreground">
+              Credits balance to selected account and records an income ledger transaction.
+            </p>
+          </div>
         </div>
 
         <div className="space-y-6 text-sm">
@@ -100,9 +137,9 @@ export default async function ShortcutsPage() {
             </h3>
             <div className="grid sm:grid-cols-2 gap-3 text-xs text-foreground/90">
               <div className="p-2.5 rounded-lg bg-background/80 border border-border/60 space-y-1">
-                <p className="font-bold text-foreground">1. Is <code>accountId</code> a Dictionary?</p>
+                <p className="font-bold text-foreground">1. Account can be Name or UUID</p>
                 <p className="text-muted-foreground text-[11px] leading-relaxed">
-                  <strong className="text-emerald-600 dark:text-emerald-400">NO. It is Text.</strong> In the JSON body field type picker, select <strong>Text</strong> (never Dictionary). The Account ID is a text UUID string (e.g. <code>4c9f...</code>).
+                  In your JSON body, you can pass either <code>account: &quot;Bank Account Name&quot;</code> or <code>accountId: &quot;4c9f...&quot;</code>. Ensure the field type in Shortcuts is always set to <strong>Text</strong> (never Dictionary).
                 </p>
               </div>
               <div className="p-2.5 rounded-lg bg-background/80 border border-border/60 space-y-1">
@@ -114,7 +151,7 @@ export default async function ShortcutsPage() {
             </div>
           </div>
 
-          {/* Setup Method Selector */}
+          {/* Setup Steps */}
           <div className="space-y-4">
             <div className="flex items-center gap-2">
               <span className="flex-shrink-0 w-6 h-6 rounded-full bg-primary text-primary-foreground flex items-center justify-center font-bold text-xs">
@@ -154,17 +191,17 @@ export default async function ShortcutsPage() {
                     <span className="text-[10px] bg-primary/10 text-primary font-medium px-2 py-0.5 rounded-full">Recommended &bull; 60 Seconds</span>
                   </div>
                   <p className="text-[11px] text-muted-foreground leading-relaxed">
-                    If you always charge expenses to one account (e.g. your primary bank or cash), simply add:
+                    If you always charge expenses or credit income to one primary account, simply add:
                   </p>
                   <div className="space-y-1.5 font-mono text-[11px]">
                     <div className="p-2 rounded bg-muted/60 border border-border/40">
-                      <strong>Action 1:</strong> Ask for Number with prompt <em>&quot;How much did you spend?&quot;</em>
+                      <strong>Action 1:</strong> Ask for Number with prompt <em>&quot;How much?&quot;</em>
                     </div>
                     <div className="p-2 rounded bg-muted/60 border border-border/40">
-                      <strong>Action 2:</strong> Ask for Text with prompt <em>&quot;What was it for?&quot;</em>
+                      <strong>Action 2:</strong> Ask for Text with prompt <em>&quot;Description?&quot;</em>
                     </div>
                     <div className="p-2 rounded bg-muted/60 border border-border/40">
-                      <strong>Action 3:</strong> Get Contents of URL (see Step 3 below, and paste your Account ID directly into <code>accountId</code>)
+                      <strong>Action 3:</strong> Get Contents of URL (see Step 3 below, paste your Account ID or Name into <code>account</code>)
                     </div>
                   </div>
                 </div>
@@ -176,14 +213,14 @@ export default async function ShortcutsPage() {
                     <span className="text-[10px] bg-muted text-muted-foreground font-medium px-2 py-0.5 rounded-full">Prompts you to pick an account</span>
                   </div>
                   <p className="text-[11px] text-muted-foreground leading-relaxed">
-                    To choose which account to charge on every purchase:
+                    To choose which account to use on each transaction:
                   </p>
                   <div className="space-y-1.5 font-mono text-[11px]">
                     <div className="p-2 rounded bg-muted/60 border border-border/40">
                       <strong>Action 1:</strong> Choose from Menu with prompt <em>&quot;Select Account&quot;</em>
                       <div className="pl-3 pt-1 text-[10px] text-muted-foreground space-y-1 font-sans">
-                        <div>&bull; Option: <strong>&quot;Bank Account&quot;</strong> &rarr; Add <strong>Text</strong> action below it: paste Bank Account UUID</div>
-                        <div>&bull; Option: <strong>&quot;Cash Wallet&quot;</strong> &rarr; Add <strong>Text</strong> action below it: paste Cash UUID</div>
+                        <div>&bull; Option: <strong>&quot;Bank Account&quot;</strong> &rarr; Add <strong>Text</strong> action below it: paste Bank Account Name or UUID</div>
+                        <div>&bull; Option: <strong>&quot;Cash Wallet&quot;</strong> &rarr; Add <strong>Text</strong> action below it: paste Cash Name or UUID</div>
                       </div>
                     </div>
                     <div className="p-2 rounded bg-muted/60 border border-border/40">
@@ -193,7 +230,7 @@ export default async function ShortcutsPage() {
                       <strong>Action 3:</strong> Ask for Text with prompt <em>&quot;Description?&quot;</em>
                     </div>
                     <div className="p-2 rounded bg-muted/60 border border-border/40">
-                      <strong>Action 4:</strong> Get Contents of URL (set <code>accountId</code> to <strong>Menu Result</strong> variable)
+                      <strong>Action 4:</strong> Get Contents of URL (set <code>account</code> to <strong>Menu Result</strong> variable)
                     </div>
                   </div>
                 </div>
@@ -207,10 +244,9 @@ export default async function ShortcutsPage() {
               </span>
               <div className="space-y-2 w-full">
                 <p className="font-semibold text-foreground">Add &quot;Get Contents of URL&quot; Action</p>
-                <div className="p-3 bg-muted/60 rounded-lg font-mono text-xs text-foreground break-all">
-                  URL: <strong>https://veltismoney.vercel.app/api/shortcuts/expense</strong>
-                </div>
                 <div className="p-3 bg-muted/60 rounded-lg space-y-1 text-xs">
+                  <p><strong>Expense URL:</strong> <code className="font-mono text-rose-500">https://veltismoney.vercel.app/api/shortcuts/expense</code></p>
+                  <p><strong>Income URL:</strong> <code className="font-mono text-emerald-500">https://veltismoney.vercel.app/api/shortcuts/income</code></p>
                   <p><strong>Method:</strong> POST</p>
                 </div>
               </div>
@@ -247,7 +283,7 @@ export default async function ShortcutsPage() {
               <div className="space-y-3 w-full">
                 <p className="font-semibold text-foreground">Configure Request Body (JSON fields)</p>
                 <p className="text-muted-foreground text-xs">
-                  Set <strong>Request Body</strong> to <strong>JSON</strong>. Tap <strong>Add new field</strong> for these 3 fields:
+                  Set <strong>Request Body</strong> to <strong>JSON</strong>. Add the following fields:
                 </p>
                 <div className="bg-muted/60 p-3 rounded-lg space-y-3 text-xs">
                   {/* Field 1: amount */}
@@ -272,14 +308,14 @@ export default async function ShortcutsPage() {
                     </p>
                   </div>
 
-                  {/* Field 3: accountId */}
+                  {/* Field 3: account */}
                   <div className="space-y-1.5 border-t border-border/50 pt-2">
                     <div className="flex items-center gap-2">
-                      <span className="px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-700 dark:text-amber-300 font-bold text-[10px]">Type: Text (Never Dictionary!)</span>
-                      <strong className="font-mono text-foreground">accountId</strong>
+                      <span className="px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-700 dark:text-amber-300 font-bold text-[10px]">Type: Text</span>
+                      <strong className="font-mono text-foreground">account</strong>
                     </div>
                     <p className="text-muted-foreground text-[11px] leading-relaxed">
-                      Key: <code>accountId</code> &bull; Value: Select <strong>Text</strong> type. In Method A, paste your Account ID directly from the table above. In Method B, tap and select <strong>Menu Result</strong>.
+                      Key: <code>account</code> (or <code>accountId</code>) &bull; Value: Enter account name (e.g. &quot;HDFC&quot;) or paste the Account UUID from the table above.
                     </p>
                   </div>
                 </div>

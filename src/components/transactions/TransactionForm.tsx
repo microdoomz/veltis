@@ -66,10 +66,31 @@ export function TransactionForm({
         payload.destAccountId = formData.get("destAccountId") as string;
       }
 
-      await enqueueTransaction(type, payload);
-      
-      // Await sync if online so server receives it immediately
-      await triggerSync();
+      if (typeof window !== "undefined" && navigator.onLine) {
+        // Direct synchronous submission to guarantee instant database commit and visibility
+        const syncId = `tx_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`
+        const res = await fetch('/api/sync/transactions', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            transactions: [
+              {
+                id: syncId,
+                type,
+                payload,
+              },
+            ],
+          }),
+        })
+
+        if (!res.ok) {
+          const errData = await res.json().catch(() => ({}))
+          throw new Error(errData.error || 'Failed to save transaction on server')
+        }
+      } else {
+        await enqueueTransaction(type, payload)
+        await triggerSync()
+      }
 
       router.push("/transactions")
       router.refresh()

@@ -37,6 +37,7 @@ export interface TransactionItem {
   legs?: Array<{
     accountId?: string | null
     account?: { id: string; name: string; currency: string } | null
+    direction?: string | null
   }>
 }
 
@@ -150,9 +151,31 @@ export function TransactionList({
           const isExpense =
             txn.transactionType === "expense" ||
             txn.transactionType === "credit_card_purchase"
+          const isIncome = txn.transactionType === "income"
+          const isTransfer = txn.transactionType === "transfer"
+
           const amtMinorNum = Number(txn.amountMinor)
           const displayMinor = isExpense ? -amtMinorNum : amtMinorNum
-          const accountName = txn.legs?.[0]?.account?.name
+
+          // Format account display: for transfers show source -> destination
+          let accountDisplay = txn.legs?.[0]?.account?.name || "Account"
+          if (isTransfer && txn.legs && txn.legs.length >= 2) {
+            const sourceLeg = txn.legs.find((l) => l.direction === "credit")
+            const destLeg = txn.legs.find((l) => l.direction === "debit")
+            if (sourceLeg && destLeg) {
+              accountDisplay = `${sourceLeg.account?.name || "Source"} → ${destLeg.account?.name || "Dest"}`
+            }
+          }
+
+          const primaryText =
+            txn.description ||
+            txn.merchantName ||
+            (isExpense ? "Expense" : isIncome ? "Income" : "Transfer")
+
+          const secondaryMerchant =
+            txn.description && txn.merchantName && txn.description !== txn.merchantName
+              ? txn.merchantName
+              : null
 
           return (
             <ListItem
@@ -162,14 +185,14 @@ export function TransactionList({
             >
               {/* Mobile Top Row / Desktop Col 1 */}
               <div className="flex justify-between md:block">
-                <p className="font-medium text-sm group-hover:text-primary transition-colors">
-                  {txn.description ||
-                    (txn.transactionType === "expense"
-                      ? "Expense"
-                      : txn.transactionType === "income"
-                      ? "Income"
-                      : "Transfer")}
-                </p>
+                <div>
+                  <p className="font-medium text-sm group-hover:text-primary transition-colors flex items-center gap-1.5">
+                    {primaryText}
+                  </p>
+                  {secondaryMerchant && (
+                    <p className="text-[11px] text-muted-foreground truncate">{secondaryMerchant}</p>
+                  )}
+                </div>
                 {/* Mobile Amount */}
                 <div className="md:hidden text-right flex flex-col items-end">
                   <Amount
@@ -177,9 +200,9 @@ export function TransactionList({
                     currency={txn.currency}
                     colorize="default"
                     showSign={true}
-                    className="font-medium"
+                    className={`font-semibold ${isIncome ? "text-emerald-600 dark:text-emerald-400" : isExpense ? "text-rose-600 dark:text-rose-400" : ""}`}
                   />
-                  <span className="text-[10px] text-muted-foreground capitalize mt-1 opacity-70">
+                  <span className="text-[10px] text-muted-foreground capitalize mt-0.5 opacity-70">
                     {txn.source}
                   </span>
                 </div>
@@ -187,16 +210,18 @@ export function TransactionList({
 
               {/* Desktop Category */}
               <div className="hidden md:flex items-center">
-                {txn.category && (
+                {txn.category ? (
                   <span className="bg-muted px-2 py-1 rounded text-[10px] uppercase font-medium">
                     {txn.category.name}
                   </span>
+                ) : (
+                  <span className="text-muted-foreground/50 text-xs italic">-</span>
                 )}
               </div>
 
               {/* Desktop Account */}
-              <div className="hidden md:block truncate text-xs text-muted-foreground">
-                {accountName}
+              <div className="hidden md:block truncate text-xs text-muted-foreground" title={accountDisplay}>
+                {accountDisplay}
               </div>
 
               {/* Desktop Date */}
@@ -212,7 +237,7 @@ export function TransactionList({
                     {txn.category.name}
                   </span>
                 )}
-                {accountName && <span>&bull; {accountName}</span>}
+                {accountDisplay && <span>&bull; {accountDisplay}</span>}
               </div>
 
               {/* Desktop Amount */}
@@ -222,9 +247,9 @@ export function TransactionList({
                   currency={txn.currency}
                   colorize="default"
                   showSign={true}
-                  className="font-medium text-sm"
+                  className={`font-semibold text-sm ${isIncome ? "text-emerald-600 dark:text-emerald-400" : isExpense ? "text-rose-600 dark:text-rose-400" : ""}`}
                 />
-                <span className="text-[10px] text-muted-foreground capitalize mt-1 opacity-70">
+                <span className="text-[10px] text-muted-foreground capitalize mt-0.5 opacity-70">
                   {txn.source}
                 </span>
               </div>

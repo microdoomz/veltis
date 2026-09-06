@@ -1,11 +1,12 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
+import { useRouter } from "next/navigation"
 import { Card } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { DeleteImportBatchButton } from "@/components/imports/DeleteImportBatchButton"
 import Link from "next/link"
-import { CheckCircle2, Clock, FileSpreadsheet } from "lucide-react"
+import { CheckCircle2, Clock, FileSpreadsheet, Loader2 } from "lucide-react"
 
 export interface ImportBatchItem {
   id: string
@@ -21,7 +22,25 @@ export function ImportBatchList({
   initialImports: ImportBatchItem[]
   workspaceId: string
 }) {
+  const router = useRouter()
   const [imports, setImports] = useState<ImportBatchItem[]>(initialImports)
+
+  // Sync state if initialImports changes
+  useEffect(() => {
+    setImports(initialImports)
+  }, [initialImports])
+
+  // If any import is currently processing, poll periodically
+  const hasProcessing = imports.some((imp) => imp.status === "processing")
+  useEffect(() => {
+    if (!hasProcessing) return
+
+    const interval = setInterval(() => {
+      router.refresh()
+    }, 2500)
+
+    return () => clearInterval(interval)
+  }, [hasProcessing, router])
 
   const handleDeleted = (id: string) => {
     // Instant optimistic removal from UI without waiting for refresh
@@ -50,7 +69,11 @@ export function ImportBatchList({
               <span>{new Date(imp.createdAt).toLocaleString()}</span>
               <span>&bull;</span>
               <span className="capitalize font-medium flex items-center gap-1">
-                {imp.status === "review" ? (
+                {imp.status === "processing" ? (
+                  <span className="text-primary flex items-center gap-1.5 font-medium animate-pulse">
+                    <Loader2 className="w-3 h-3 animate-spin text-primary" /> Processing in Background...
+                  </span>
+                ) : imp.status === "review" ? (
                   <span className="text-amber-600 dark:text-amber-400 flex items-center gap-1">
                     <Clock className="w-3 h-3" /> Ready for Review
                   </span>

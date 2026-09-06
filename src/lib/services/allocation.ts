@@ -182,3 +182,55 @@ export async function deleteAllocation(
     }
   });
 }
+
+/**
+ * Update an existing set-aside allocation.
+ */
+export async function updateAllocation(params: {
+  workspaceId: string;
+  allocationId: string;
+  name?: string;
+  description?: string;
+  amountMinor?: bigint;
+  color?: string;
+}): Promise<AllocationItem> {
+  return await db.transaction(async (tx) => {
+    const existing = await tx.query.allocation.findFirst({
+      where: and(
+        eq(allocation.id, params.allocationId),
+        eq(allocation.workspaceId, params.workspaceId),
+        eq(allocation.status, 'active')
+      ),
+    });
+
+    if (!existing) {
+      throw new Error('Allocation not found');
+    }
+
+    const updateFields: Record<string, unknown> = {
+      updatedAt: new Date(),
+    };
+
+    if (params.name !== undefined) updateFields.name = params.name.trim();
+    if (params.description !== undefined) updateFields.description = params.description?.trim() || null;
+    if (params.amountMinor !== undefined) {
+      if (params.amountMinor <= 0n) {
+        throw new Error('Allocation amount must be greater than zero');
+      }
+      updateFields.amountMinor = params.amountMinor;
+    }
+    if (params.color !== undefined) updateFields.color = params.color;
+
+    const [updated] = await tx
+      .update(allocation)
+      .set(updateFields)
+      .where(eq(allocation.id, params.allocationId))
+      .returning();
+
+    if (existing.financialAccountId) {
+      await syncAccountAllocatedState(tx, params.workspaceId, existing.financialAccountId);
+    }
+
+    return updated;
+  });
+}

@@ -108,7 +108,18 @@ export function InvestmentDashboard({ workspaceId }: { workspaceId: string }) {
             </p>
           </div>
           <div>
-            <p className="text-sm text-slate-500 dark:text-slate-400 font-medium">Estimated Value</p>
+            <div className="flex items-center gap-1.5">
+              <p className="text-sm text-slate-500 dark:text-slate-400 font-medium">Estimated Value</p>
+              <button
+                type="button"
+                onClick={fetchInvestments}
+                disabled={loading}
+                title="Refresh investments"
+                className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-colors p-0.5 rounded"
+              >
+                <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin text-primary' : ''}`} />
+              </button>
+            </div>
             <p className="text-3xl font-semibold text-slate-900 dark:text-white mt-1">
               {(Number(totalCurrentValueMinor) / 100).toLocaleString('en-US', { style: 'currency', currency: baseCurrency })}
             </p>

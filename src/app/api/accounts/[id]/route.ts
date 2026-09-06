@@ -2,6 +2,10 @@ import { NextResponse } from 'next/server';
 import { requireWorkspaceAccess } from '@/lib/auth/guards';
 import { updateAccount, deleteAccount, updateAccountSchema, getAccountById } from '@/lib/services/account';
 
+import { db } from '@/lib/db';
+import { recurringItem } from '@/lib/db/schema';
+import { eq, and } from 'drizzle-orm';
+
 export async function GET(
   req: Request,
   { params }: { params: Promise<{ id: string }> }
@@ -11,9 +15,20 @@ export async function GET(
     const authContext = await requireWorkspaceAccess();
     const account = await getAccountById(authContext.workspaceId, id);
 
+    // Check for associated recurring SIP
+    const recurring = await db.query.recurringItem.findFirst({
+      where: and(
+        eq(recurringItem.defaultAccountId, id),
+        eq(recurringItem.workspaceId, authContext.workspaceId),
+        eq(recurringItem.active, true)
+      ),
+    });
+
     return NextResponse.json({
       ...account,
       openingBalanceMinor: account.openingBalanceMinor.toString(),
+      sipMonthlyAmount: recurring ? Number(recurring.expectedAmountMinor) / 100 : null,
+      sipMonthlyDay: recurring?.customDay ?? null,
     });
   } catch (error: unknown) {
     if (error instanceof Error && error.message.includes('not found')) {

@@ -3,6 +3,7 @@ import { requireWorkspaceAccess } from '@/lib/auth/guards';
 import { 
   getAllocationsByAccount, 
   createAllocation, 
+  updateAllocation,
   deleteAllocation 
 } from '@/lib/services/allocation';
 import { z } from 'zod';
@@ -11,6 +12,14 @@ const createAllocationSchema = z.object({
   name: z.string().min(1, 'Allocation name / purpose is required'),
   description: z.string().optional(),
   amount: z.number().positive('Amount must be positive'),
+  color: z.string().optional(),
+});
+
+const updateAllocationSchema = z.object({
+  allocationId: z.string().uuid('Valid allocationId is required'),
+  name: z.string().min(1, 'Allocation name / purpose is required').optional(),
+  description: z.string().optional(),
+  amount: z.number().positive('Amount must be positive').optional(),
   color: z.string().optional(),
 });
 
@@ -94,5 +103,41 @@ export async function DELETE(
   } catch (error) {
     console.error('Failed to delete allocation:', error);
     return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
+  }
+}
+
+export async function PATCH(
+  req: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  try {
+    const authContext = await requireWorkspaceAccess();
+    const body = await req.json();
+    const parsed = updateAllocationSchema.parse(body);
+
+    const amountMinor = parsed.amount !== undefined ? BigInt(Math.round(parsed.amount * 100)) : undefined;
+
+    const item = await updateAllocation({
+      workspaceId: authContext.workspaceId,
+      allocationId: parsed.allocationId,
+      name: parsed.name,
+      description: parsed.description,
+      amountMinor,
+      color: parsed.color,
+    });
+
+    return NextResponse.json({
+      success: true,
+      allocation: {
+        ...item,
+        amountMinor: item.amountMinor.toString(),
+      },
+    });
+  } catch (error: unknown) {
+    console.error('Failed to update allocation:', error);
+    return NextResponse.json(
+      { error: error instanceof Error ? error.message : 'Failed to update allocation' },
+      { status: 400 }
+    );
   }
 }

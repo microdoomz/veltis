@@ -1,8 +1,9 @@
 import { db } from '../db';
-import { financialAccount, accountState, workspace, allocation, investmentPosition } from '../db/schema';
+import { financialAccount, accountState, workspace, allocation, investmentPosition, recurringItem } from '../db/schema';
 import { eq, and } from 'drizzle-orm';
 import { z } from 'zod';
 import { NotFoundError, ValidationError } from './errors';
+import { createRecurringItem } from './recurring';
 
 export const createAccountSchema = z.object({
   workspaceId: z.string().uuid(),
@@ -80,6 +81,8 @@ export const updateAccountSchema = z.object({
   currency: z.string().length(3).optional(),
   color: z.string().optional().nullable(),
   iconKey: z.string().optional().nullable(),
+  sipMonthlyAmount: z.coerce.number().optional().nullable(),
+  sipMonthlyDay: z.coerce.number().min(1).max(31).optional().nullable(),
 });
 
 export async function updateAccount(
@@ -110,6 +113,54 @@ export async function updateAccount(
       eq(financialAccount.workspaceId, workspaceId)
     ))
     .returning();
+
+  // Handle SIP monthly updates if specified
+  if (data.sipMonthlyAmount !== undefined) {
+    const existingRecurring = await db.query.recurringItem.findFirst({
+      where: and(
+        eq(recurringItem.defaultAccountId, accountId),
+        eq(recurringItem.workspaceId, workspaceId)
+      ),
+    });
+
+    const customDay = data.sipMonthlyDay ? Math.min(31, Math.max(1, data.sipMonthlyDay)) : 1;
+
+    if (data.sipMonthlyAmount && data.sipMonthlyAmount > 0) {
+      const amountMinor = BigInt(Math.round(data.sipMonthlyAmount * 100));
+      if (existingRecurring) {
+        await db.update(recurringItem)
+          .set({
+            name: `SIP - ${updated.name}`,
+            expectedAmountMinor: amountMinor,
+            dayRule: 'custom_day',
+            customDay,
+            active: true,
+            updatedAt: new Date(),
+          })
+          .where(eq(recurringItem.id, existingRecurring.id));
+      } else {
+        await createRecurringItem({
+          workspaceId,
+          type: 'expense',
+          name: `SIP - ${updated.name}`,
+          expectedAmountMinor: amountMinor,
+          currency: updated.currency,
+          defaultAccountId: accountId,
+          frequency: 'monthly',
+          dayRule: 'custom_day',
+          customDay,
+        });
+      }
+    } else if (existingRecurring) {
+      // Amount is 0 or null, deactivate recurring item
+      await db.update(recurringItem)
+        .set({
+          active: false,
+          updatedAt: new Date(),
+        })
+        .where(eq(recurringItem.id, existingRecurring.id));
+    }
+  }
 
   return updated;
 }

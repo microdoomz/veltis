@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { verifyShortcutToken } from '@/lib/services/shortcut';
 import { checkIdempotency, recordIdempotency } from '@/lib/services/idempotency';
 import { checkRateLimit } from '@/lib/security/rate-limit';
-import { createExpense } from '@/lib/services/transaction';
+import { createIncome } from '@/lib/services/transaction';
 import { db } from '@/lib/db';
 import { eq, and, ne, sql } from 'drizzle-orm';
 import { financialAccount } from '@/lib/db/schema';
@@ -23,7 +23,7 @@ export async function OPTIONS() {
   });
 }
 
-const shortcutExpenseSchema = z.object({
+const shortcutIncomeSchema = z.object({
   amount: z.union([z.number(), z.string()]).transform((val) => {
     if (typeof val === 'string') {
       const cleaned = val.replace(/[^0-9.-]+/g, '');
@@ -33,13 +33,13 @@ const shortcutExpenseSchema = z.object({
   }).refine((val) => !isNaN(val) && val > 0, {
     message: 'Amount must be a positive number greater than 0',
   }),
-  description: z.string().optional().transform((v) => v?.trim() || 'Shortcut Expense'),
+  description: z.string().optional().transform((v) => v?.trim() || 'Shortcut Income'),
   accountId: z.string().optional(),
   account: z.string().optional(),
   categoryId: z.string().uuid().optional(),
   currency: z.string().length(3).optional(),
   date: z.string().optional(), // YYYY-MM-DD
-  idempotencyKey: z.string().optional().transform((v) => v?.trim() || `sh_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`),
+  idempotencyKey: z.string().optional().transform((v) => v?.trim() || `sh_inc_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`),
 });
 
 export async function POST(req: NextRequest) {
@@ -82,7 +82,7 @@ export async function POST(req: NextRequest) {
     try {
       rawBody = await req.text();
     } catch {
-      // Body reading stream error fallback
+      // Body reading fallback
     }
 
     let parsedJson: Record<string, unknown> = {};
@@ -97,13 +97,13 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    const parseResult = shortcutExpenseSchema.safeParse(parsedJson);
+    const parseResult = shortcutIncomeSchema.safeParse(parsedJson);
     if (!parseResult.success) {
       return NextResponse.json(
-        { 
-          error: 'Validation failed', 
+        {
+          error: 'Validation failed',
           details: parseResult.error.format(),
-          hint: 'Ensure amount is a positive number (e.g. 25.50) and body is valid JSON.'
+          hint: 'Ensure amount is a positive number and body is valid JSON.',
         },
         { status: 400, headers: corsHeaders }
       );
@@ -111,42 +111,52 @@ export async function POST(req: NextRequest) {
 
     const data = parseResult.data;
 
-    // 3. Check Idempotency
-    const existing = await checkIdempotency(shortcut.workspaceId, 'shortcut_expense', data.idempotencyKey);
+    // 3. Idempotency Check
+    const existing = await checkIdempotency(
+      shortcut.workspaceId,
+      'shortcut_income',
+      data.idempotencyKey
+    );
+
     if (existing) {
-      return NextResponse.json(existing.responsePayload, { status: 200, headers: corsHeaders });
+      return NextResponse.json(existing.responsePayload, {
+        status: 200,
+        headers: corsHeaders,
+      });
     }
 
-    // 4. Resolve Account (excluding investments)
-    const accountIdentifier = data.accountId || data.account;
+    // 4. Resolve Target Account
+    const accountIdentifier = (data.accountId || data.account)?.trim();
     let targetAccountId = '';
-    let targetAccountCurrency = 'USD';
+    let targetAccountCurrency = 'INR';
 
     if (!accountIdentifier) {
-      // Find a default non-investment account (first active bank, card, or wallet)
-      const accounts = await db.query.financialAccount.findMany({
+      const firstAccount = await db.query.financialAccount.findFirst({
         where: and(
           eq(financialAccount.workspaceId, shortcut.workspaceId),
-          eq(financialAccount.status, 'active'),
-          ne(financialAccount.accountType, 'investment')
+          ne(financialAccount.accountType, 'investment'),
+          ne(financialAccount.status, 'archived')
         ),
-        limit: 1,
       });
-      if (accounts.length === 0) {
+
+      if (!firstAccount) {
         return NextResponse.json(
-          { error: 'No active spending accounts found in workspace. Please add a bank account or cash wallet first.' },
+          { error: 'No active bank or cash account found in this workspace to record income into.' },
           { status: 400, headers: corsHeaders }
         );
       }
-      targetAccountId = accounts[0].id;
-      targetAccountCurrency = accounts[0].currency;
+
+      targetAccountId = firstAccount.id;
+      targetAccountCurrency = firstAccount.currency;
     } else {
       const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(accountIdentifier);
+
       const account = isUuid
         ? await db.query.financialAccount.findFirst({
             where: and(
               eq(financialAccount.id, accountIdentifier),
-              eq(financialAccount.workspaceId, shortcut.workspaceId)
+              eq(financialAccount.workspaceId, shortcut.workspaceId),
+              ne(financialAccount.status, 'archived')
             ),
           })
         : await db.query.financialAccount.findFirst({
@@ -163,24 +173,17 @@ export async function POST(req: NextRequest) {
         );
       }
 
-      if (account.accountType === 'investment') {
-        return NextResponse.json(
-          { error: 'Expenses cannot be deducted from an Investment account. Please specify a Bank or Cash account.' },
-          { status: 400, headers: corsHeaders }
-        );
-      }
-
       targetAccountId = account.id;
       targetAccountCurrency = account.currency;
     }
 
     const txnCurrency = (data.currency || targetAccountCurrency).toUpperCase();
 
-    // 5. Create Transaction (Domain Logic)
+    // 5. Create Income Transaction
     const amountMinor = BigInt(Math.round(data.amount * 100));
     const transactionDate = data.date ? new Date(data.date) : new Date();
 
-    const txn = await createExpense({
+    const txn = await createIncome({
       workspaceId: shortcut.workspaceId,
       amountMinor,
       currency: txnCurrency,
@@ -188,7 +191,6 @@ export async function POST(req: NextRequest) {
       accountId: targetAccountId,
       categoryId: data.categoryId,
       description: data.description,
-      merchantName: data.description,
       source: 'shortcut',
       createdByUserId: shortcut.createdByUserId,
     });
@@ -201,23 +203,26 @@ export async function POST(req: NextRequest) {
       currency: txnCurrency,
       description: data.description,
       date: transactionDate.toISOString().split('T')[0],
+      accountId: targetAccountId,
     };
 
-    // 7. Record Idempotency
     await recordIdempotency(
       shortcut.workspaceId,
-      'shortcut_expense',
+      'shortcut_income',
       data.idempotencyKey,
       responsePayload,
       'transaction',
       txn.id
     );
 
-    return NextResponse.json(responsePayload, { status: 201, headers: corsHeaders });
-  } catch (error: unknown) {
-    console.error('Shortcut API error:', error);
+    return NextResponse.json(responsePayload, {
+      status: 201,
+      headers: corsHeaders,
+    });
+  } catch (err: unknown) {
+    console.error('Shortcut Income API error:', err);
     return NextResponse.json(
-      { error: 'Internal Server Error' },
+      { error: err instanceof Error ? err.message : 'Internal server error processing shortcut income' },
       { status: 500, headers: corsHeaders }
     );
   }

@@ -1,10 +1,10 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Edit2, Trash2, AlertTriangle, Check, X } from 'lucide-react';
+import { Edit2, Trash2, AlertTriangle, Check, X, Calendar } from 'lucide-react';
 
 const colorOptions = [
   { name: 'Emerald', value: '#10B981' },
@@ -46,8 +46,35 @@ export function AccountActionsModal({ account }: AccountActionsProps) {
   const [accountType, setAccountType] = useState(account.accountType);
   const [currency, setCurrency] = useState(account.currency);
   const [color, setColor] = useState(account.color || colorOptions[0].value);
+  const [sipMonthlyAmount, setSipMonthlyAmount] = useState<string>('');
+  const [sipMonthlyDay, setSipMonthlyDay] = useState<string>('5');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // Fetch current SIP details when edit modal is opened
+  useEffect(() => {
+    if (isEditOpen) {
+      setName(account.name);
+      setInstitutionName(account.institutionName || '');
+      setAccountType(account.accountType);
+      setCurrency(account.currency);
+      setColor(account.color || colorOptions[0].value);
+      
+      fetch(`/api/accounts/${account.id}`)
+        .then((res) => res.json())
+        .then((data) => {
+          if (data.sipMonthlyAmount) {
+            setSipMonthlyAmount(data.sipMonthlyAmount.toString());
+          } else {
+            setSipMonthlyAmount('');
+          }
+          if (data.sipMonthlyDay) {
+            setSipMonthlyDay(data.sipMonthlyDay.toString());
+          }
+        })
+        .catch(() => {});
+    }
+  }, [isEditOpen, account]);
 
   // Delete confirmation state
   const [deleteConfirmed, setDeleteConfirmed] = useState(false);
@@ -63,16 +90,28 @@ export function AccountActionsModal({ account }: AccountActionsProps) {
     setError(null);
 
     try {
+      const payload: Record<string, unknown> = {
+        name: name.trim(),
+        institutionName: institutionName.trim() || null,
+        accountType,
+        currency,
+        color,
+      };
+
+      if (accountType === 'investment') {
+        const parsedSipAmount = parseFloat(sipMonthlyAmount);
+        if (!isNaN(parsedSipAmount) && parsedSipAmount > 0) {
+          payload.sipMonthlyAmount = parsedSipAmount;
+          payload.sipMonthlyDay = parseInt(sipMonthlyDay, 10) || 1;
+        } else {
+          payload.sipMonthlyAmount = 0;
+        }
+      }
+
       const res = await fetch(`/api/accounts/${account.id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          name: name.trim(),
-          institutionName: institutionName.trim() || null,
-          accountType,
-          currency,
-          color,
-        }),
+        body: JSON.stringify(payload),
       });
 
       if (!res.ok) {
@@ -209,6 +248,49 @@ export function AccountActionsModal({ account }: AccountActionsProps) {
                   </select>
                 </div>
               </div>
+
+              {/* SIP Recurring Investment (Only for investment accounts) */}
+              {accountType === 'investment' && (
+                <div className="p-3.5 bg-muted/40 rounded-lg border border-border/70 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm font-medium flex items-center gap-1.5">
+                      <Calendar className="w-4 h-4 text-primary" />
+                      Monthly SIP Automation
+                    </span>
+                    <span className="text-xs text-muted-foreground">Optional</span>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="space-y-1.5">
+                      <label className="text-xs font-medium text-muted-foreground">Monthly SIP Amount</label>
+                      <Input
+                        type="number"
+                        placeholder="e.g. 5000"
+                        value={sipMonthlyAmount}
+                        onChange={(e) => setSipMonthlyAmount(e.target.value)}
+                        min="0"
+                        step="any"
+                      />
+                    </div>
+
+                    <div className="space-y-1.5">
+                      <label className="text-xs font-medium text-muted-foreground">Day of Month (1 - 31)</label>
+                      <Input
+                        type="number"
+                        placeholder="e.g. 5"
+                        value={sipMonthlyDay}
+                        onChange={(e) => setSipMonthlyDay(e.target.value)}
+                        min="1"
+                        max="31"
+                        disabled={!parseFloat(sipMonthlyAmount) || parseFloat(sipMonthlyAmount) <= 0}
+                      />
+                    </div>
+                  </div>
+                  <p className="text-[11px] text-muted-foreground">
+                    Set an amount to automate your monthly recurring investment reminder. Set to 0 to remove SIP.
+                  </p>
+                </div>
+              )}
 
               {/* Accent Color */}
               <div className="space-y-1.5">

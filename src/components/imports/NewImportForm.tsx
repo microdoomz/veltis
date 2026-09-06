@@ -28,22 +28,39 @@ export function NewImportForm({
   const [error, setError] = useState<string | null>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
 
+  const [backgroundUpload, setBackgroundUpload] = useState<{ filename: string } | null>(null)
+
+  useEffect(() => {
+    try {
+      const active = sessionStorage.getItem("veltis_active_upload")
+      if (active) {
+        const parsed = JSON.parse(active)
+        if (Date.now() - parsed.startTime < 300000) {
+          setBackgroundUpload(parsed)
+        } else {
+          sessionStorage.removeItem("veltis_active_upload")
+        }
+      }
+    } catch {}
+  }, [])
+
   useEffect(() => {
     let interval: NodeJS.Timeout | null = null;
     if (isUploading) {
-      // Calculate realistic ETA based on file size (avg 40KB/sec processing time)
-      const estimatedTotalSeconds = Math.max(2, Math.min(10, Math.ceil((file?.size || 20000) / 35000)));
+      // Calibrate realistic parsing duration: 3-12 seconds based on file size
+      const estimatedTotalSeconds = Math.max(3, Math.min(12, Math.ceil((file?.size || 30000) / 25000)));
       setEta(estimatedTotalSeconds);
 
       const startTime = Date.now();
       interval = setInterval(() => {
         const elapsed = (Date.now() - startTime) / 1000;
-        const percent = Math.min(92, Math.round((elapsed / estimatedTotalSeconds) * 90));
-        setProgress(percent);
+        // Asymptotic progression towards 98% ensures it never freezes at 92%
+        const percent = Math.min(98, Math.round(98 * (1 - Math.exp(-elapsed / (estimatedTotalSeconds * 0.75)))));
+        setProgress(Math.max(8, percent));
 
-        const remaining = Math.max(1, Math.ceil(estimatedTotalSeconds - elapsed));
+        const remaining = Math.max(1, Math.round(estimatedTotalSeconds * Math.exp(-elapsed / (estimatedTotalSeconds * 0.85))));
         setEta(remaining);
-      }, 250);
+      }, 200);
     }
     return () => {
       if (interval) clearInterval(interval);
@@ -70,10 +87,16 @@ export function NewImportForm({
     if (!file || !accountId) return
 
     setIsUploading(true)
-    setProgress(5)
+    setProgress(10)
     setError(null)
 
     try {
+      sessionStorage.setItem("veltis_active_upload", JSON.stringify({
+        filename: file.name,
+        startTime: Date.now(),
+      }))
+      setBackgroundUpload({ filename: file.name })
+
       const formData = new FormData()
       formData.append("workspaceId", workspaceId)
       formData.append("accountId", accountId)
@@ -91,14 +114,18 @@ export function NewImportForm({
         throw new Error(data.error || "Failed to parse statement")
       }
 
+      sessionStorage.removeItem("veltis_active_upload")
+      setBackgroundUpload(null)
       setProgress(100)
       setEta(0)
 
       setTimeout(() => {
         router.push(`/imports/${data.importId}`)
         router.refresh()
-      }, 500)
+      }, 400)
     } catch (err: unknown) {
+      sessionStorage.removeItem("veltis_active_upload")
+      setBackgroundUpload(null)
       setIsUploading(false)
       setProgress(0)
       setEta(null)
@@ -108,6 +135,26 @@ export function NewImportForm({
 
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
+      {backgroundUpload && !isUploading && (
+        <div className="p-3.5 bg-primary/10 border border-primary/25 rounded-xl flex items-center justify-between text-xs text-primary animate-in fade-in">
+          <div className="flex items-center gap-2 font-medium">
+            <Loader2 className="w-4 h-4 animate-spin text-primary flex-shrink-0" />
+            <span>
+              Statement <strong>{backgroundUpload.filename}</strong> is currently parsing in the background. Refresh or check the list below in a moment.
+            </span>
+          </div>
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            onClick={() => router.refresh()}
+            className="h-7 text-xs px-2.5 hover:bg-primary/20"
+          >
+            Check Status
+          </Button>
+        </div>
+      )}
+
       {error && (
         <div className="p-3 bg-destructive/10 border border-destructive/30 rounded-xl text-destructive text-xs">
           {error}

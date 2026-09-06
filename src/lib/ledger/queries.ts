@@ -1,6 +1,6 @@
-import { eq, desc, and, ne } from 'drizzle-orm';
+import { eq, desc, asc, and, ne, gte, lte } from 'drizzle-orm';
 import { db } from '../db';
-import { transaction, financialAccount, transactionLeg, category } from '../db/schema';
+import { transaction, financialAccount, transactionLeg, category, allocation } from '../db/schema';
 import { getAccountLedgerBalance } from './index';
 
 export async function getCategories(workspaceId: string) {
@@ -26,8 +26,6 @@ export async function getAccountById(workspaceId: string, accountId: string) {
 }
 
 export async function getAccountTransactions(accountId: string, limit: number = 50) {
-  // To get transactions for an account, we query transactionLegs for that account,
-  // then include the parent transaction.
   const legs = await db.query.transactionLeg.findMany({
     where: eq(transactionLeg.accountId, accountId),
     limit,
@@ -45,7 +43,6 @@ export async function getAccountTransactions(accountId: string, limit: number = 
     }
   });
 
-  // Filter out deleted/voided parent transactions and sort by date descending
   const validTxns = legs
     .filter(leg => leg.transaction && leg.transaction.status !== 'deleted' && leg.transaction.status !== 'voided')
     .map(leg => leg.transaction)
@@ -56,7 +53,6 @@ export async function getAccountTransactions(accountId: string, limit: number = 
       return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
     });
 
-  // Deduplicate in case multiple legs belong to the same transaction (e.g. self transfer? highly unlikely but safe)
   const uniqueTxns = Array.from(new Map(validTxns.map(t => [t.id, t])).values());
 
   return uniqueTxns;
@@ -80,25 +76,58 @@ export async function getTransactionById(workspaceId: string, transactionId: str
   });
 }
 
-export async function getRecentTransactions(workspaceId: string, limit: number = 5, categoryId?: string) {
-  // We fetch transactions created in this workspace, ignoring deleted ones.
-  // We need to join with transactionLeg and financialAccount to get the account name.
-  // Since a transaction can have multiple legs (e.g., transfer), we'll fetch the transaction 
-  // and then aggregate its legs in JS, or just fetch the primary leg for display.
+export interface TransactionFilters {
+  categoryId?: string;
+  accountId?: string;
+  flowType?: 'all' | 'income' | 'expense' | 'transfer';
+  startDate?: string;
+  endDate?: string;
+  sortBy?: 'date_desc' | 'date_asc' | 'amount_desc' | 'amount_asc';
+}
 
-  const baseWhere = and(
+export async function getRecentTransactions(
+  workspaceId: string,
+  limit: number = 250,
+  filterOrCategory?: string | TransactionFilters
+) {
+  const filters: TransactionFilters = typeof filterOrCategory === 'string'
+    ? { categoryId: filterOrCategory }
+    : (filterOrCategory || {});
+
+  const conditions = [
     eq(transaction.workspaceId, workspaceId),
     ne(transaction.status, 'deleted'),
     ne(transaction.status, 'voided')
-  );
+  ];
 
-  const finalWhere = categoryId 
-    ? and(baseWhere, eq(transaction.categoryId, categoryId))
-    : baseWhere;
+  if (filters.categoryId && filters.categoryId !== 'all') {
+    conditions.push(eq(transaction.categoryId, filters.categoryId));
+  }
 
-  const txs = await db.query.transaction.findMany({
-    where: finalWhere,
-    orderBy: [desc(transaction.transactionDate), desc(transaction.createdAt)],
+  if (filters.flowType && filters.flowType !== 'all') {
+    conditions.push(eq(transaction.transactionType, filters.flowType as any));
+  }
+
+  if (filters.startDate) {
+    conditions.push(gte(transaction.transactionDate, filters.startDate));
+  }
+
+  if (filters.endDate) {
+    conditions.push(lte(transaction.transactionDate, filters.endDate));
+  }
+
+  let orderClauses = [desc(transaction.transactionDate), desc(transaction.createdAt)];
+  if (filters.sortBy === 'date_asc') {
+    orderClauses = [asc(transaction.transactionDate), asc(transaction.createdAt)];
+  } else if (filters.sortBy === 'amount_desc') {
+    orderClauses = [desc(transaction.amountMinor), desc(transaction.transactionDate)];
+  } else if (filters.sortBy === 'amount_asc') {
+    orderClauses = [asc(transaction.amountMinor), desc(transaction.transactionDate)];
+  }
+
+  let txs = await db.query.transaction.findMany({
+    where: and(...conditions),
+    orderBy: orderClauses,
     limit,
     with: {
       legs: {
@@ -109,6 +138,10 @@ export async function getRecentTransactions(workspaceId: string, limit: number =
       category: true
     }
   });
+
+  if (filters.accountId && filters.accountId !== 'all') {
+    txs = txs.filter(t => t.legs?.some(leg => leg.accountId === filters.accountId));
+  }
 
   return txs;
 }
@@ -121,13 +154,25 @@ export async function getAccountSummary(workspaceId: string) {
     )
   });
 
-  // Fetch balances for each
+  const activeAllocations = await db.query.allocation.findMany({
+    where: and(
+      eq(allocation.workspaceId, workspaceId),
+      eq(allocation.status, 'active')
+    )
+  });
+
   const accountsWithBalances = await Promise.all(
     accounts.map(async (acc) => {
       const balance = await getAccountLedgerBalance(acc.id);
+      const accAllocations = activeAllocations.filter(a => a.financialAccountId === acc.id);
+      const totalAllocatedMinor = accAllocations.reduce((sum, a) => sum + BigInt(a.amountMinor), 0n);
+      const freeToSpendMinor = balance - totalAllocatedMinor;
       return {
         ...acc,
-        balanceMinor: balance
+        balanceMinor: balance,
+        allocations: accAllocations,
+        totalAllocatedMinor,
+        freeToSpendMinor,
       };
     })
   );

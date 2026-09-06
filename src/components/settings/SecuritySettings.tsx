@@ -28,8 +28,22 @@ interface SessionInfo {
   expiresAt: string | Date;
 }
 
+interface SecurityProfile {
+  userId: string;
+  hasPassword: boolean;
+  providers: string[];
+  hasPasskeys: boolean;
+  passkeysCount: number;
+  twoFactorEnabled: boolean;
+  isGoogleUser: boolean;
+}
+
 export function SecuritySettings() {
   const { data: session } = useSession();
+
+  // Security profile state
+  const [securityProfile, setSecurityProfile] = useState<SecurityProfile | null>(null);
+  const [profileLoading, setProfileLoading] = useState(true);
 
   // Password state
   const [currentPassword, setCurrentPassword] = useState('');
@@ -40,7 +54,9 @@ export function SecuritySettings() {
   const [passwordMessage, setPasswordMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
   // 2FA state
-  const is2FAEnabled = Boolean(session?.user && (session.user as any).twoFactorEnabled);
+  const is2FAEnabled = Boolean(
+    securityProfile?.twoFactorEnabled || (session?.user && (session.user as any).twoFactorEnabled)
+  );
   const [twoFaLoading, setTwoFaLoading] = useState(false);
   const [twoFaPassword, setTwoFaPassword] = useState('');
   const [totpUri, setTotpUri] = useState<string | null>(null);
@@ -48,6 +64,7 @@ export function SecuritySettings() {
   const [totpCode, setTotpCode] = useState('');
   const [show2FaModal, setShow2FaModal] = useState(false);
   const [twoFaMessage, setTwoFaMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+  const [confirmDisableModal, setConfirmDisableModal] = useState(false);
 
   // Passkey state
   const [passkeyLoading, setPasskeyLoading] = useState(false);
@@ -60,7 +77,23 @@ export function SecuritySettings() {
 
   useEffect(() => {
     loadSessions();
+    loadSecurityProfile();
   }, []);
+
+  async function loadSecurityProfile() {
+    try {
+      setProfileLoading(true);
+      const res = await fetch('/api/user/security-profile');
+      if (res.ok) {
+        const data = await res.json();
+        setSecurityProfile(data);
+      }
+    } catch (err) {
+      console.error('Failed to load security profile', err);
+    } finally {
+      setProfileLoading(false);
+    }
+  }
 
   async function loadSessions() {
     try {
@@ -110,6 +143,7 @@ export function SecuritySettings() {
       if (revokeOthers) {
         loadSessions();
       }
+      await loadSecurityProfile();
     } catch (err: any) {
       setPasswordMessage({ type: 'error', text: err.message || 'Failed to update password. Verify your current password.' });
     } finally {
@@ -117,19 +151,17 @@ export function SecuritySettings() {
     }
   };
 
-  // Start 2FA Enable
-  const handleEnable2FA = async (e: React.FormEvent) => {
-    e.preventDefault();
+  // Start 2FA Enable (supports passwordless Google users via password: '')
+  const startTotpSetup = async (pwd = '') => {
     setTwoFaMessage(null);
-
     try {
       setTwoFaLoading(true);
       const enableRes = await authClient.twoFactor.enable({
-        password: twoFaPassword,
+        password: pwd,
       });
 
       if (enableRes.error) {
-        throw new Error(enableRes.error.message || 'Failed to enable 2FA. Verify your password.');
+        throw new Error(enableRes.error.message || 'Failed to enable 2FA.');
       }
 
       if (enableRes.data) {
@@ -143,13 +175,18 @@ export function SecuritySettings() {
 
       setTwoFaMessage({
         type: 'success',
-        text: 'Two-factor authentication secret generated. Enter the code from your authenticator app to verify.',
+        text: 'Authenticator secret generated. Scan the code in your authenticator app to complete setup.',
       });
     } catch (err: any) {
       setTwoFaMessage({ type: 'error', text: err.message || 'Failed to initialize 2FA.' });
     } finally {
       setTwoFaLoading(false);
     }
+  };
+
+  const handleEnable2FA = async (e: React.FormEvent) => {
+    e.preventDefault();
+    await startTotpSetup(twoFaPassword);
   };
 
   // Verify TOTP
@@ -166,11 +203,12 @@ export function SecuritySettings() {
         throw new Error(verifyRes.error.message || 'Invalid authenticator code');
       }
 
-      setTwoFaMessage({ type: 'success', text: 'Two-factor authentication is now fully enabled!' });
+      setTwoFaMessage({ type: 'success', text: 'Two-factor authentication is now fully active!' });
       setShow2FaModal(false);
       setTotpUri(null);
       setTwoFaPassword('');
       setTotpCode('');
+      await loadSecurityProfile();
     } catch (err: any) {
       setTwoFaMessage({ type: 'error', text: err.message || 'Verification failed. Check the code and try again.' });
     } finally {
@@ -178,8 +216,8 @@ export function SecuritySettings() {
     }
   };
 
-  // Disable 2FA
-  const handleDisable2FA = async (password: string) => {
+  // Disable 2FA (supports passwordless Google users)
+  const handleDisable2FA = async (password = '') => {
     try {
       setTwoFaLoading(true);
       setTwoFaMessage(null);
@@ -191,6 +229,8 @@ export function SecuritySettings() {
       }
       setTwoFaMessage({ type: 'success', text: 'Two-factor authentication has been disabled.' });
       setShow2FaModal(false);
+      setConfirmDisableModal(false);
+      await loadSecurityProfile();
     } catch (err: any) {
       setTwoFaMessage({ type: 'error', text: err.message || 'Failed to disable 2FA.' });
     } finally {
@@ -198,21 +238,24 @@ export function SecuritySettings() {
     }
   };
 
-  // Add Passkey
+  // Add Passkey / Biometrics
   const handleAddPasskey = async () => {
     setPasskeyMessage(null);
     try {
       setPasskeyLoading(true);
-      const res = await authClient.passkey.addPasskey();
+      const res = await authClient.passkey.addPasskey({
+        name: 'Device Biometrics (Passkey)',
+      });
       if (res?.error) {
-        throw new Error(res.error.message || 'Failed to register passkey');
+        throw new Error(res.error.message || 'Failed to register biometric passkey');
       }
-      setPasskeyMessage({ type: 'success', text: 'Passkey registered successfully! You can now log in using biometrics.' });
+      setPasskeyMessage({ type: 'success', text: 'Biometrics / Passkey registered successfully! You can now verify with Touch ID, Face ID, or Windows Hello.' });
+      await loadSecurityProfile();
     } catch (err: any) {
       if (err.name === 'NotAllowedError') {
-        setPasskeyMessage({ type: 'error', text: 'Passkey registration cancelled by user.' });
+        setPasskeyMessage({ type: 'error', text: 'Biometric verification cancelled.' });
       } else {
-        setPasskeyMessage({ type: 'error', text: err.message || 'Passkey setup could not be completed on this device.' });
+        setPasskeyMessage({ type: 'error', text: err.message || 'Biometric passkey setup could not be completed on this device.' });
       }
     } finally {
       setPasskeyLoading(false);
@@ -244,81 +287,97 @@ export function SecuritySettings() {
             <KeyRound className="h-5 w-5 text-primary" /> Password & Authentication
           </CardTitle>
           <CardDescription>
-            Change your account login password. Must be at least 8 characters.
+            {securityProfile?.hasPassword === false
+              ? 'You are signed in using Google OAuth. You do not need a password to log in.'
+              : 'Change your account login password. Must be at least 8 characters.'}
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <form onSubmit={handleChangePassword} className="space-y-4 max-w-lg">
-            {passwordMessage && (
-              <div
-                className={`p-3.5 rounded-xl flex items-center gap-2.5 text-sm font-medium ${
-                  passwordMessage.type === 'success'
-                    ? 'bg-primary/10 text-primary border border-primary/20'
-                    : 'bg-destructive/10 text-destructive border border-destructive/20'
-                }`}
-              >
-                {passwordMessage.type === 'success' ? (
-                  <CheckCircle2 className="h-4 w-4 flex-shrink-0" />
-                ) : (
-                  <AlertCircle className="h-4 w-4 flex-shrink-0" />
-                )}
-                <span>{passwordMessage.text}</span>
+          {securityProfile?.hasPassword === false ? (
+            <div className="space-y-4 max-w-lg">
+              <div className="p-4 rounded-xl bg-muted/40 border border-border flex items-start gap-3">
+                <Shield className="h-5 w-5 text-primary flex-shrink-0 mt-0.5" />
+                <div className="space-y-1 text-sm">
+                  <p className="font-medium text-foreground">Google OAuth Authentication</p>
+                  <p className="text-muted-foreground text-xs leading-relaxed">
+                    Your account is securely authenticated via your Google login ({session?.user?.email}). You can enable 2FA and Biometrics below without needing to set or manage a password.
+                  </p>
+                </div>
               </div>
-            )}
-
-            <div className="space-y-1.5">
-              <label className="text-sm font-medium text-foreground">Current Password</label>
-              <Input
-                type="password"
-                value={currentPassword}
-                onChange={(e) => setCurrentPassword(e.target.value)}
-                placeholder="••••••••"
-                required
-                disabled={passwordLoading}
-              />
             </div>
+          ) : (
+            <form onSubmit={handleChangePassword} className="space-y-4 max-w-lg">
+              {passwordMessage && (
+                <div
+                  className={`p-3.5 rounded-xl flex items-center gap-2.5 text-sm font-medium ${
+                    passwordMessage.type === 'success'
+                      ? 'bg-primary/10 text-primary border border-primary/20'
+                      : 'bg-destructive/10 text-destructive border border-destructive/20'
+                  }`}
+                >
+                  {passwordMessage.type === 'success' ? (
+                    <CheckCircle2 className="h-4 w-4 flex-shrink-0" />
+                  ) : (
+                    <AlertCircle className="h-4 w-4 flex-shrink-0" />
+                  )}
+                  <span>{passwordMessage.text}</span>
+                </div>
+              )}
 
-            <div className="space-y-1.5">
-              <label className="text-sm font-medium text-foreground">New Password</label>
-              <Input
-                type="password"
-                value={newPassword}
-                onChange={(e) => setNewPassword(e.target.value)}
-                placeholder="At least 8 characters"
-                required
-                disabled={passwordLoading}
-              />
-            </div>
+              <div className="space-y-1.5">
+                <label className="text-sm font-medium text-foreground">Current Password</label>
+                <Input
+                  type="password"
+                  value={currentPassword}
+                  onChange={(e) => setCurrentPassword(e.target.value)}
+                  placeholder="••••••••"
+                  required
+                  disabled={passwordLoading}
+                />
+              </div>
 
-            <div className="space-y-1.5">
-              <label className="text-sm font-medium text-foreground">Confirm New Password</label>
-              <Input
-                type="password"
-                value={confirmPassword}
-                onChange={(e) => setConfirmPassword(e.target.value)}
-                placeholder="Confirm new password"
-                required
-                disabled={passwordLoading}
-              />
-            </div>
+              <div className="space-y-1.5">
+                <label className="text-sm font-medium text-foreground">New Password</label>
+                <Input
+                  type="password"
+                  value={newPassword}
+                  onChange={(e) => setNewPassword(e.target.value)}
+                  placeholder="At least 8 characters"
+                  required
+                  disabled={passwordLoading}
+                />
+              </div>
 
-            <div className="flex items-center gap-2 pt-1">
-              <input
-                type="checkbox"
-                id="revokeOthers"
-                checked={revokeOthers}
-                onChange={(e) => setRevokeOthers(e.target.checked)}
-                className="h-4 w-4 rounded border-border text-primary focus:ring-primary"
-              />
-              <label htmlFor="revokeOthers" className="text-xs text-muted-foreground cursor-pointer">
-                Sign out of all other devices and sessions upon password change
-              </label>
-            </div>
+              <div className="space-y-1.5">
+                <label className="text-sm font-medium text-foreground">Confirm New Password</label>
+                <Input
+                  type="password"
+                  value={confirmPassword}
+                  onChange={(e) => setConfirmPassword(e.target.value)}
+                  placeholder="Confirm new password"
+                  required
+                  disabled={passwordLoading}
+                />
+              </div>
 
-            <Button type="submit" loading={passwordLoading} className="mt-2">
-              Update Password
-            </Button>
-          </form>
+              <div className="flex items-center gap-2 pt-1">
+                <input
+                  type="checkbox"
+                  id="revokeOthers"
+                  checked={revokeOthers}
+                  onChange={(e) => setRevokeOthers(e.target.checked)}
+                  className="h-4 w-4 rounded border-border text-primary focus:ring-primary"
+                />
+                <label htmlFor="revokeOthers" className="text-xs text-muted-foreground cursor-pointer">
+                  Sign out of all other devices and sessions upon password change
+                </label>
+              </div>
+
+              <Button type="submit" loading={passwordLoading} className="mt-2">
+                Update Password
+              </Button>
+            </form>
+          )}
         </CardContent>
       </Card>
 
@@ -331,13 +390,13 @@ export function SecuritySettings() {
                 <Shield className="h-5 w-5 text-primary" /> Two-Factor Authentication (2FA)
               </CardTitle>
               <CardDescription>
-                Add an extra layer of security using an authenticator app (Google Authenticator, 1Password, etc.).
+                Add secondary verification using an authenticator app (Google Authenticator, Apple Passwords) or hardware biometrics.
               </CardDescription>
             </div>
             <span
               className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold self-start sm:self-auto ${
                 is2FAEnabled
-                  ? 'bg-primary/10 text-primary border border-primary/20'
+                  ? 'bg-emerald-500/10 text-emerald-500 border border-emerald-500/20'
                   : 'bg-muted text-muted-foreground border border-border'
               }`}
             >
@@ -366,13 +425,35 @@ export function SecuritySettings() {
           {!is2FAEnabled ? (
             <div className="space-y-4">
               <p className="text-sm text-muted-foreground">
-                Protect your financial accounts from unauthorized access even if your password is compromised.
+                Protect your wealth, accounts, and financial data with secondary multi-factor verification.
               </p>
 
               {!show2FaModal ? (
-                <Button onClick={() => setShow2FaModal(true)} variant="outline" className="gap-2">
-                  <Smartphone className="h-4 w-4" /> Set Up Two-Factor Authentication
-                </Button>
+                <div className="flex flex-wrap gap-3">
+                  <Button
+                    onClick={() => {
+                      if (securityProfile?.hasPassword === false) {
+                        // Google OAuth user: no password required, start TOTP setup directly
+                        startTotpSetup('');
+                        setShow2FaModal(true);
+                      } else {
+                        setShow2FaModal(true);
+                      }
+                    }}
+                    variant="outline"
+                    className="gap-2"
+                  >
+                    <Smartphone className="h-4 w-4 text-primary" /> Set Up Authenticator App
+                  </Button>
+                  <Button
+                    onClick={handleAddPasskey}
+                    variant="outline"
+                    className="gap-2"
+                    loading={passkeyLoading}
+                  >
+                    <Fingerprint className="h-4 w-4 text-emerald-500" /> Use Device Biometrics (Passkey)
+                  </Button>
+                </div>
               ) : (
                 <div className="p-5 rounded-xl border border-border bg-muted/30 space-y-4 max-w-lg">
                   {!totpUri ? (
@@ -407,14 +488,14 @@ export function SecuritySettings() {
                       <div className="space-y-2">
                         <p className="text-sm font-semibold text-foreground">1. Add to Authenticator App</p>
                         <p className="text-xs text-muted-foreground">
-                          Scan the TOTP code or copy the secret key into your authenticator app:
+                          Scan the TOTP code or copy the secret key into Google Authenticator or your password manager:
                         </p>
                         <div className="p-3 bg-background border border-border rounded-lg text-xs font-mono break-all flex items-center justify-between gap-2">
                           <span>{totpUri}</span>
                           <button
                             type="button"
                             onClick={() => navigator.clipboard.writeText(totpUri)}
-                            className="p-1 hover:text-primary"
+                            className="p-1 hover:text-primary transition-colors"
                             title="Copy Key"
                           >
                             <Copy className="h-4 w-4" />
@@ -466,19 +547,29 @@ export function SecuritySettings() {
               )}
             </div>
           ) : (
-            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 p-4 rounded-xl border border-primary/20 bg-primary/5">
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 p-4 rounded-xl border border-emerald-500/20 bg-emerald-500/5">
               <div className="space-y-1">
-                <p className="text-sm font-medium text-foreground">Two-Factor Authentication is Enabled</p>
+                <div className="flex items-center gap-2">
+                  <CheckCircle2 className="h-4 w-4 text-emerald-500" />
+                  <p className="text-sm font-medium text-foreground">Two-Factor Authentication is Active</p>
+                </div>
                 <p className="text-xs text-muted-foreground">
-                  Your account requires a 6-digit TOTP code upon login.
+                  Your account requires two-factor verification upon signing in.
                 </p>
               </div>
               <Button
                 variant="danger"
                 size="sm"
                 onClick={() => {
-                  const pass = prompt('Enter your password to disable 2FA:');
-                  if (pass) handleDisable2FA(pass);
+                  if (securityProfile?.hasPassword === false) {
+                    // Google user: no password required, confirm disable directly
+                    if (window.confirm('Are you sure you want to disable Two-Factor Authentication?')) {
+                      handleDisable2FA('');
+                    }
+                  } else {
+                    const pass = prompt('Enter your password to disable 2FA:');
+                    if (pass) handleDisable2FA(pass);
+                  }
                 }}
                 loading={twoFaLoading}
               >
@@ -492,12 +583,21 @@ export function SecuritySettings() {
       {/* Passkeys (Platform Biometrics) */}
       <Card>
         <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Fingerprint className="h-5 w-5 text-primary" /> Passkeys & Biometrics
-          </CardTitle>
-          <CardDescription>
-            Log in securely without entering passwords using Face ID, Touch ID, or Windows Hello.
-          </CardDescription>
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div>
+              <CardTitle className="flex items-center gap-2">
+                <Fingerprint className="h-5 w-5 text-primary" /> Passkeys & Biometrics
+              </CardTitle>
+              <CardDescription>
+                Log in and authenticate securely without entering passwords using Touch ID, Face ID, or Windows Hello.
+              </CardDescription>
+            </div>
+            {securityProfile?.hasPasskeys && (
+              <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold bg-emerald-500/10 text-emerald-500 border border-emerald-500/20 self-start sm:self-auto">
+                {securityProfile.passkeysCount} {securityProfile.passkeysCount === 1 ? 'Passkey' : 'Passkeys'} Active
+              </span>
+            )}
+          </div>
         </CardHeader>
         <CardContent className="space-y-4">
           {passkeyMessage && (
@@ -518,11 +618,11 @@ export function SecuritySettings() {
           )}
 
           <p className="text-sm text-muted-foreground">
-            Passkeys use asymmetric public-key cryptography stored securely in your device hardware enclave.
+            Passkeys use asymmetric public-key cryptography stored securely in your device hardware enclave. They provide phishing-resistant, instant biometric login.
           </p>
 
           <Button onClick={handleAddPasskey} loading={passkeyLoading} variant="outline" className="gap-2">
-            <Fingerprint className="h-4 w-4" /> Add This Device Passkey
+            <Fingerprint className="h-4 w-4 text-emerald-500" /> Register This Device Biometrics
           </Button>
         </CardContent>
       </Card>

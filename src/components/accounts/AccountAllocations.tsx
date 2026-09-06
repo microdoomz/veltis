@@ -5,7 +5,7 @@ import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/com
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Amount } from '@/components/ui/amount';
-import { PiggyBank, Plus, Trash2, X, ShieldAlert, Sparkles, Layers } from 'lucide-react';
+import { PiggyBank, Plus, Trash2, X, ShieldAlert, Sparkles, Layers, Edit2 } from 'lucide-react';
 
 interface AllocationData {
   id: string;
@@ -36,6 +36,55 @@ export function AccountAllocations({
   const [description, setDescription] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // Edit form state
+  const [editingAllocation, setEditingAllocation] = useState<AllocationData | null>(null);
+  const [editName, setEditName] = useState('');
+  const [editAmount, setEditAmount] = useState('');
+  const [editDescription, setEditDescription] = useState('');
+  const [editSubmitting, setEditSubmitting] = useState(false);
+  const [editError, setEditError] = useState<string | null>(null);
+
+  const handleOpenEdit = (alloc: AllocationData) => {
+    setEditingAllocation(alloc);
+    setEditName(alloc.name);
+    setEditAmount((Number(alloc.amountMinor) / 100).toString());
+    setEditDescription(alloc.description || '');
+    setEditError(null);
+  };
+
+  const handleUpdateAllocation = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingAllocation || !editName.trim() || !editAmount) return;
+
+    setEditSubmitting(true);
+    setEditError(null);
+
+    try {
+      const res = await fetch(`/api/accounts/${accountId}/allocations`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          allocationId: editingAllocation.id,
+          name: editName.trim(),
+          amount: parseFloat(editAmount),
+          description: editDescription.trim() || undefined,
+        }),
+      });
+
+      if (!res.ok) {
+        const data = await res.json();
+        throw new Error(data.error || 'Failed to update allocation');
+      }
+
+      setEditingAllocation(null);
+      await fetchAllocations();
+    } catch (err: unknown) {
+      setEditError(err instanceof Error ? err.message : 'Error updating allocation');
+    } finally {
+      setEditSubmitting(false);
+    }
+  };
 
   const fetchAllocations = useCallback(async () => {
     try {
@@ -227,10 +276,18 @@ export function AccountAllocations({
                   </div>
                 </div>
 
-                <div className="flex items-center gap-3 flex-shrink-0">
+                <div className="flex items-center gap-2.5 flex-shrink-0">
                   <p className="text-xs font-bold text-foreground">
                     <Amount valueMinor={BigInt(a.amountMinor)} currency={currency} />
                   </p>
+                  <button
+                    type="button"
+                    onClick={() => handleOpenEdit(a)}
+                    className="text-muted-foreground hover:text-foreground p-1 rounded transition-colors"
+                    title="Edit set-aside allocation"
+                  >
+                    <Edit2 className="w-3.5 h-3.5" />
+                  </button>
                   <button
                     type="button"
                     onClick={() => handleDelete(a.id)}
@@ -245,6 +302,81 @@ export function AccountAllocations({
           </div>
         )}
       </CardContent>
+
+      {/* EDIT ALLOCATION MODAL */}
+      {editingAllocation && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs">
+          <div className="bg-card border border-border rounded-xl w-full max-w-md p-6 shadow-xl space-y-4 animate-in fade-in duration-150">
+            <div className="flex items-center justify-between border-b border-border pb-3">
+              <div className="flex items-center gap-2">
+                <Edit2 className="w-5 h-5 text-primary" />
+                <h3 className="font-semibold text-foreground text-base">Edit Set-Aside Money</h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => setEditingAllocation(null)}
+                className="text-muted-foreground hover:text-foreground"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            {editError && (
+              <div className="p-3 bg-destructive/10 border border-destructive/20 text-destructive text-xs rounded-lg">
+                {editError}
+              </div>
+            )}
+
+            <form onSubmit={handleUpdateAllocation} className="space-y-4">
+              <div className="space-y-1.5">
+                <label className="text-xs font-medium text-foreground">Purpose / Name *</label>
+                <Input
+                  value={editName}
+                  onChange={(e) => setEditName(e.target.value)}
+                  placeholder="e.g. Tax Reserve, Emergency Cushion"
+                  required
+                />
+              </div>
+
+              <div className="space-y-1.5">
+                <label className="text-xs font-medium text-foreground">Amount ({currency}) *</label>
+                <Input
+                  type="number"
+                  step="0.01"
+                  value={editAmount}
+                  onChange={(e) => setEditAmount(e.target.value)}
+                  placeholder="e.g. 5000"
+                  required
+                />
+              </div>
+
+              <div className="space-y-1.5">
+                <label className="text-xs font-medium text-foreground">Notes (Optional)</label>
+                <Input
+                  value={editDescription}
+                  onChange={(e) => setEditDescription(e.target.value)}
+                  placeholder="e.g. For Q3 GST filing on 20th"
+                />
+              </div>
+
+              <div className="flex justify-end gap-2 pt-2 border-t border-border">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setEditingAllocation(null)}
+                  disabled={editSubmitting}
+                >
+                  Cancel
+                </Button>
+                <Button type="submit" size="sm" disabled={editSubmitting || !editName.trim() || !editAmount}>
+                  {editSubmitting ? 'Saving...' : 'Save Changes'}
+                </Button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
 
       {/* ADD ALLOCATION MODAL */}
       {isAddOpen && (

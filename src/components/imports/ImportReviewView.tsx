@@ -1,10 +1,11 @@
 "use client"
 
-import { useState, useTransition } from "react"
+import { useState, useTransition, useEffect } from "react"
+import { useRouter } from "next/navigation"
 import { Card } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Amount } from "@/components/ui/amount"
-import { reviewRowAction, bulkReviewRowsAction } from "@/app/actions/import"
+import { reviewRowAction } from "@/app/actions/import"
 import {
   CheckCircle2,
   XCircle,
@@ -54,19 +55,54 @@ export function ImportReviewView({
   importRecord: ImportRecord
   categories: Category[]
 }) {
+  const router = useRouter()
   const [selectedIds, setSelectedIds] = useState<string[]>([])
   const [statusFilter, setStatusFilter] = useState<"all" | "pending" | "accepted" | "rejected">("all")
   const [directionFilter, setDirectionFilter] = useState<"all" | "credit" | "debit">("all")
   const [isPending, startTransition] = useTransition()
-  const [isBulkProcessing, setIsBulkProcessing] = useState(false)
-
-  const controlsDisabled = isPending || isBulkProcessing
+  const [isBulkProcessing, setIsBulkProcessing] = useState(importRecord.status === "processing")
 
   const rows = importRecord.rows || []
   const totalCount = rows.length
-  const pendingCount = rows.filter((r) => r.reviewStatus === "pending").length
-  const acceptedCount = rows.filter((r) => r.reviewStatus === "accepted").length
-  const rejectedCount = rows.filter((r) => r.reviewStatus === "rejected").length
+  const [liveCounts, setLiveCounts] = useState({
+    pending: rows.filter((r) => r.reviewStatus === "pending").length,
+    accepted: rows.filter((r) => r.reviewStatus === "accepted").length,
+    rejected: rows.filter((r) => r.reviewStatus === "rejected").length,
+  })
+
+  // Poll status while background processing
+  useEffect(() => {
+    if (!isBulkProcessing) return
+
+    const interval = setInterval(async () => {
+      try {
+        const res = await fetch(`/api/imports/${importRecord.id}/status?workspaceId=${workspaceId}`)
+        if (!res.ok) return
+        const data = await res.json()
+
+        setLiveCounts({
+          pending: data.pendingRows,
+          accepted: data.acceptedRows,
+          rejected: data.rejectedRows,
+        })
+
+        if (data.status !== "processing" || data.pendingRows === 0) {
+          setIsBulkProcessing(false)
+          router.refresh()
+        }
+      } catch {
+        // Ignore network polling error
+      }
+    }, 1500)
+
+    return () => clearInterval(interval)
+  }, [isBulkProcessing, importRecord.id, workspaceId, router])
+
+  const pendingCount = liveCounts.pending
+  const acceptedCount = liveCounts.accepted
+  const rejectedCount = liveCounts.rejected
+
+  const controlsDisabled = isPending || isBulkProcessing
 
   // Filtered rows
   const filteredRows = rows.filter((row) => {
@@ -98,19 +134,30 @@ export function ImportReviewView({
     }
   }
 
-  const handleBulkAction = (action: "accept" | "reject", targetIds?: string[]) => {
+  const handleBulkAction = async (action: "accept" | "reject", targetIds?: string[]) => {
     const ids = targetIds || selectedIds
-    if (!ids.length) return
-
     setIsBulkProcessing(true)
-    startTransition(async () => {
-      try {
-        await bulkReviewRowsAction(workspaceId, importRecord.id, ids, action)
-        setSelectedIds((prev) => prev.filter((id) => !ids.includes(id)))
-      } finally {
-        setIsBulkProcessing(false)
+    setSelectedIds([])
+
+    try {
+      const res = await fetch(`/api/imports/${importRecord.id}/commit`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          workspaceId,
+          rowIds: ids.length > 0 ? ids : undefined,
+          action,
+        }),
+      })
+
+      if (res.ok) {
+        router.refresh()
       }
-    })
+    } catch (err) {
+      console.error("Bulk commit request failed:", err)
+    } finally {
+      setIsBulkProcessing(false)
+    }
   }
 
   return (
@@ -147,16 +194,25 @@ export function ImportReviewView({
       {/* Controls: Bulk Actions & Filters */}
       <Card className="p-4 border border-border/80 rounded-xl space-y-4 shadow-sm">
         {isBulkProcessing && (
-          <div className="p-3.5 bg-primary/10 border border-primary/25 rounded-xl flex items-center justify-between text-xs text-primary animate-in fade-in">
-            <div className="flex items-center gap-2.5 font-medium">
-              <Loader2 className="w-4 h-4 animate-spin text-primary flex-shrink-0" />
-              <span>
-                Processing batch in the background... <strong className="underline">You can safely leave this page</strong> while transactions are committed or rejected.
-              </span>
+          <div className="p-4 bg-primary/10 border border-primary/25 rounded-xl space-y-2.5 text-xs text-primary animate-in fade-in">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+              <div className="flex items-center gap-2.5 font-medium">
+                <Loader2 className="w-4 h-4 animate-spin text-primary flex-shrink-0" />
+                <span>
+                  Processing batch in background... <strong className="underline font-semibold">You can safely leave this page anytime.</strong>
+                </span>
+              </div>
+              <div className="flex items-center gap-2 font-mono text-[11px] bg-card px-2.5 py-1 rounded-md text-foreground border border-border flex-shrink-0">
+                <span>{totalCount - pendingCount} / {totalCount} completed</span>
+                <span>({Math.round(((totalCount - pendingCount) / (totalCount || 1)) * 100)}%)</span>
+              </div>
             </div>
-            <span className="text-[11px] font-mono bg-card px-2 py-0.5 rounded-md text-foreground border border-border flex-shrink-0">
-              Processing...
-            </span>
+            <div className="w-full bg-primary/20 rounded-full h-1.5 overflow-hidden">
+              <div 
+                className="bg-primary h-full transition-all duration-300 ease-out rounded-full"
+                style={{ width: `${Math.max(5, Math.round(((totalCount - pendingCount) / (totalCount || 1)) * 100))}%` }}
+              />
+            </div>
           </div>
         )}
 

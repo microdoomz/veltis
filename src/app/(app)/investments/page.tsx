@@ -1,5 +1,6 @@
 import React from 'react';
 import { InvestmentDashboard } from '@/components/investments/InvestmentDashboard';
+import { RefreshButton } from '@/components/ui/refresh-button';
 import { requireWorkspaceAccess } from '@/lib/auth/guards';
 import { redirect } from 'next/navigation';
 
@@ -23,7 +24,10 @@ export default async function InvestmentsPage() {
   return (
     <div className="w-full max-w-4xl mx-auto p-4 md:p-6 pb-24">
       <div className="flex justify-between items-center mb-6">
-        <h1 className="text-2xl font-semibold text-slate-900 dark:text-white">Investments</h1>
+        <div className="flex items-center gap-2">
+          <h1 className="text-2xl font-semibold text-slate-900 dark:text-white">Investments</h1>
+          <RefreshButton />
+        </div>
       </div>
       
       {workspaceId ? (

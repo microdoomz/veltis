@@ -79,6 +79,7 @@ export const auth = betterAuth({
       },
     }),
     twoFactor({
+      allowPasswordless: true,
       otpOptions: {
         sendOTP: async ({ user, otp }) => {
           // If the user has a phone number registered for 2FA, send an SMS.

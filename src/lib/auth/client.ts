@@ -23,7 +23,11 @@ export const authClient = createAuthClient({
   plugins: [
     passkeyClient(),
     phoneNumberClient(),
-    twoFactorClient()
+    twoFactorClient({
+      onTwoFactorRedirect: () => {
+        // Handled by in-page 2FA challenge flow
+      },
+    }),
   ]
 });
 

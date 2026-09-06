@@ -28,7 +28,8 @@ export async function getAccountById(workspaceId: string, accountId: string) {
 export async function getAccountTransactions(accountId: string, limit: number = 50) {
   const legs = await db.query.transactionLeg.findMany({
     where: eq(transactionLeg.accountId, accountId),
-    limit,
+    orderBy: [desc(transactionLeg.createdAt)],
+    limit: Math.max(limit * 3, 50),
     with: {
       transaction: {
         with: {
@@ -53,7 +54,7 @@ export async function getAccountTransactions(accountId: string, limit: number = 
       return new Date(b.transactionDate).getTime() - new Date(a.transactionDate).getTime();
     });
 
-  const uniqueTxns = Array.from(new Map(validTxns.map(t => [t.id, t])).values());
+  const uniqueTxns = Array.from(new Map(validTxns.map(t => [t.id, t])).values()).slice(0, limit);
 
   return uniqueTxns;
 }

@@ -17,7 +17,7 @@ export default async function AccountDetailPage({ params }: { params: Promise<{ 
     notFound()
   }
 
-  const transactions = await getAccountTransactions(account.id)
+  const transactions = await getAccountTransactions(account.id, 10)
 
   return (
     <div className="space-y-6 max-w-4xl mx-auto pb-20">
@@ -102,6 +102,14 @@ export default async function AccountDetailPage({ params }: { params: Promise<{ 
                 </div>
               ))
             )}
+          </div>
+          <div className="p-3.5 text-center border-t border-border bg-muted/20">
+            <Link
+              href={`/transactions?accountId=${account.id}`}
+              className="text-xs font-semibold text-primary hover:underline inline-flex items-center gap-1.5 transition-colors"
+            >
+              View all transactions for this account &rarr;
+            </Link>
           </div>
         </Card>
       </div>

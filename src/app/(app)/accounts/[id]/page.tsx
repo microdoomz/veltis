@@ -42,10 +42,10 @@ export default async function AccountDetailPage({ params }: { params: Promise<{ 
             {account.accountType.replace('_', ' ')} &bull; {account.institutionName || 'Manual Account'}
           </p>
         </div>
-        <div className="flex items-center gap-2 flex-wrap">
+        <div className="flex items-center gap-1.5 sm:gap-2 overflow-x-auto no-scrollbar py-1 w-full sm:w-auto">
           <AccountActionsModal account={account} />
-          <Link href={`/accounts/${account.id}/reconcile`}>
-            <Button variant="outline" size="sm">
+          <Link href={`/accounts/${account.id}/reconcile`} className="shrink-0">
+            <Button variant="outline" size="sm" className="whitespace-nowrap h-8 px-2.5 sm:px-3 text-xs sm:text-sm">
               Reconcile Account
             </Button>
           </Link>
@@ -71,22 +71,22 @@ export default async function AccountDetailPage({ params }: { params: Promise<{ 
               </div>
             ) : (
               transactions.map((txn) => (
-                <div key={txn.id} className="flex items-center justify-between p-4 hover:bg-muted/50 transition-colors">
-                  <div>
-                    <p className="font-medium text-sm">
+                <div key={txn.id} className="flex items-center justify-between p-4 hover:bg-muted/50 transition-colors gap-3">
+                  <div className="min-w-0 flex-1">
+                    <p className="font-medium text-sm truncate">
                       {txn.description || (txn.transactionType === 'expense' ? 'Expense' : txn.transactionType === 'income' ? 'Income' : 'Transfer')}
                     </p>
-                    <div className="text-xs text-muted-foreground flex items-center gap-2 mt-1">
+                    <div className="text-xs text-muted-foreground flex items-center gap-2 mt-1 truncate">
                       <span>{new Date(txn.transactionDate).toLocaleDateString()}</span>
                       {txn.category && (
                         <>
                           <span>&bull;</span>
-                          <span className="bg-muted px-1.5 py-0.5 rounded text-[10px] uppercase font-medium text-foreground">{txn.category.name}</span>
+                          <span className="bg-muted px-1.5 py-0.5 rounded text-[10px] uppercase font-medium text-foreground truncate">{txn.category.name}</span>
                         </>
                       )}
                     </div>
                   </div>
-                  <div className="text-right flex flex-col items-end">
+                  <div className="text-right flex flex-col items-end shrink-0 whitespace-nowrap pl-2">
                     {/* If this is an expense, we show it as negative, unless it's a transfer leaving the account */}
                     <Amount 
                       valueMinor={txn.transactionType === 'expense' || txn.transactionType === 'credit_card_purchase' ? -txn.amountMinor : txn.amountMinor} 

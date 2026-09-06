@@ -62,13 +62,41 @@ export function ImportReviewView({
   const [isPending, startTransition] = useTransition()
   const [isBulkProcessing, setIsBulkProcessing] = useState(importRecord.status === "processing")
 
-  const rows = importRecord.rows || []
+  const [rows, setRows] = useState<ImportRow[]>(importRecord.rows || [])
+
+  useEffect(() => {
+    setRows(importRecord.rows || [])
+  }, [importRecord.rows])
+
   const totalCount = rows.length
   const [liveCounts, setLiveCounts] = useState({
     pending: rows.filter((r) => r.reviewStatus === "pending").length,
     accepted: rows.filter((r) => r.reviewStatus === "accepted").length,
     rejected: rows.filter((r) => r.reviewStatus === "rejected").length,
   })
+
+  useEffect(() => {
+    setLiveCounts({
+      pending: rows.filter((r) => r.reviewStatus === "pending").length,
+      accepted: rows.filter((r) => r.reviewStatus === "accepted").length,
+      rejected: rows.filter((r) => r.reviewStatus === "rejected").length,
+    })
+  }, [rows])
+
+  // Restore commit status across navigation if still active
+  useEffect(() => {
+    try {
+      const activeCommit = localStorage.getItem(`veltis_active_commit_${importRecord.id}`)
+      if (activeCommit) {
+        const parsed = JSON.parse(activeCommit)
+        if (Date.now() - parsed.startTime < 120000) {
+          setIsBulkProcessing(true)
+        } else {
+          localStorage.removeItem(`veltis_active_commit_${importRecord.id}`)
+        }
+      }
+    } catch {}
+  }, [importRecord.id])
 
   // Poll status while background processing
   useEffect(() => {
@@ -88,6 +116,7 @@ export function ImportReviewView({
 
         if (data.status !== "processing" || data.pendingRows === 0) {
           setIsBulkProcessing(false)
+          localStorage.removeItem(`veltis_active_commit_${importRecord.id}`)
           router.refresh()
         }
       } catch {
@@ -136,10 +165,26 @@ export function ImportReviewView({
 
   const handleBulkAction = async (action: "accept" | "reject", targetIds?: string[]) => {
     const ids = targetIds || selectedIds
+    const idSet = new Set(ids.length > 0 ? ids : rows.filter((r) => r.reviewStatus === "pending").map((r) => r.id))
+
+    // Instant optimistic update on UI
+    if (action === "reject") {
+      setRows((prev) => prev.filter((r) => !idSet.has(r.id)))
+    } else {
+      setRows((prev) =>
+        prev.map((r) => (idSet.has(r.id) ? { ...r, reviewStatus: "accepted" } : r))
+      )
+    }
+
     setIsBulkProcessing(true)
     setSelectedIds([])
 
     try {
+      localStorage.setItem(
+        `veltis_active_commit_${importRecord.id}`,
+        JSON.stringify({ action, startTime: Date.now() })
+      )
+
       const res = await fetch(`/api/imports/${importRecord.id}/commit`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -151,12 +196,14 @@ export function ImportReviewView({
       })
 
       if (res.ok) {
+        localStorage.removeItem(`veltis_active_commit_${importRecord.id}`)
         router.refresh()
       }
     } catch (err) {
       console.error("Bulk commit request failed:", err)
     } finally {
       setIsBulkProcessing(false)
+      localStorage.removeItem(`veltis_active_commit_${importRecord.id}`)
     }
   }
 

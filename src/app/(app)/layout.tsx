@@ -6,6 +6,8 @@ import { workspace } from "@/lib/db/schema"
 import { eq } from "drizzle-orm"
 import { redirect } from "next/navigation"
 
+import { RefreshProvider } from "@/components/ui/refresh-context"
+
 export default async function AppRouteLayout({
   children,
 }: {
@@ -31,9 +33,11 @@ export default async function AppRouteLayout({
 
   return (
     <CurrencyProvider baseCurrency={baseCurrency}>
-      <AppLayout>
-        {children}
-      </AppLayout>
+      <RefreshProvider>
+        <AppLayout>
+          {children}
+        </AppLayout>
+      </RefreshProvider>
     </CurrencyProvider>
   )
 }

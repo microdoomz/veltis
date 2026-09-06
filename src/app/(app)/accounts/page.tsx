@@ -42,7 +42,6 @@ export default async function AccountsPage() {
         <div>
           <div className="flex items-center gap-2">
             <h1 className="text-2xl font-bold tracking-tight text-primary">Accounts</h1>
-            <RefreshButton />
           </div>
           <p className="text-muted-foreground">All your linked financial accounts.</p>
         </div>

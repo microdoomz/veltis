@@ -2,6 +2,7 @@
 
 import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
+import { Upload } from 'lucide-react';
 
 interface ExportConfigModalProps {
   isOpen: boolean;
@@ -111,7 +112,8 @@ export function ExportConfigModal({ isOpen, onClose, workspaceId }: ExportConfig
 
         <div className="mt-6 flex justify-end gap-2">
           <Button variant="outline" onClick={onClose} disabled={isExporting}>Cancel</Button>
-          <Button onClick={handleExport} disabled={isExporting}>
+          <Button onClick={handleExport} disabled={isExporting} className="gap-1.5">
+            <Upload className="h-4 w-4" />
             {isExporting ? 'Exporting...' : 'Export'}
           </Button>
         </div>

@@ -73,7 +73,7 @@ export async function getSpendingAnalytics(workspaceId: string, timeFilter: Time
     .orderBy(desc(sql`sum(${transaction.amountMinor})`));
 
   return result.map((r) => ({
-    categoryId: r.categoryId,
+    categoryId: r.categoryId || 'uncategorized',
     categoryName: r.categoryName || 'Uncategorized',
     totalAmountMinor: BigInt(r.totalAmountMinor || '0'),
   }));
@@ -105,7 +105,7 @@ export async function getIncomeAnalytics(workspaceId: string, timeFilter: TimeFi
     .orderBy(desc(sql`sum(${transaction.amountMinor})`));
 
   return result.map((r) => ({
-    categoryId: r.categoryId,
+    categoryId: r.categoryId || 'uncategorized',
     categoryName: r.categoryName || 'Uncategorized',
     totalAmountMinor: BigInt(r.totalAmountMinor || '0'),
   }));
@@ -189,8 +189,9 @@ export async function getInvestmentAnalytics(workspaceId: string) {
   const enrichedPositions = positions.map(pos => {
     const units = parseFloat(pos.units?.toString() || '0');
     const cost = BigInt(pos.averageCostMinor || 0n);
-    const price = BigInt(pos.latestPriceMinor || '0');
-    const estimatedValueMinor = BigInt(Math.floor(units * Number(price)));
+    const rawPrice = BigInt(pos.latestPriceMinor || '0');
+    const effectivePrice = rawPrice > 0n ? rawPrice : cost;
+    const estimatedValueMinor = BigInt(Math.floor(units * Number(effectivePrice)));
     const totalCostPosition = BigInt(Math.floor(units * Number(cost)));
 
     totalValueMinor += estimatedValueMinor;

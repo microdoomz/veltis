@@ -17,6 +17,13 @@ type BaseTransactionParams = {
   source?: 'web' | 'shortcut' | 'import' | 'recurring' | 'system' | 'manual';
 };
 
+function formatTxnDate(d: Date): string {
+  const year = d.getFullYear();
+  const month = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+
 export async function createExpense(
   params: BaseTransactionParams & { accountId: string }
 ) {
@@ -32,7 +39,7 @@ export async function createExpense(
       status: 'active',
       amountMinor: params.amountMinor,
       currency: params.currency,
-      transactionDate: params.transactionDate.toISOString().split('T')[0],
+      transactionDate: formatTxnDate(params.transactionDate),
       description: params.description,
       merchantName: params.merchantName,
       categoryId: params.categoryId,
@@ -69,7 +76,7 @@ export async function createIncome(
       status: 'active',
       amountMinor: params.amountMinor,
       currency: params.currency,
-      transactionDate: params.transactionDate.toISOString().split('T')[0],
+      transactionDate: formatTxnDate(params.transactionDate),
       description: params.description,
       merchantName: params.merchantName,
       categoryId: params.categoryId,
@@ -109,7 +116,7 @@ export async function createTransfer(
       status: 'active',
       amountMinor: params.amountMinor,
       currency: params.currency,
-      transactionDate: params.transactionDate.toISOString().split('T')[0],
+      transactionDate: formatTxnDate(params.transactionDate),
       description: params.description,
       merchantName: params.merchantName,
       clientTransactionId: params.clientTransactionId,

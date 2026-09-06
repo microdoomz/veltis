@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { requireStrictWorkspaceAccess } from "@/lib/auth/guards";
-import { processCsvImport } from "@/lib/services/import";
 import { checkRateLimit } from "@/lib/security/rate-limit";
+import { processMultiFormatImport } from "@/lib/services/import";
 
 export async function POST(req: Request) {
   try {
@@ -28,9 +28,11 @@ export async function POST(req: Request) {
       );
     }
 
-    const text = await file.text();
-    const importRecord = await processCsvImport(
-      text,
+    const arrayBuffer = await file.arrayBuffer();
+    const buffer = Buffer.from(arrayBuffer);
+
+    const importRecord = await processMultiFormatImport(
+      buffer,
       file.name,
       authContext.workspaceId,
       accountId,
@@ -41,11 +43,10 @@ export async function POST(req: Request) {
     return NextResponse.json({
       success: true,
       importId: importRecord.id,
-      totalRows: text.split('\n').filter(Boolean).length,
     });
   } catch (err: unknown) {
     console.error("Statement upload error:", err);
-    let message = err instanceof Error ? err.message : "Failed to parse CSV statement";
+    let message = err instanceof Error ? err.message : "Failed to parse bank statement";
     if (message.includes("Failed query") || message.includes("syntax error")) {
       message = "Failed to process statement database records.";
     }

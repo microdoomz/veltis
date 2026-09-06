@@ -5,6 +5,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { authClient, useSession } from '@/lib/auth/client';
+import QRCode from 'qrcode';
 import {
   KeyRound,
   Shield,
@@ -16,6 +17,8 @@ import {
   Smartphone,
   Copy,
   ExternalLink,
+  Download,
+  Check,
 } from 'lucide-react';
 import Link from 'next/link';
 
@@ -60,11 +63,55 @@ export function SecuritySettings() {
   const [twoFaLoading, setTwoFaLoading] = useState(false);
   const [twoFaPassword, setTwoFaPassword] = useState('');
   const [totpUri, setTotpUri] = useState<string | null>(null);
+  const [qrDataUrl, setQrDataUrl] = useState<string | null>(null);
+  const [secretCopied, setSecretCopied] = useState(false);
   const [backupCodes, setBackupCodes] = useState<string[]>([]);
   const [totpCode, setTotpCode] = useState('');
   const [show2FaModal, setShow2FaModal] = useState(false);
   const [twoFaMessage, setTwoFaMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
   const [confirmDisableModal, setConfirmDisableModal] = useState(false);
+
+  const extractTotpSecret = (uri: string): string => {
+    try {
+      const parsed = new URL(uri);
+      return parsed.searchParams.get('secret') || uri;
+    } catch {
+      const match = uri.match(/[?&]secret=([A-Za-z0-9]+)/i);
+      return match ? match[1] : uri;
+    }
+  };
+
+  const handleCopySecret = (secretText: string) => {
+    navigator.clipboard.writeText(secretText);
+    setSecretCopied(true);
+    setTimeout(() => setSecretCopied(false), 2000);
+  };
+
+  const handleDownloadBackupCodes = () => {
+    if (backupCodes.length === 0) return;
+    const content = `VELTIS TWO-FACTOR AUTHENTICATION BACKUP CODES
+Generated: ${new Date().toLocaleString()}
+Account: ${session?.user?.email || 'Veltis User'}
+
+IMPORTANT INSTRUCTIONS:
+- Each code can only be used once to sign in.
+- Store these codes securely (e.g. in your password vault or printed offline).
+- Do not share these codes with anyone.
+
+----------------------------------------
+${backupCodes.map((c, i) => `${i + 1}. ${c}`).join('\n')}
+----------------------------------------
+`;
+    const blob = new Blob([content], { type: 'text/plain;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'veltis-backup-codes.txt';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  };
 
   // Passkey state
   const [passkeyLoading, setPasskeyLoading] = useState(false);
@@ -165,8 +212,12 @@ export function SecuritySettings() {
       }
 
       if (enableRes.data) {
-        if ((enableRes.data as any).totpURI) {
-          setTotpUri((enableRes.data as any).totpURI);
+        const uri = (enableRes.data as any).totpURI;
+        if (uri) {
+          setTotpUri(uri);
+          QRCode.toDataURL(uri, { width: 220, margin: 1 })
+            .then((url) => setQrDataUrl(url))
+            .catch((err) => console.error('Failed to generate QR', err));
         }
         if ((enableRes.data as any).backupCodes) {
           setBackupCodes((enableRes.data as any).backupCodes);
@@ -393,15 +444,45 @@ export function SecuritySettings() {
                 Add secondary verification using an authenticator app (Google Authenticator, Apple Passwords) or hardware biometrics.
               </CardDescription>
             </div>
-            <span
-              className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold self-start sm:self-auto ${
-                is2FAEnabled
-                  ? 'bg-emerald-500/10 text-emerald-500 border border-emerald-500/20'
-                  : 'bg-muted text-muted-foreground border border-border'
-              }`}
-            >
-              {is2FAEnabled ? '2FA Active' : 'Not Enabled'}
-            </span>
+            <div className="flex items-center gap-3 self-start sm:self-auto">
+              {securityProfile?.hasPasskeys && (
+                <span className="hidden sm:inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
+                  <Fingerprint className="h-3.5 w-3.5" /> Biometrics ({securityProfile.passkeysCount})
+                </span>
+              )}
+              {/* Master Switch Toggle */}
+              <label className="relative inline-flex items-center cursor-pointer select-none">
+                <input
+                  type="checkbox"
+                  checked={is2FAEnabled}
+                  disabled={twoFaLoading}
+                  onChange={(e) => {
+                    if (e.target.checked) {
+                      if (securityProfile?.hasPassword === false) {
+                        startTotpSetup('');
+                        setShow2FaModal(true);
+                      } else {
+                        setShow2FaModal(true);
+                      }
+                    } else {
+                      if (securityProfile?.hasPassword === false) {
+                        if (window.confirm('Are you sure you want to disable Two-Factor Authentication?')) {
+                          handleDisable2FA('');
+                        }
+                      } else {
+                        const pass = prompt('Enter your password to disable 2FA:');
+                        if (pass) handleDisable2FA(pass);
+                      }
+                    }
+                  }}
+                  className="sr-only peer"
+                />
+                <div className="w-11 h-6 bg-muted peer-focus:outline-hidden rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-border after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-emerald-500"></div>
+                <span className="ml-2 text-xs font-semibold text-foreground">
+                  {is2FAEnabled ? 'Enabled' : 'Disabled'}
+                </span>
+              </label>
+            </div>
           </div>
         </CardHeader>
         <CardContent className="space-y-4">
@@ -484,45 +565,93 @@ export function SecuritySettings() {
                       </div>
                     </form>
                   ) : (
-                    <div className="space-y-4">
-                      <div className="space-y-2">
-                        <p className="text-sm font-semibold text-foreground">1. Add to Authenticator App</p>
+                    <div className="space-y-5">
+                      <div className="space-y-3 text-center sm:text-left">
+                        <p className="text-sm font-semibold text-foreground">1. Scan QR Code or Enter Secret Key</p>
                         <p className="text-xs text-muted-foreground">
-                          Scan the TOTP code or copy the secret key into Google Authenticator or your password manager:
+                          Scan the code using Google Authenticator, Microsoft Authenticator, Apple Passwords, or 1Password.
                         </p>
-                        <div className="p-3 bg-background border border-border rounded-lg text-xs font-mono break-all flex items-center justify-between gap-2">
-                          <span>{totpUri}</span>
-                          <button
-                            type="button"
-                            onClick={() => navigator.clipboard.writeText(totpUri)}
-                            className="p-1 hover:text-primary transition-colors"
-                            title="Copy Key"
-                          >
-                            <Copy className="h-4 w-4" />
-                          </button>
+
+                        {/* Live Visual QR Code */}
+                        {qrDataUrl ? (
+                          <div className="flex flex-col items-center justify-center p-3 bg-white rounded-2xl border border-border/80 shadow-xs max-w-[240px] mx-auto">
+                            <img src={qrDataUrl} alt="2FA QR Code" className="w-48 h-48 rounded-lg object-contain" />
+                            <span className="text-[10px] text-gray-500 font-mono mt-1 font-medium">Scan with Authenticator App</span>
+                          </div>
+                        ) : (
+                          <div className="h-48 w-48 mx-auto rounded-2xl bg-muted/60 flex items-center justify-center text-xs text-muted-foreground animate-pulse">
+                            Generating QR code...
+                          </div>
+                        )}
+
+                        {/* Clean Secret String with One-Click Copy */}
+                        <div className="space-y-1.5 pt-1">
+                          <label className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider block text-left">
+                            Manual Setup Key
+                          </label>
+                          <div className="p-2.5 bg-background border border-border rounded-xl flex items-center justify-between gap-2 shadow-xs">
+                            <code className="text-xs font-mono font-bold tracking-wider text-primary break-all select-all">
+                              {extractTotpSecret(totpUri)}
+                            </code>
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              onClick={() => handleCopySecret(extractTotpSecret(totpUri))}
+                              className="h-7 px-2.5 shrink-0 gap-1 text-xs transition-all"
+                            >
+                              {secretCopied ? (
+                                <>
+                                  <Check className="h-3.5 w-3.5 text-emerald-500" />
+                                  <span className="text-emerald-600 dark:text-emerald-400 font-semibold text-[11px]">Copied!</span>
+                                </>
+                              ) : (
+                                <>
+                                  <Copy className="h-3.5 w-3.5" />
+                                  <span className="text-[11px]">Copy</span>
+                                </>
+                              )}
+                            </Button>
+                          </div>
                         </div>
                       </div>
 
                       {backupCodes.length > 0 && (
-                        <div className="space-y-2">
-                          <p className="text-sm font-semibold text-foreground">2. Save Backup Codes</p>
-                          <div className="grid grid-cols-2 gap-1.5 p-3 bg-background border border-border rounded-lg text-xs font-mono">
+                        <div className="space-y-2 p-3 bg-muted/30 rounded-xl border border-border/80">
+                          <div className="flex items-center justify-between gap-2">
+                            <p className="text-xs font-semibold text-foreground">2. Save Backup Codes</p>
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              onClick={handleDownloadBackupCodes}
+                              className="h-7 text-xs px-2.5 gap-1.5 text-primary border-primary/30 hover:bg-primary/5"
+                            >
+                              <Download className="h-3 w-3" /> Download (.txt)
+                            </Button>
+                          </div>
+                          <div className="grid grid-cols-2 gap-1.5 p-2 bg-background border border-border rounded-lg text-xs font-mono text-center font-medium">
                             {backupCodes.map((code, idx) => (
-                              <span key={idx}>{code}</span>
+                              <span key={idx} className="p-1 rounded bg-muted/40">{code}</span>
                             ))}
                           </div>
+                          <p className="text-[11px] text-muted-foreground leading-relaxed">
+                            Save these one-time backup codes in a safe place. You can use them to recover your account if you lose your phone.
+                          </p>
                         </div>
                       )}
 
-                      <div className="space-y-2">
-                        <p className="text-sm font-semibold text-foreground">3. Enter Verification Code</p>
+                      <div className="space-y-2 pt-1">
+                        <p className="text-sm font-semibold text-foreground">
+                          {backupCodes.length > 0 ? '3.' : '2.'} Enter Verification Code
+                        </p>
                         <Input
                           type="text"
                           maxLength={6}
                           placeholder="000000"
                           value={totpCode}
                           onChange={(e) => setTotpCode(e.target.value)}
-                          className="font-mono tracking-widest text-center text-lg h-11"
+                          className="font-mono tracking-widest text-center text-lg h-11 bg-background"
                         />
                       </div>
 
@@ -536,6 +665,7 @@ export function SecuritySettings() {
                           onClick={() => {
                             setShow2FaModal(false);
                             setTotpUri(null);
+                            setQrDataUrl(null);
                           }}
                         >
                           Cancel

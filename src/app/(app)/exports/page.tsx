@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Download, FileSpreadsheet, FileText, Database, CheckCircle2, AlertCircle } from 'lucide-react';
+import { Upload, FileSpreadsheet, FileText, Database, CheckCircle2, AlertCircle } from 'lucide-react';
 
 export default function ExportsPage() {
   const [format, setFormat] = useState<'xlsx' | 'csv' | 'pdf' | 'json'>('xlsx');
@@ -158,8 +158,8 @@ export default function ExportsPage() {
             {format === 'json' ? 'Includes accounts, transactions, and categories.' : 'Includes double-entry transaction legs and account balances.'}
           </p>
           <Button onClick={handleExport} disabled={loading}>
-            <Download className="mr-2 h-4 w-4" />
-            {loading ? 'Generating...' : 'Download Export'}
+            <Upload className="mr-2 h-4 w-4" />
+            {loading ? 'Generating...' : 'Export Data'}
           </Button>
         </CardFooter>
       </Card>

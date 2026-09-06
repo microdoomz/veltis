@@ -69,7 +69,6 @@ export default async function HomePage() {
         <Card className="bg-primary text-primary-foreground border-none shadow-sm flex flex-col justify-between">
           <CardHeader className="pb-2 flex flex-row items-center justify-between space-y-0">
             <CardTitle className="text-primary-foreground/80 text-sm font-medium">Total Wealth</CardTitle>
-            <RefreshButton className="text-primary-foreground/70 hover:text-primary-foreground hover:bg-white/10" />
           </CardHeader>
           <CardContent>
             <div className="text-4xl font-bold tracking-tight">
@@ -88,7 +87,6 @@ export default async function HomePage() {
               <span className="text-[11px] font-medium text-muted-foreground bg-muted/60 px-2 py-0.5 rounded-md">
                 Bank &amp; Cash
               </span>
-              <RefreshButton />
             </div>
           </CardHeader>
           <CardContent className="space-y-3">
@@ -260,22 +258,22 @@ export default async function HomePage() {
                 </div>
               ) : (
                 recentTxns.map((txn) => (
-                  <div key={txn.id} className="flex items-center justify-between p-4 hover:bg-muted/50 transition-colors">
-                    <div>
-                      <p className="font-medium text-sm">
+                  <div key={txn.id} className="flex items-center justify-between p-4 hover:bg-muted/50 transition-colors gap-3">
+                    <div className="min-w-0 flex-1">
+                      <p className="font-medium text-sm truncate">
                         {txn.description || (txn.transactionType === 'expense' ? 'Expense' : txn.transactionType === 'income' ? 'Income' : 'Transfer')}
                       </p>
-                      <p className="text-xs text-muted-foreground flex items-center gap-2">
+                      <p className="text-xs text-muted-foreground flex items-center gap-2 truncate">
                         <span>{new Date(txn.transactionDate).toLocaleDateString()}</span>
                         {txn.category && (
                           <>
                             <span>&bull;</span>
-                            <span>{txn.category.name}</span>
+                            <span className="truncate">{txn.category.name}</span>
                           </>
                         )}
                       </p>
                     </div>
-                    <div className="text-right">
+                    <div className="text-right shrink-0 whitespace-nowrap pl-2">
                       {/* For expense, show negative if we want, or just let colorize handle it based on type */}
                       <Amount 
                         valueMinor={txn.transactionType === 'expense' || txn.transactionType === 'credit_card_purchase' ? -txn.amountMinor : txn.amountMinor} 

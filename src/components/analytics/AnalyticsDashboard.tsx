@@ -4,7 +4,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import dynamic from 'next/dynamic';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { DownloadIcon, Loader2 } from 'lucide-react';
+import { Upload, Loader2 } from 'lucide-react';
 import { ExportConfigModal } from '../exports/ExportConfigModal';
 
 // Lazy loaded charts
@@ -118,7 +118,11 @@ export function AnalyticsDashboard({ workspaceId, baseCurrency }: { workspaceId:
   const handleCategoryClick = async (categoryId: string) => {
     const r = await router;
     const rInstance = r();
-    rInstance.push(`/transactions?category=${categoryId}`);
+    if (!categoryId || categoryId === 'uncategorized') {
+      rInstance.push('/transactions');
+    } else {
+      rInstance.push(`/transactions?category=${categoryId}`);
+    }
   };
 
   const formatCurrency = (amountMinorStr: string) => {
@@ -163,7 +167,7 @@ export function AnalyticsDashboard({ workspaceId, baseCurrency }: { workspaceId:
           )}
 
           <Button variant="outline" onClick={() => setIsExportOpen(true)}>
-            <DownloadIcon className="mr-2 h-4 w-4" />
+            <Upload className="mr-2 h-4 w-4" />
             Export
           </Button>
         </div>

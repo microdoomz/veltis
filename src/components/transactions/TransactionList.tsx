@@ -184,9 +184,9 @@ export function TransactionList({
               className="grid grid-cols-1 md:grid-cols-[2fr,1fr,1fr,1fr,auto] gap-2 md:gap-4 p-4 items-center cursor-pointer hover:bg-muted/60 transition-colors group select-none"
             >
               {/* Mobile Top Row / Desktop Col 1 */}
-              <div className="flex justify-between md:block">
-                <div>
-                  <p className="font-medium text-sm group-hover:text-primary transition-colors flex items-center gap-1.5">
+              <div className="flex items-start justify-between gap-3 md:block min-w-0">
+                <div className="min-w-0 flex-1">
+                  <p className="font-medium text-sm group-hover:text-primary transition-colors truncate">
                     {primaryText}
                   </p>
                   {secondaryMerchant && (
@@ -194,7 +194,7 @@ export function TransactionList({
                   )}
                 </div>
                 {/* Mobile Amount */}
-                <div className="md:hidden text-right flex flex-col items-end">
+                <div className="md:hidden text-right flex flex-col items-end shrink-0 whitespace-nowrap pl-2">
                   <Amount
                     valueMinor={BigInt(displayMinor)}
                     currency={txn.currency}

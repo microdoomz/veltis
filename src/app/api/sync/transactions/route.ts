@@ -101,7 +101,8 @@ export async function POST(req: Request) {
               description: validPayload.description,
               categoryId: validPayload.categoryId,
               accountId: validPayload.accountId,
-              clientTransactionId: item.id
+              clientTransactionId: item.id,
+              source: 'web'
             });
           } else {
             await createIncome({
@@ -113,7 +114,8 @@ export async function POST(req: Request) {
               description: validPayload.description,
               categoryId: validPayload.categoryId,
               accountId: validPayload.accountId,
-              clientTransactionId: item.id
+              clientTransactionId: item.id,
+              source: 'web'
             });
           }
         } else if (item.type === 'transfer') {
@@ -137,7 +139,8 @@ export async function POST(req: Request) {
             description: validPayload.description,
             sourceAccountId: validPayload.sourceAccountId,
             destAccountId: validPayload.destAccountId,
-            clientTransactionId: item.id
+            clientTransactionId: item.id,
+            source: 'web'
           });
         }
 

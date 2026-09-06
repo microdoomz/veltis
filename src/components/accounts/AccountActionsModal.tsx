@@ -156,12 +156,12 @@ export function AccountActionsModal({ account }: AccountActionsProps) {
 
   return (
     <>
-      <div className="flex items-center gap-2">
+      <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
         <Button 
           variant="outline" 
           size="sm" 
           onClick={() => setIsEditOpen(true)}
-          className="flex items-center gap-1.5"
+          className="whitespace-nowrap h-8 px-2.5 sm:px-3 text-xs sm:text-sm flex items-center gap-1.5 shrink-0"
         >
           <Edit2 className="w-3.5 h-3.5" />
           Edit Details
@@ -170,7 +170,7 @@ export function AccountActionsModal({ account }: AccountActionsProps) {
           variant="outline" 
           size="sm" 
           onClick={() => setIsDeleteOpen(true)}
-          className="text-destructive border-destructive/30 hover:bg-destructive/10 hover:text-destructive flex items-center gap-1.5"
+          className="whitespace-nowrap h-8 px-2 sm:px-2.5 text-xs sm:text-sm text-destructive border-destructive/30 hover:bg-destructive/10 hover:text-destructive flex items-center gap-1 shrink-0"
         >
           <Trash2 className="w-3.5 h-3.5" />
           Delete

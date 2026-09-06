@@ -17,6 +17,7 @@ export default async function TransactionsPage(
   const categoryFilter = searchParams?.category as string | undefined
   const accountFilter = searchParams?.account as string | undefined
   const typeFilter = searchParams?.type as 'all' | 'income' | 'expense' | 'transfer' | undefined
+  const sourceFilter = searchParams?.source as 'all' | 'web' | 'shortcut' | 'import' | undefined
   const sortFilter = searchParams?.sort as 'date_desc' | 'date_asc' | 'amount_desc' | 'amount_asc' | undefined
   const startDateFilter = searchParams?.startDate as string | undefined
   const endDateFilter = searchParams?.endDate as string | undefined
@@ -25,6 +26,7 @@ export default async function TransactionsPage(
     categoryId: categoryFilter,
     accountId: accountFilter,
     flowType: typeFilter,
+    source: sourceFilter,
     sortBy: sortFilter,
     startDate: startDateFilter,
     endDate: endDateFilter,

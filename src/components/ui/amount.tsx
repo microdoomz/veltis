@@ -3,6 +3,7 @@ import * as React from "react"
 import { cn } from "@/lib/utils"
 import { PrivacyContext } from "@/components/layout/PrivacyProvider"
 import { useCurrency } from "@/components/layout/CurrencyProvider"
+import { useRefresh } from "@/components/ui/refresh-context"
 import { motion, AnimatePresence } from "framer-motion"
 
 interface AmountProps extends React.HTMLAttributes<HTMLSpanElement> {
@@ -50,6 +51,7 @@ export const Amount = React.forwardRef<HTMLSpanElement, AmountProps>(
     };
     const { isPrivacyModeEnabled, isRevealed, toggleReveal } = privacyContext;
     const { baseCurrency } = useCurrency();
+    const { isRefreshing } = useRefresh();
     const effectiveCurrency = currency || baseCurrency || "USD";
     const isNegative = valueMinor < 0n;
     const isPositive = valueMinor > 0n;
@@ -85,6 +87,24 @@ export const Amount = React.forwardRef<HTMLSpanElement, AmountProps>(
       // or income (positive) means less debt so it's good/bad depending on context.
       if (isPositive) colorClass = "text-danger"
       if (isNegative) colorClass = "text-positive"
+    }
+
+    if (isRefreshing) {
+      return (
+        <span
+          ref={ref}
+          className={cn(
+            "inline-block font-mono tabular-nums tracking-tight animate-pulse select-none",
+            colorClass,
+            className
+          )}
+          {...props}
+        >
+          <span className="inline-block bg-current/15 rounded-md px-1.5 py-0.5 text-transparent select-none min-w-[5ch]">
+            {formatted || '••••••'}
+          </span>
+        </span>
+      );
     }
 
     const handleClick = (e: React.MouseEvent<HTMLSpanElement>) => {

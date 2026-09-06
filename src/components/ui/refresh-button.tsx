@@ -1,9 +1,6 @@
-'use client';
-
-import { useState } from 'react';
-import { useRouter } from 'next/navigation';
 import { RotateCw } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { useRefresh } from './refresh-context';
 
 interface RefreshButtonProps {
   className?: string;
@@ -12,16 +9,10 @@ interface RefreshButtonProps {
 }
 
 export function RefreshButton({ className, size = 'sm', label }: RefreshButtonProps) {
-  const router = useRouter();
-  const [isRefreshing, setIsRefreshing] = useState(false);
+  const { isRefreshing, triggerRefresh } = useRefresh();
 
   const handleRefresh = () => {
-    if (isRefreshing) return;
-    setIsRefreshing(true);
-    router.refresh();
-    setTimeout(() => {
-      setIsRefreshing(false);
-    }, 750);
+    triggerRefresh();
   };
 
   const iconSizes = {

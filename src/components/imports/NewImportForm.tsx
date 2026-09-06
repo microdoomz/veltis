@@ -3,7 +3,7 @@
 import { useState, useRef, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
-import { Loader2, UploadCloud, FileText, X, CheckCircle2, Info, Clock } from "lucide-react"
+import { Loader2, UploadCloud, FileText, X, CheckCircle2, Info, Clock, AlertCircle } from "lucide-react"
 
 interface AccountOption {
   id: string
@@ -23,49 +23,94 @@ export function NewImportForm({
   const [accountId, setAccountId] = useState("")
   const [isReferenceOnly, setIsReferenceOnly] = useState(false)
   const [isUploading, setIsUploading] = useState(false)
+  const [phase, setPhase] = useState<"uploading" | "parsing">("uploading")
   const [progress, setProgress] = useState(0)
   const [eta, setEta] = useState<number | null>(null)
   const [error, setError] = useState<string | null>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
 
-  const [backgroundUpload, setBackgroundUpload] = useState<{ filename: string } | null>(null)
+  const [activeImportTask, setActiveImportTask] = useState<{
+    filename: string
+    startTime: number
+    phase: "uploading" | "parsing"
+    progress: number
+  } | null>(null)
 
+  // Restore persistent import task across page reloads and navigation
   useEffect(() => {
     try {
-      const active = sessionStorage.getItem("veltis_active_upload")
-      if (active) {
-        const parsed = JSON.parse(active)
-        if (Date.now() - parsed.startTime < 300000) {
-          setBackgroundUpload(parsed)
+      const saved = localStorage.getItem("veltis_active_import_task")
+      if (saved) {
+        const parsed = JSON.parse(saved)
+        if (Date.now() - parsed.startTime < 180000) {
+          // Task still within 3 minutes window
+          setActiveImportTask(parsed)
+          setIsUploading(true)
+          setPhase(parsed.phase || "parsing")
+          setProgress(parsed.progress || 55)
         } else {
-          sessionStorage.removeItem("veltis_active_upload")
+          localStorage.removeItem("veltis_active_import_task")
         }
       }
     } catch {}
   }, [])
 
+  // Dual ETA and progressive feedback timer
   useEffect(() => {
-    let interval: NodeJS.Timeout | null = null;
+    let interval: NodeJS.Timeout | null = null
     if (isUploading) {
-      // Calibrate realistic parsing duration: 3-12 seconds based on file size
-      const estimatedTotalSeconds = Math.max(3, Math.min(12, Math.ceil((file?.size || 30000) / 25000)));
-      setEta(estimatedTotalSeconds);
+      const fileSize = file?.size || 45000
+      const isPdf = file?.name?.toLowerCase().endsWith(".pdf")
+      // Realistic total ETA calculation based on file format & size
+      const uploadSeconds = Math.max(1, Math.min(3, Math.ceil(fileSize / 100000)))
+      const parseSeconds = Math.max(2, Math.min(8, Math.ceil(fileSize / (isPdf ? 15000 : 35000))))
+      const totalEstimatedSeconds = uploadSeconds + parseSeconds
 
-      const startTime = Date.now();
+      const startTime = Date.now()
+
       interval = setInterval(() => {
-        const elapsed = (Date.now() - startTime) / 1000;
-        // Asymptotic progression towards 98% ensures it never freezes at 92%
-        const percent = Math.min(98, Math.round(98 * (1 - Math.exp(-elapsed / (estimatedTotalSeconds * 0.75)))));
-        setProgress(Math.max(8, percent));
+        const elapsed = (Date.now() - startTime) / 1000
 
-        const remaining = Math.max(1, Math.round(estimatedTotalSeconds * Math.exp(-elapsed / (estimatedTotalSeconds * 0.85))));
-        setEta(remaining);
-      }, 200);
+        if (elapsed < uploadSeconds) {
+          // Phase 1: Uploading (0% -> 48%)
+          setPhase("uploading")
+          const uploadPercent = Math.min(48, Math.round((elapsed / uploadSeconds) * 48))
+          setProgress(Math.max(5, uploadPercent))
+          const remainingUpload = Math.max(1, Math.round(uploadSeconds - elapsed))
+          setEta(remainingUpload + parseSeconds)
+        } else {
+          // Phase 2: Parsing (49% -> 98%)
+          setPhase("parsing")
+          const parseElapsed = elapsed - uploadSeconds
+          const parsePercent = Math.min(
+            98,
+            49 + Math.round(49 * (1 - Math.exp(-parseElapsed / (parseSeconds * 0.8))))
+          )
+          setProgress(parsePercent)
+          const remainingParse = Math.max(
+            1,
+            Math.round(parseSeconds * Math.exp(-parseElapsed / (parseSeconds * 0.9)))
+          )
+          setEta(remainingParse)
+
+          // Persist progress update in localStorage
+          try {
+            const currentTask = localStorage.getItem("veltis_active_import_task")
+            if (currentTask) {
+              const parsed = JSON.parse(currentTask)
+              parsed.phase = "parsing"
+              parsed.progress = parsePercent
+              localStorage.setItem("veltis_active_import_task", JSON.stringify(parsed))
+            }
+          } catch {}
+        }
+      }, 250)
     }
+
     return () => {
-      if (interval) clearInterval(interval);
-    };
-  }, [isUploading, file?.size]);
+      if (interval) clearInterval(interval)
+    }
+  }, [isUploading, file?.size, file?.name])
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
@@ -87,15 +132,21 @@ export function NewImportForm({
     if (!file || !accountId) return
 
     setIsUploading(true)
+    setPhase("uploading")
     setProgress(10)
     setError(null)
 
+    const taskData = {
+      filename: file.name,
+      accountId,
+      startTime: Date.now(),
+      phase: "uploading" as const,
+      progress: 10,
+    }
+
     try {
-      sessionStorage.setItem("veltis_active_upload", JSON.stringify({
-        filename: file.name,
-        startTime: Date.now(),
-      }))
-      setBackgroundUpload({ filename: file.name })
+      localStorage.setItem("veltis_active_import_task", JSON.stringify(taskData))
+      setActiveImportTask(taskData)
 
       const formData = new FormData()
       formData.append("workspaceId", workspaceId)
@@ -111,11 +162,11 @@ export function NewImportForm({
       const data = await res.json()
 
       if (!res.ok) {
-        throw new Error(data.error || "Failed to parse statement")
+        throw new Error(data.error || "Failed to parse bank statement")
       }
 
-      sessionStorage.removeItem("veltis_active_upload")
-      setBackgroundUpload(null)
+      localStorage.removeItem("veltis_active_import_task")
+      setActiveImportTask(null)
       setProgress(100)
       setEta(0)
 
@@ -124,8 +175,8 @@ export function NewImportForm({
         router.refresh()
       }, 400)
     } catch (err: unknown) {
-      sessionStorage.removeItem("veltis_active_upload")
-      setBackgroundUpload(null)
+      localStorage.removeItem("veltis_active_import_task")
+      setActiveImportTask(null)
       setIsUploading(false)
       setProgress(0)
       setEta(null)
@@ -135,29 +186,23 @@ export function NewImportForm({
 
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
-      {backgroundUpload && !isUploading && (
-        <div className="p-3.5 bg-primary/10 border border-primary/25 rounded-xl flex items-center justify-between text-xs text-primary animate-in fade-in">
-          <div className="flex items-center gap-2 font-medium">
-            <Loader2 className="w-4 h-4 animate-spin text-primary flex-shrink-0" />
-            <span>
-              Statement <strong>{backgroundUpload.filename}</strong> is currently parsing in the background. Refresh or check the list below in a moment.
-            </span>
-          </div>
-          <Button
-            type="button"
-            variant="ghost"
-            size="sm"
-            onClick={() => router.refresh()}
-            className="h-7 text-xs px-2.5 hover:bg-primary/20"
-          >
-            Check Status
-          </Button>
+      {/* Informative Note for PDF Statements */}
+      <div className="p-3 bg-muted/30 border border-border/80 rounded-xl flex items-start gap-2.5 text-xs text-muted-foreground">
+        <Info className="w-4 h-4 text-primary flex-shrink-0 mt-0.5" />
+        <div className="space-y-0.5 leading-relaxed">
+          <p className="font-semibold text-foreground">
+            Supported Statement Formats: CSV, Excel (.xlsx, .xls), JSON, and PDF.
+          </p>
+          <p>
+            PDF statement structures vary across banks (SBI, HDFC, ICICI, Kotak, Axis, etc.) and some may be password-protected. For guaranteed precision and quickest processing, CSV, Excel, or JSON exports are recommended.
+          </p>
         </div>
-      )}
+      </div>
 
       {error && (
-        <div className="p-3 bg-destructive/10 border border-destructive/30 rounded-xl text-destructive text-xs">
-          {error}
+        <div className="p-3 bg-destructive/10 border border-destructive/30 rounded-xl text-destructive text-xs flex items-center gap-2">
+          <AlertCircle className="w-4 h-4 flex-shrink-0" />
+          <span>{error}</span>
         </div>
       )}
 
@@ -185,27 +230,27 @@ export function NewImportForm({
 
         <div>
           <label className="block text-sm font-medium text-muted-foreground mb-1.5">
-            CSV Bank Statement <span className="text-destructive">*</span>
+            Bank Statement File <span className="text-destructive">*</span>
           </label>
 
           <input
             ref={fileInputRef}
             type="file"
             name="file"
-            accept=".csv"
+            accept=".csv,.xlsx,.xls,.json,.pdf,text/csv,application/json,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel,application/pdf"
             onChange={handleFileChange}
             disabled={isUploading}
             className="hidden"
-            id="csv-file-upload"
+            id="statement-file-upload"
           />
 
           {!file ? (
             <label
-              htmlFor="csv-file-upload"
+              htmlFor="statement-file-upload"
               className="flex items-center justify-center gap-2 h-11 px-4 border border-dashed border-border hover:border-primary/50 bg-muted/20 hover:bg-muted/40 rounded-xl cursor-pointer transition-colors text-sm font-medium text-muted-foreground hover:text-foreground"
             >
               <UploadCloud className="w-4 h-4 text-primary" />
-              <span>Choose CSV File</span>
+              <span>Choose File (CSV, Excel, JSON, PDF)</span>
             </label>
           ) : (
             <div className="flex items-center justify-between h-11 px-3.5 border border-primary/30 bg-primary/5 rounded-xl text-sm">
@@ -264,37 +309,50 @@ export function NewImportForm({
         </label>
       </div>
 
-      {/* Upload Progress & Background Notification Card */}
+      {/* Dual Phase Progress & Background Notification Card */}
       {isUploading && (
-        <div className="p-4 bg-primary/5 border border-primary/20 rounded-xl space-y-3 animate-in fade-in">
+        <div className="p-4 bg-primary/5 border border-primary/25 rounded-xl space-y-3 animate-in fade-in">
           <div className="flex items-center justify-between text-xs font-medium">
             <div className="flex items-center gap-2 text-foreground">
-              <Loader2 className="w-4 h-4 animate-spin text-primary" />
-              <span>Parsing statement &amp; validating bank columns...</span>
+              <Loader2 className="w-4 h-4 animate-spin text-primary flex-shrink-0" />
+              <span>
+                {phase === "uploading"
+                  ? `Uploading ${file?.name || activeImportTask?.filename || "statement"} to server...`
+                  : `Parsing statement rows & matching ledger rules...`}
+              </span>
             </div>
             <div className="flex items-center gap-2 text-muted-foreground font-mono">
-              <span>{progress}%</span>
+              <span className="font-semibold text-primary">{progress}%</span>
               {eta !== null && eta > 0 && (
-                <span className="flex items-center gap-1 text-primary text-[11px]">
-                  <Clock className="w-3 h-3" /> ETA: ~{eta}s
+                <span className="flex items-center gap-1 text-muted-foreground text-[11px]">
+                  <Clock className="w-3 h-3 text-primary" /> {phase === "uploading" ? "Upload ETA" : "Parse ETA"}: ~{eta}s
                 </span>
               )}
             </div>
           </div>
 
-          {/* Progress Bar */}
-          <div className="w-full h-2 bg-muted rounded-full overflow-hidden">
+          {/* Dual Segment Progress Bar */}
+          <div className="w-full h-2.5 bg-muted rounded-full overflow-hidden flex">
             <div
               className="h-full bg-primary transition-all duration-300 rounded-full"
               style={{ width: `${progress}%` }}
             />
           </div>
 
+          <div className="flex items-center justify-between text-[11px] text-muted-foreground">
+            <span className={phase === "uploading" ? "text-primary font-semibold" : "text-muted-foreground"}>
+              1. Uploading File
+            </span>
+            <span className={phase === "parsing" ? "text-primary font-semibold" : "text-muted-foreground"}>
+              2. Parsing &amp; Extracting Transactions
+            </span>
+          </div>
+
           {/* Reassurance Message */}
-          <div className="flex items-start gap-2 pt-1 text-xs text-muted-foreground">
+          <div className="flex items-start gap-2 pt-1 text-xs text-muted-foreground border-t border-primary/10">
             <Info className="w-4 h-4 text-primary flex-shrink-0 mt-0.5" />
             <p className="leading-relaxed">
-              <strong className="text-foreground">You can leave this page while we parse the file.</strong> Statement processing and reconciliation will safely continue in the background.
+              <strong className="text-foreground">You can leave this page anytime.</strong> Statement processing and rule matching will safely persist in the background.
             </p>
           </div>
         </div>
@@ -304,12 +362,12 @@ export function NewImportForm({
         <Button
           type="submit"
           disabled={!file || !accountId || isUploading}
-          className="min-w-[170px] h-11 rounded-xl font-semibold shadow-sm transition-all"
+          className="min-w-[180px] h-11 rounded-xl font-semibold shadow-sm transition-all"
         >
           {isUploading ? (
             <>
               <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-              Parsing ({progress}%)...
+              {phase === "uploading" ? `Uploading (${progress}%)` : `Parsing (${progress}%)`}
             </>
           ) : (
             <>

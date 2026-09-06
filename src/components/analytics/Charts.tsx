@@ -29,12 +29,17 @@ export const CategoryPieChart = ({ data, onCategoryClick }: { data: Array<Record
     return <div className="text-sm text-gray-500 h-64 flex items-center justify-center">No data available</div>;
   }
 
+  const normalizedData = data.map((d) => ({
+    ...d,
+    totalAmountMinor: Number(d.totalAmountMinor || 0),
+  }));
+
   return (
     <div className="h-64 w-full">
       <ResponsiveContainer width="100%" height="100%">
         <PieChart>
           <Pie
-            data={data}
+            data={normalizedData}
             cx="50%"
             cy="50%"
             labelLine={false}
@@ -44,11 +49,11 @@ export const CategoryPieChart = ({ data, onCategoryClick }: { data: Array<Record
             nameKey="categoryName"
             label={({ name, percent }) => `${name} ${((percent || 0) * 100).toFixed(0)}%`}
           >
-            {data.map((entry, index) => (
+            {normalizedData.map((entry: Record<string, unknown>, index) => (
               <Cell 
                 key={`cell-${index}`} 
                 fill={COLORS[index % COLORS.length]} 
-                onClick={() => onCategoryClick && entry.categoryId && onCategoryClick(entry.categoryId as string)}
+                onClick={() => onCategoryClick && onCategoryClick((entry.categoryId as string) || 'uncategorized')}
                 style={{ cursor: onCategoryClick ? 'pointer' : 'default' }}
               />
             ))}

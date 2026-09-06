@@ -40,7 +40,17 @@ yarn-error.log*
 *.tsbuildinfo
 next-env.d.ts
 
-# Veltis planning / internal documentation
+# Veltis planning / internal documentation & agent files
 Building Docs/
 AGENTS.md
 CLAUDE.md
+PROJECT_STATUS.md
+test-coverage-audit.json
+verify-schema.ts
+
+# Tests, results, scripts, and scratch
+/tests/
+/test-results/
+/playwright-report/
+/scripts/
+/scratch/

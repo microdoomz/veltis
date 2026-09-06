@@ -92,9 +92,9 @@ export default async function AccountsPage() {
                       style={{ borderLeft: acc.color ? `4px solid ${acc.color}` : undefined }}
                     >
                       <div className="p-4 flex flex-col justify-between h-full gap-4">
-                        <div className="flex items-center gap-3 min-w-0">
+                        <div className="flex items-start gap-3 min-w-0">
                           <div 
-                            className="p-2 rounded-full shrink-0"
+                            className="p-2 rounded-full shrink-0 mt-0.5"
                             style={{
                               backgroundColor: acc.color ? `${acc.color}20` : 'var(--muted)',
                               color: acc.color || 'inherit',
@@ -103,8 +103,8 @@ export default async function AccountsPage() {
                             {getAccountIcon(acc.accountType)}
                           </div>
                           <div className="min-w-0 flex-1">
-                            <div className="flex items-center gap-1.5 min-w-0">
-                              <p className="font-medium text-sm truncate" title={acc.name}>{acc.name}</p>
+                            <div className="flex items-center gap-1.5 flex-wrap">
+                              <p className="font-medium text-sm leading-snug break-words">{acc.name}</p>
                               {acc.color && (
                                 <span 
                                   className="inline-block w-2.5 h-2.5 rounded-full ring-1 ring-background shrink-0" 
@@ -113,10 +113,10 @@ export default async function AccountsPage() {
                                 />
                               )}
                             </div>
-                            <p className="text-xs text-muted-foreground truncate">{acc.institutionName || 'Manual Account'}</p>
+                            <p className="text-xs text-muted-foreground mt-0.5 break-words">{acc.institutionName || 'Manual Account'}</p>
                           </div>
                         </div>
-                        <div className="flex justify-between items-end gap-2">
+                        <div className="flex justify-between items-end gap-2 pt-2 border-t border-border/40">
                           <span className="text-xs text-muted-foreground shrink-0">Total Balance</span>
                           <Amount valueMinor={acc.balanceMinor} currency={acc.currency} className="font-semibold text-lg shrink-0 whitespace-nowrap" colorize="default" />
                         </div>

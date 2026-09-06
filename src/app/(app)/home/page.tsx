@@ -139,10 +139,10 @@ export default async function HomePage() {
                 style={{ borderLeft: acc.color ? `4px solid ${acc.color}` : undefined }}
               >
                 <div className="p-3.5 sm:p-4 space-y-2.5 min-w-0">
-                  <div className="flex items-center justify-between gap-3 min-w-0">
-                    <div className="flex items-center gap-2.5 sm:gap-3 min-w-0 flex-1">
+                  <div className="flex items-start justify-between gap-3 min-w-0">
+                    <div className="flex items-start gap-2.5 sm:gap-3 min-w-0 flex-1">
                       <div 
-                        className="p-2 rounded-full shrink-0"
+                        className="p-2 rounded-full shrink-0 mt-0.5"
                         style={{
                           backgroundColor: acc.color ? `${acc.color}20` : 'var(--muted)',
                           color: acc.color || 'inherit',
@@ -151,8 +151,8 @@ export default async function HomePage() {
                         {getAccountIcon(acc.accountType)}
                       </div>
                       <div className="min-w-0 flex-1">
-                        <div className="flex items-center gap-1.5 min-w-0">
-                          <p className="font-medium text-sm truncate" title={acc.name}>{acc.name}</p>
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                          <p className="font-medium text-sm leading-snug break-words">{acc.name}</p>
                           {acc.color && (
                             <span 
                               className="inline-block w-2 h-2 rounded-full shrink-0" 
@@ -161,7 +161,7 @@ export default async function HomePage() {
                             />
                           )}
                         </div>
-                        <p className="text-xs text-muted-foreground capitalize truncate">{acc.accountType.replace('_', ' ')}</p>
+                        <p className="text-xs text-muted-foreground capitalize mt-0.5 break-words">{acc.accountType.replace('_', ' ')}</p>
                       </div>
                     </div>
                     <div className="text-right shrink-0 whitespace-nowrap pl-2">
@@ -206,10 +206,10 @@ export default async function HomePage() {
                     className="border-danger/20 min-w-0 overflow-hidden"
                     style={{ borderLeft: acc.color ? `4px solid ${acc.color}` : undefined }}
                   >
-                    <div className="flex items-center justify-between p-3.5 sm:p-4 gap-3 min-w-0">
-                      <div className="flex items-center gap-2.5 sm:gap-3 min-w-0 flex-1">
+                    <div className="flex items-start justify-between p-3.5 sm:p-4 gap-3 min-w-0">
+                      <div className="flex items-start gap-2.5 sm:gap-3 min-w-0 flex-1">
                         <div 
-                          className="p-2 rounded-full shrink-0"
+                          className="p-2 rounded-full shrink-0 mt-0.5"
                           style={{
                             backgroundColor: acc.color ? `${acc.color}20` : 'rgba(239, 68, 68, 0.1)',
                             color: acc.color || 'inherit',
@@ -218,8 +218,8 @@ export default async function HomePage() {
                           {getAccountIcon(acc.accountType)}
                         </div>
                         <div className="min-w-0 flex-1">
-                          <div className="flex items-center gap-1.5 min-w-0">
-                            <p className="font-medium text-sm truncate" title={acc.name}>{acc.name}</p>
+                          <div className="flex items-center gap-1.5 flex-wrap">
+                            <p className="font-medium text-sm leading-snug break-words">{acc.name}</p>
                             {acc.color && (
                               <span 
                                 className="inline-block w-2 h-2 rounded-full shrink-0" 
@@ -227,7 +227,7 @@ export default async function HomePage() {
                               />
                             )}
                           </div>
-                          <p className="text-xs text-muted-foreground capitalize truncate">{acc.accountType.replace('_', ' ')}</p>
+                          <p className="text-xs text-muted-foreground capitalize mt-0.5 break-words">{acc.accountType.replace('_', ' ')}</p>
                         </div>
                       </div>
                       <div className="text-right shrink-0 whitespace-nowrap pl-2">

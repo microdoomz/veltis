@@ -28,11 +28,11 @@ export default async function AccountDetailPage({ params }: { params: Promise<{ 
               &larr; Back to Accounts
             </Link>
           </div>
-          <div className="flex items-center gap-3">
-            <h1 className="text-2xl font-bold tracking-tight text-primary">{account.name}</h1>
+          <div className="flex items-center gap-3 flex-wrap min-w-0">
+            <h1 className="text-2xl font-bold tracking-tight text-primary break-words leading-tight">{account.name}</h1>
             {account.color && (
               <span 
-                className="w-3.5 h-3.5 rounded-full ring-2 ring-background inline-block" 
+                className="w-3.5 h-3.5 rounded-full ring-2 ring-background inline-block shrink-0" 
                 style={{ backgroundColor: account.color }}
                 title="Account Accent Color"
               />

@@ -42,7 +42,7 @@ const navItems = [
   { href: '/recurring', label: 'Recurring', icon: Repeat },
   { href: '/imports', label: 'Imports', icon: Download },
   { href: '/exports', label: 'Exports', icon: Upload },
-  { href: '/settings/shortcuts', label: 'Shortcuts', icon: Zap },
+  { href: '/shortcuts', label: 'Shortcuts', icon: Zap },
   { href: '/settings', label: 'Settings', icon: Settings },
 ]
 
@@ -61,6 +61,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
     router.prefetch?.('/transactions/new');
     router.prefetch?.('/accounts/new');
     router.prefetch?.('/settings/privacy');
+    router.prefetch?.('/shortcuts');
   }, [router]);
 
   const handleLogout = async () => {
@@ -224,7 +225,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
 
 function NavLink({ href, icon: Icon, label, isCollapsed }: { href: string; icon: React.ElementType; label: string; isCollapsed: boolean }) {
   const pathname = usePathname();
-  const isActive = pathname === href || (href !== '/home' && pathname?.startsWith(href));
+  const isActive = pathname === href || (href !== '/home' && pathname?.startsWith(href + '/'));
 
   return (
     <Link
@@ -247,7 +248,7 @@ function NavLink({ href, icon: Icon, label, isCollapsed }: { href: string; icon:
 
 function MobileNavLink({ href, icon: Icon, label }: { href: string; icon: React.ElementType; label: string }) {
   const pathname = usePathname();
-  const isActive = pathname === href || (href !== '/home' && pathname?.startsWith(href));
+  const isActive = pathname === href || (href !== '/home' && pathname?.startsWith(href + '/'));
 
   return (
     <Link

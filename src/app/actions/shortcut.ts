@@ -16,6 +16,7 @@ export async function addShortcutTokenAction(workspaceId: string, formData: Form
     name: name.trim()
   });
 
+  revalidatePath('/shortcuts');
   revalidatePath('/settings/shortcuts');
   
   // Note: we can't easily return rawToken from server action form submission if we want to show it nicely without JS,
@@ -30,5 +31,6 @@ export async function deleteShortcutTokenAction(workspaceId: string, formData: F
   if (!tokenId) throw new Error('Token ID is required');
 
   await revokeShortcutToken(authContext.workspaceId, tokenId);
+  revalidatePath('/shortcuts');
   revalidatePath('/settings/shortcuts');
 }

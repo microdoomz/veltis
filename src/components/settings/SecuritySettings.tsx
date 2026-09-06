@@ -706,7 +706,7 @@ export function SecuritySettings() {
                 Automate rapid expense logging straight from Siri or your iPhone lockscreen without opening the browser.
               </CardDescription>
             </div>
-            <Link href="/settings/shortcuts">
+            <Link href="/shortcuts">
               <Button variant="outline" size="sm" className="gap-1.5">
                 Manage Tokens <ExternalLink className="h-3.5 w-3.5" />
               </Button>

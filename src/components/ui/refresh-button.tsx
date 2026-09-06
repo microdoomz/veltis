@@ -1,3 +1,5 @@
+'use client';
+
 import { RotateCw } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useRefresh } from './refresh-context';

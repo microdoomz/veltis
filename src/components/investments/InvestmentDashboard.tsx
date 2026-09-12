@@ -292,11 +292,10 @@ export function InvestmentDashboard({ workspaceId }: { workspaceId: string }) {
         </div>
 
         {syncStatus && (
-          <div className={`mt-4 p-3 rounded-xl flex items-center gap-2 text-xs font-medium animate-in fade-in ${
-            syncStatus.type === 'success'
+          <div className={`mt-4 p-3 rounded-xl flex items-center gap-2 text-xs font-medium animate-in fade-in ${syncStatus.type === 'success'
               ? 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 border border-emerald-500/20'
               : 'bg-rose-500/10 text-rose-700 dark:text-rose-300 border border-rose-500/20'
-          }`}>
+            }`}>
             {syncStatus.type === 'success' ? (
               <CheckCircle2 className="w-4 h-4 flex-shrink-0 text-emerald-600 dark:text-emerald-400" />
             ) : (
@@ -305,13 +304,14 @@ export function InvestmentDashboard({ workspaceId }: { workspaceId: string }) {
             <span>{syncStatus.message}</span>
           </div>
         )}
-        
+
         <div className="mt-6 flex items-center justify-between border-t border-slate-100 dark:border-slate-800 pt-4">
           <p className="text-xs text-slate-500 dark:text-slate-400 flex items-center">
             <AlertTriangle className="w-4 h-4 mr-1.5 text-amber-500" />
             Market values are estimated and reflect verified NAV/price feeds.
+            Please check your investment app for accurate data.
           </p>
-          <button 
+          <button
             onClick={handleSyncPrices}
             disabled={syncingPrices || positions.length === 0}
             className="flex items-center text-sm font-medium text-teal-600 hover:text-teal-700 dark:text-teal-400 dark:hover:text-teal-300 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
@@ -326,7 +326,7 @@ export function InvestmentDashboard({ workspaceId }: { workspaceId: string }) {
         <InvestmentActions workspaceId={workspaceId} accounts={accounts} positions={positions} onUpdate={fetchInvestments} />
         <div className="flex items-center gap-2">
           {positions.length > 0 && (
-            <button 
+            <button
               onClick={() => {
                 setTopUpPositionId(positions[0]?.id);
                 setIsTopUpOpen(true);
@@ -337,8 +337,8 @@ export function InvestmentDashboard({ workspaceId }: { workspaceId: string }) {
               One-Time Investment
             </button>
           )}
-          <Link 
-            href="/accounts/new" 
+          <Link
+            href="/accounts/new"
             className="inline-flex items-center px-4 py-2 bg-primary text-primary-foreground text-sm font-medium rounded-lg hover:opacity-90 transition-opacity"
           >
             <Plus className="w-4 h-4 mr-1.5" />
@@ -349,13 +349,13 @@ export function InvestmentDashboard({ workspaceId }: { workspaceId: string }) {
 
       {/* Holdings */}
       <h2 className="text-lg font-semibold text-slate-900 dark:text-white mt-8 mb-4">Holdings</h2>
-      
+
       {positions.length === 0 ? (
         <div className="text-center p-8 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl space-y-3">
           <TrendingUp className="w-10 h-10 mx-auto text-slate-300 dark:text-slate-600" />
           <p className="text-slate-500 dark:text-slate-400">No investment positions found.</p>
-          <Link 
-            href="/accounts/new" 
+          <Link
+            href="/accounts/new"
             className="inline-flex items-center text-sm font-semibold text-primary hover:underline"
           >
             <Plus className="w-4 h-4 mr-1" />
@@ -381,7 +381,7 @@ export function InvestmentDashboard({ workspaceId }: { workspaceId: string }) {
                 const units = Number(pos.units);
                 const avgCost = BigInt(pos.averageCostMinor || 0);
                 const currentPrice = BigInt(pos.currentPriceMinor || 0);
-                
+
                 const invested = BigInt(Math.round(units * Number(avgCost)));
                 const current = BigInt(Math.round(units * Number(currentPrice)));
                 const gain = current - invested;
@@ -397,16 +397,16 @@ export function InvestmentDashboard({ workspaceId }: { workspaceId: string }) {
                     <td className="px-4 py-4 text-right text-slate-900 dark:text-slate-300 font-medium">
                       {units.toLocaleString(undefined, { maximumFractionDigits: 4 })}
                     </td>
-                    <td className="px-4 py-4 text-right text-slate-500">{(Number(avgCost)/100).toLocaleString('en-US', { style: 'currency', currency: pos.currency })}</td>
+                    <td className="px-4 py-4 text-right text-slate-500">{(Number(avgCost) / 100).toLocaleString('en-US', { style: 'currency', currency: pos.currency })}</td>
                     <td className="px-4 py-4 text-right text-slate-900 dark:text-slate-300">
-                      {(Number(currentPrice)/100).toLocaleString('en-US', { style: 'currency', currency: pos.currency })}
+                      {(Number(currentPrice) / 100).toLocaleString('en-US', { style: 'currency', currency: pos.currency })}
                       {pos.isEstimated && <span className="text-[10px] ml-1 text-teal-600 font-semibold" title="Estimated">LIVE</span>}
                     </td>
                     <td className="px-4 py-4 text-right font-medium text-slate-900 dark:text-white">
-                      {(Number(current)/100).toLocaleString('en-US', { style: 'currency', currency: pos.currency })}
+                      {(Number(current) / 100).toLocaleString('en-US', { style: 'currency', currency: pos.currency })}
                     </td>
                     <td className={`px-4 py-4 text-right font-medium ${posPositive ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400'}`}>
-                      <div>{posPositive ? '+' : ''}{(Number(gain)/100).toLocaleString('en-US', { style: 'currency', currency: pos.currency })}</div>
+                      <div>{posPositive ? '+' : ''}{(Number(gain) / 100).toLocaleString('en-US', { style: 'currency', currency: pos.currency })}</div>
                       <div className="text-[11px] font-semibold opacity-90">({posPositive ? '+' : ''}{gainPct.toFixed(2)}%)</div>
                     </td>
                     <td className="px-4 py-4 text-right">

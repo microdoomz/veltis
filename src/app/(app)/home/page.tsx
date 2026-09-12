@@ -10,6 +10,7 @@ import { Wallet, CreditCard, Building2, TrendingUp, PiggyBank, ShieldCheck, Lock
 import Link from "next/link"
 import { redirect } from "next/navigation"
 import { formatISTDateTime } from "@/lib/date"
+import { InvestmentGainLossBadge } from "@/components/investments/InvestmentGainLossBadge"
 
 function getAccountIcon(type: string) {
   switch (type) {
@@ -193,7 +194,16 @@ export default async function HomePage() {
                         </div>
                       </div>
                       <div className="text-right shrink-0 whitespace-nowrap pl-2">
-                        <Amount valueMinor={acc.balanceMinor} currency={acc.currency} colorize="default" className="font-semibold text-base" />
+                        <div className="flex items-center justify-end gap-1.5 flex-wrap">
+                          <Amount valueMinor={acc.balanceMinor} currency={acc.currency} colorize="default" className="font-semibold text-base" />
+                          {acc.accountType === 'investment' && acc.unrealizedGainLossPct !== undefined && (
+                            <InvestmentGainLossBadge
+                              gainLossMinor={acc.unrealizedGainLossMinor ?? 0n}
+                              gainLossPct={acc.unrealizedGainLossPct}
+                              currency={acc.currency}
+                            />
+                          )}
+                        </div>
                         <p className="text-[10px] text-muted-foreground">{isLiability ? 'Current Debt' : 'Total Balance'}</p>
                       </div>
                     </div>

@@ -30,6 +30,9 @@ export async function getAccountById(workspaceId: string, accountId: string) {
   if (!account) return null;
   
   let balanceMinor = await getAccountLedgerBalance(accountId);
+  let investedAmountMinor: bigint | undefined = undefined;
+  let unrealizedGainLossMinor: bigint | undefined = undefined;
+  let unrealizedGainLossPct: number | undefined = undefined;
 
   if (account.accountType === 'investment') {
     const pos = await db.query.investmentPosition.findFirst({
@@ -46,13 +49,27 @@ export async function getAccountById(workspaceId: string, accountId: string) {
         orderBy: [desc(investmentPriceSnapshot.observedAt)],
       });
       const currentPrice = BigInt(latestSnapshot?.priceMinor || pos.averageCostMinor || 0);
-      if (units > 0 && currentPrice > 0n) {
-        balanceMinor = BigInt(Math.round(units * Number(currentPrice)));
+      const avgCost = BigInt(pos.averageCostMinor || 0);
+      if (units > 0 && (currentPrice > 0n || avgCost > 0n)) {
+        const invested = BigInt(Math.round(units * Number(avgCost)));
+        const current = BigInt(Math.round(units * Number(currentPrice > 0n ? currentPrice : avgCost)));
+        balanceMinor = current;
+        investedAmountMinor = invested;
+        unrealizedGainLossMinor = current - invested;
+        unrealizedGainLossPct = invested > 0n
+          ? (Number(current - invested) / Number(invested)) * 100
+          : 0;
       }
     }
   }
 
-  return { ...account, balanceMinor };
+  return {
+    ...account,
+    balanceMinor,
+    investedAmountMinor,
+    unrealizedGainLossMinor,
+    unrealizedGainLossPct,
+  };
 }
 
 export async function getAccountTransactions(accountId: string, limit: number = 50) {
@@ -233,6 +250,9 @@ export async function getAccountSummary(workspaceId: string) {
   const accountsWithBalances = await Promise.all(
     accounts.map(async (acc) => {
       let balance = await getAccountLedgerBalance(acc.id);
+      let investedAmountMinor: bigint | undefined = undefined;
+      let unrealizedGainLossMinor: bigint | undefined = undefined;
+      let unrealizedGainLossPct: number | undefined = undefined;
 
       // If investment account, calculate current value based on how investments are doing currently (units * current NAV/price)
       if (acc.accountType === 'investment') {
@@ -243,8 +263,16 @@ export async function getAccountSummary(workspaceId: string) {
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
           const snapshot = latestSnapshots.find((s: any) => s.positionId === pos.id);
           const currentPrice = BigInt(snapshot?.priceMinor || pos.averageCostMinor || 0);
-          if (units > 0 && currentPrice > 0n) {
-            balance = BigInt(Math.round(units * Number(currentPrice)));
+          const avgCost = BigInt(pos.averageCostMinor || 0);
+          if (units > 0 && (currentPrice > 0n || avgCost > 0n)) {
+            const invested = BigInt(Math.round(units * Number(avgCost)));
+            const current = BigInt(Math.round(units * Number(currentPrice > 0n ? currentPrice : avgCost)));
+            balance = current;
+            investedAmountMinor = invested;
+            unrealizedGainLossMinor = current - invested;
+            unrealizedGainLossPct = invested > 0n
+              ? (Number(current - invested) / Number(invested)) * 100
+              : 0;
           }
         }
       }
@@ -255,6 +283,9 @@ export async function getAccountSummary(workspaceId: string) {
       return {
         ...acc,
         balanceMinor: balance,
+        investedAmountMinor,
+        unrealizedGainLossMinor,
+        unrealizedGainLossPct,
         allocations: accAllocations,
         totalAllocatedMinor,
         freeToSpendMinor,

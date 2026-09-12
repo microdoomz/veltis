@@ -23,6 +23,7 @@ import {
   GripVertical,
   Loader2,
 } from 'lucide-react';
+import { InvestmentGainLossBadge } from '@/components/investments/InvestmentGainLossBadge';
 
 export interface AccountItem {
   id: string;
@@ -35,6 +36,9 @@ export interface AccountItem {
   displayOrder: number;
   totalAllocatedMinor?: bigint;
   freeToSpendMinor?: bigint;
+  investedAmountMinor?: bigint;
+  unrealizedGainLossMinor?: bigint;
+  unrealizedGainLossPct?: number;
   allocations?: Array<{
     id: string;
     name: string;
@@ -356,12 +360,21 @@ export function AccountsList({
                         <Link href={`/accounts/${acc.id}`} className="block">
                           <div className="flex justify-between items-end gap-2 pt-2 border-t border-border/40">
                             <span className="text-xs text-muted-foreground shrink-0">Total Balance</span>
-                            <Amount
-                              valueMinor={acc.balanceMinor}
-                              currency={acc.currency}
-                              className="font-semibold text-lg shrink-0 whitespace-nowrap"
-                              colorize="default"
-                            />
+                            <div className="flex items-center justify-end gap-1.5 shrink-0 flex-wrap">
+                              <Amount
+                                valueMinor={acc.balanceMinor}
+                                currency={acc.currency}
+                                className="font-semibold text-lg shrink-0 whitespace-nowrap"
+                                colorize="default"
+                              />
+                              {acc.accountType === 'investment' && acc.unrealizedGainLossPct !== undefined && (
+                                <InvestmentGainLossBadge
+                                  gainLossMinor={acc.unrealizedGainLossMinor ?? 0n}
+                                  gainLossPct={acc.unrealizedGainLossPct}
+                                  currency={acc.currency}
+                                />
+                              )}
+                            </div>
                           </div>
 
                           {acc.allocations && acc.allocations.length > 0 && (

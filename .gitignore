@@ -54,7 +54,7 @@ verify-schema.ts
 /scripts/
 /scratch/
 
-# Android
+# Android & IDE
 .gradle/
 android/**/build/
 android/.gradle/
@@ -64,4 +64,8 @@ android/**/*.iml
 android/.idea/
 *.apk
 *.aab
+.project
+.classpath
+.settings/
+
 

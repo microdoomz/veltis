@@ -52,4 +52,16 @@ verify-schema.ts
 /test-results/
 /playwright-report/
 /scripts/
-/scratch/
+/scratch/
+
+# Android
+.gradle/
+android/**/build/
+android/.gradle/
+android/local.properties
+android/*.iml
+android/**/*.iml
+android/.idea/
+*.apk
+*.aab
+

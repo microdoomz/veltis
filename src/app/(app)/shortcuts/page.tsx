@@ -50,6 +50,41 @@ export default async function ShortcutsPage() {
       </div>
 
       {/* ========================================================================= */}
+      {/* NATIVE ANDROID APP APK DOWNLOAD                                           */}
+      {/* ========================================================================= */}
+      <Card className="p-6 border-emerald-500/30 bg-emerald-500/[0.04] rounded-2xl shadow-sm space-y-4">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div className="space-y-1.5">
+            <div className="flex items-center gap-2">
+              <span className="p-1.5 rounded-md bg-emerald-500 text-white">
+                <Smartphone className="w-4 h-4" />
+              </span>
+              <h2 className="text-xl font-bold tracking-tight text-foreground">
+                Veltis Native Android App
+              </h2>
+              <span className="text-[10px] font-semibold bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 px-2 py-0.5 rounded-full flex items-center gap-1">
+                <CheckCircle2 className="w-3 h-3" /> Native APK
+              </span>
+            </div>
+            <p className="text-sm text-muted-foreground max-w-xl">
+              Install the official Veltis native Android app with home-screen widgets, offline SQLite transaction queue, and 60fps Jetpack Compose dark mode UI. Direct APK download with zero store friction.
+            </p>
+          </div>
+
+          <a
+            href="/api/downloads/android"
+            download="veltis.apk"
+            className="flex-shrink-0"
+          >
+            <Button size="lg" className="flex items-center gap-2 shadow font-semibold px-6 bg-emerald-600 hover:bg-emerald-700 text-white">
+              <Download className="w-5 h-5" />
+              Download Android APK
+            </Button>
+          </a>
+        </div>
+      </Card>
+
+      {/* ========================================================================= */}
       {/* 1. DOWNLOAD PRE-CONFIGURED SHORTCUT (APPEARS FIRST)                       */}
       {/* ========================================================================= */}
       <Card className="p-6 border-primary/30 bg-primary/5 rounded-2xl shadow-sm space-y-4">

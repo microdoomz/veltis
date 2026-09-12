@@ -255,6 +255,10 @@ export default async function RootPage() {
             <Link href="/login" className="hover:text-foreground transition-colors">Sign In</Link>
             <Link href="/register" className="hover:text-foreground transition-colors">Register</Link>
             <a href="#features" className="hover:text-foreground transition-colors">Features</a>
+            <a href="/api/downloads/android" download="veltis.apk" className="hover:text-emerald-500 transition-colors flex items-center gap-1.5 text-emerald-600 dark:text-emerald-400 font-medium">
+              <Download className="h-3.5 w-3.5" />
+              <span>Android APK</span>
+            </a>
           </div>
         </div>
       </footer>

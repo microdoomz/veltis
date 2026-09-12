@@ -1,6 +1,14 @@
 import { eq, desc, asc, and, ne, gte, lte, inArray } from 'drizzle-orm';
 import { db } from '../db';
-import { transaction, financialAccount, transactionLeg, category, allocation } from '../db/schema';
+import {
+  transaction,
+  financialAccount,
+  transactionLeg,
+  category,
+  allocation,
+  investmentPosition,
+  investmentPriceSnapshot,
+} from '../db/schema';
 import { getAccountLedgerBalance } from './index';
 
 export async function getCategories(workspaceId: string) {
@@ -21,7 +29,29 @@ export async function getAccountById(workspaceId: string, accountId: string) {
 
   if (!account) return null;
   
-  const balanceMinor = await getAccountLedgerBalance(accountId);
+  let balanceMinor = await getAccountLedgerBalance(accountId);
+
+  if (account.accountType === 'investment') {
+    const pos = await db.query.investmentPosition.findFirst({
+      where: and(
+        eq(investmentPosition.financialAccountId, accountId),
+        eq(investmentPosition.workspaceId, workspaceId)
+      ),
+    });
+
+    if (pos) {
+      const units = Number(pos.units || 0);
+      const latestSnapshot = await db.query.investmentPriceSnapshot.findFirst({
+        where: eq(investmentPriceSnapshot.positionId, pos.id),
+        orderBy: [desc(investmentPriceSnapshot.observedAt)],
+      });
+      const currentPrice = BigInt(latestSnapshot?.priceMinor || pos.averageCostMinor || 0);
+      if (units > 0 && currentPrice > 0n) {
+        balanceMinor = BigInt(Math.round(units * Number(currentPrice)));
+      }
+    }
+  }
+
   return { ...account, balanceMinor };
 }
 
@@ -177,9 +207,48 @@ export async function getAccountSummary(workspaceId: string) {
     )
   });
 
+  // Fetch investment positions and their latest price snapshots for this workspace
+  const positions = await db.query.investmentPosition.findMany({
+    where: eq(investmentPosition.workspaceId, workspaceId),
+  });
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const positionIds = positions.map((p: any) => p.id);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  let latestSnapshots: any[] = [];
+  if (positionIds.length > 0) {
+    const allSnapshots = await db.query.investmentPriceSnapshot.findMany({
+      where: inArray(investmentPriceSnapshot.positionId, positionIds),
+      orderBy: [desc(investmentPriceSnapshot.observedAt)],
+    });
+    const seen = new Set();
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    latestSnapshots = allSnapshots.filter((s: any) => {
+      if (seen.has(s.positionId)) return false;
+      seen.add(s.positionId);
+      return true;
+    });
+  }
+
   const accountsWithBalances = await Promise.all(
     accounts.map(async (acc) => {
-      const balance = await getAccountLedgerBalance(acc.id);
+      let balance = await getAccountLedgerBalance(acc.id);
+
+      // If investment account, calculate current value based on how investments are doing currently (units * current NAV/price)
+      if (acc.accountType === 'investment') {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const pos = positions.find((p: any) => p.financialAccountId === acc.id);
+        if (pos) {
+          const units = Number(pos.units || 0);
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          const snapshot = latestSnapshots.find((s: any) => s.positionId === pos.id);
+          const currentPrice = BigInt(snapshot?.priceMinor || pos.averageCostMinor || 0);
+          if (units > 0 && currentPrice > 0n) {
+            balance = BigInt(Math.round(units * Number(currentPrice)));
+          }
+        }
+      }
+
       const accAllocations = activeAllocations.filter(a => a.financialAccountId === acc.id);
       const totalAllocatedMinor = accAllocations.reduce((sum, a) => sum + BigInt(a.amountMinor), 0n);
       const freeToSpendMinor = balance - totalAllocatedMinor;

@@ -1,7 +1,7 @@
 "use client"
 
 import Link from "next/link"
-import { useState, useEffect } from "react"
+import { useState, useEffect, useRef } from "react"
 import { Home, ListOrdered, WalletCards, Plus, Target, Repeat, Upload, Zap, Menu, LogOut, ChevronLeft, Settings, Download, TrendingUp, ArrowDownLeft, ArrowUpRight, LineChart, PiggyBank, Loader2 } from "lucide-react"
 import { authClient } from "@/lib/auth/client"
 import { SyncStatus } from "@/components/sync/SyncStatus"
@@ -9,6 +9,16 @@ import { QuickAddFab } from "@/components/layout/quick-add-fab"
 import { useRouter, usePathname } from "next/navigation"
 import { PrivacyToggle } from "@/components/layout/PrivacyToggle"
 import { cn } from "@/lib/utils"
+
+function isPwa(): boolean {
+  if (typeof window === 'undefined') return false;
+  return (
+    window.matchMedia('(display-mode: standalone)').matches ||
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (window.navigator as any).standalone === true ||
+    document.referrer.includes('android-app://')
+  );
+}
 
 function MoneyBagIcon({ className }: { className?: string }) {
   return (
@@ -50,6 +60,8 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [isLoggingOut, setIsLoggingOut] = useState(false);
+  const lastLeftSwipeTimeRef = useRef(0);
+  const isTrackingEdgeOpenRef = useRef(false);
   const router = useRouter();
   const pathname = usePathname();
 
@@ -67,6 +79,44 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
   // Close mobile sidebar on route change
   useEffect(() => {
     setMobileMenuOpen(false);
+  }, [pathname]);
+
+  // Apply pwa-mode class to document root in standalone PWA mode
+  useEffect(() => {
+    if (isPwa()) {
+      document.documentElement.classList.add('pwa-mode');
+    }
+  }, []);
+
+  // PWA-Only: Prevent browser history back traversal when swiping from the left
+  useEffect(() => {
+    if (!isPwa()) return;
+
+    const pushGuard = () => {
+      try {
+        if (!window.history.state?.pwaGuard) {
+          window.history.pushState({ pwaGuard: true }, '', window.location.href);
+        }
+      } catch {
+        // ignore
+      }
+    };
+
+    pushGuard();
+
+    const handlePopState = () => {
+      const now = Date.now();
+      // If a left edge swipe is occurring or occurred in the last 1500ms, block back navigation in PWA
+      if (now - lastLeftSwipeTimeRef.current < 1500 || isTrackingEdgeOpenRef.current) {
+        pushGuard();
+        setMobileMenuOpen(true);
+      }
+    };
+
+    window.addEventListener('popstate', handlePopState);
+    return () => {
+      window.removeEventListener('popstate', handlePopState);
+    };
   }, [pathname]);
 
   // Lock body scroll and support Escape key when mobile menu is open
@@ -106,12 +156,14 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
 
       if (!mobileMenuOpen) {
         // Touch starts in left edge zone (up to 60px or 18% of screen width)
-        // Starting 10-60px from the edge avoids the OS bezel-back gesture while capturing natural thumb swipes
         const edgeThreshold = Math.max(60, window.innerWidth * 0.18);
         if (startX <= edgeThreshold) {
           isTrackingEdgeOpen = true;
+          isTrackingEdgeOpenRef.current = true;
+          lastLeftSwipeTimeRef.current = Date.now();
         } else {
           isTrackingEdgeOpen = false;
+          isTrackingEdgeOpenRef.current = false;
         }
       } else {
         // When sidebar is open, swipe left anywhere on screen or drawer to close
@@ -128,17 +180,26 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
 
       // Swiping right from left edge to open sidebar
       if (isTrackingEdgeOpen && !mobileMenuOpen) {
-        // As soon as rightward horizontal movement is detected:
-        if (deltaX > 6 && Math.abs(deltaX) > Math.abs(deltaY)) {
-          // Prevent the browser from triggering native history back-navigation
-          if (e.cancelable) {
+        lastLeftSwipeTimeRef.current = Date.now();
+        const inPwa = isPwa();
+
+        // In PWA, aggressively prevent browser history back navigation immediately
+        if (inPwa) {
+          if (e.cancelable && (deltaX > 0 || Math.abs(deltaX) > Math.abs(deltaY))) {
             e.preventDefault();
+          }
+        } else {
+          if (deltaX > 6 && Math.abs(deltaX) > Math.abs(deltaY)) {
+            if (e.cancelable) {
+              e.preventDefault();
+            }
           }
         }
 
-        if (deltaX > 30 && Math.abs(deltaX) > Math.abs(deltaY) * 1.1) {
+        if (deltaX > 25 && Math.abs(deltaX) > Math.abs(deltaY) * 0.8) {
           setMobileMenuOpen(true);
           isTrackingEdgeOpen = false;
+          isTrackingEdgeOpenRef.current = false;
         }
       }
 
@@ -164,7 +225,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
         const deltaY = touch.clientY - startY;
 
         if (isTrackingEdgeOpen && !mobileMenuOpen) {
-          if (deltaX > 25 && Math.abs(deltaX) > Math.abs(deltaY) * 1.1) {
+          if (deltaX > 25 && Math.abs(deltaX) > Math.abs(deltaY) * 0.8) {
             setMobileMenuOpen(true);
           }
         }
@@ -177,6 +238,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
       }
 
       isTrackingEdgeOpen = false;
+      isTrackingEdgeOpenRef.current = false;
       isTrackingSwipeClose = false;
     };
 

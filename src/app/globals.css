@@ -162,3 +162,23 @@ textarea {
   -webkit-tap-highlight-color: transparent;
 }
 
+/* Disable browser back-navigation gesture completely in PWA standalone mode */
+@media all and (display-mode: standalone) {
+  html,
+  body {
+    overscroll-behavior-x: none !important;
+    overscroll-behavior-y: auto !important;
+    overscroll-behavior: none !important;
+    touch-action: pan-y !important;
+  }
+}
+
+html.pwa-mode,
+html.pwa-mode body {
+  overscroll-behavior-x: none !important;
+  overscroll-behavior-y: auto !important;
+  overscroll-behavior: none !important;
+  touch-action: pan-y !important;
+}
+
+

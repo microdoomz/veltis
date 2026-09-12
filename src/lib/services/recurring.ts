@@ -1,8 +1,9 @@
 import { db } from '../db';
-import { recurringItem, recurringOccurrence, investmentPosition, investmentTransaction } from '../db/schema';
-import { eq, and } from 'drizzle-orm';
+import { recurringItem, recurringOccurrence, investmentPosition, investmentTransaction, investmentPriceSnapshot } from '../db/schema';
+import { eq, and, desc } from 'drizzle-orm';
 import { z } from 'zod';
 import { createExpense, createIncome } from './transaction';
+import { fetchInvestmentQuote } from '../investments/quote';
 
 export function getNextOccurrenceDate(baseDate: Date, dayRule: 'first_day' | 'last_working_day' | 'custom_day', customDay?: number | null): Date {
   const year = baseDate.getUTCFullYear();
@@ -150,7 +151,7 @@ export async function confirmOccurrence(
     txnId = txn.id;
   }
 
-  // 3. If this recurring item is tied to an investment account (SIP), add the amount into investments
+  // 3. If this recurring item is tied to an investment account (SIP), calculate units allocated based on current NAV
   if (item.defaultAccountId) {
     const pos = await db.query.investmentPosition.findFirst({
       where: and(
@@ -159,12 +160,54 @@ export async function confirmOccurrence(
       ),
     });
     if (pos) {
-      const priceMinor = pos.averageCostMinor && pos.averageCostMinor > 0n ? pos.averageCostMinor : 1000n;
-      const incrementalUnits = Number(amountToRecord) / Number(priceMinor);
-      const newTotalUnits = (Number(pos.units || 0) + incrementalUnits).toFixed(4);
+      // 1. Check for most recent price snapshot
+      const latestSnapshot = await db.query.investmentPriceSnapshot.findFirst({
+        where: eq(investmentPriceSnapshot.positionId, pos.id),
+        orderBy: [desc(investmentPriceSnapshot.observedAt)],
+      });
+
+      let currentNavMinor = latestSnapshot?.priceMinor ? BigInt(latestSnapshot.priceMinor) : 0n;
+
+      // 2. Fetch live quote to obtain the freshest current NAV
+      try {
+        const liveQuote = await fetchInvestmentQuote(pos.name, pos.symbol || undefined);
+        if (liveQuote.found && liveQuote.currentPrice && liveQuote.currentPrice > 0) {
+          currentNavMinor = BigInt(Math.round(liveQuote.currentPrice * 100));
+          await db.insert(investmentPriceSnapshot).values({
+            positionId: pos.id,
+            provider: liveQuote.provider || 'MFAPI',
+            symbol: pos.symbol || null,
+            priceMinor: currentNavMinor,
+            currency: item.currency,
+            observedAt: new Date(),
+            isEstimated: false,
+          });
+        }
+      } catch (quoteErr) {
+        console.warn('Failed to fetch live quote during SIP execution:', quoteErr);
+      }
+
+      // 3. Fallback if current NAV is still unpopulated
+      if (currentNavMinor <= 0n) {
+        currentNavMinor = pos.averageCostMinor && pos.averageCostMinor > 0n ? pos.averageCostMinor : 1000n;
+      }
+
+      // 4. Calculate units allocated based on current NAV
+      const incrementalUnits = Number(amountToRecord) / Number(currentNavMinor);
+      const currentUnits = Number(pos.units || 0);
+      const newTotalUnits = (currentUnits + incrementalUnits).toFixed(4);
+
+      // 5. Recalculate weighted average cost
+      const prevCostBasis = Math.round(currentUnits * Number(pos.averageCostMinor || currentNavMinor));
+      const newCostBasis = prevCostBasis + Number(amountToRecord);
+      const totalUnitsNum = Number(newTotalUnits);
+      const newAvgCostMinor = totalUnitsNum > 0
+        ? BigInt(Math.round(newCostBasis / totalUnitsNum))
+        : currentNavMinor;
 
       await db.update(investmentPosition).set({
         units: newTotalUnits,
+        averageCostMinor: newAvgCostMinor,
         updatedAt: new Date(),
       }).where(eq(investmentPosition.id, pos.id));
 
@@ -174,7 +217,7 @@ export async function confirmOccurrence(
         transactionId: txnId,
         transactionType: 'buy',
         units: incrementalUnits.toFixed(4),
-        priceMinor,
+        priceMinor: currentNavMinor,
         amountMinor: amountToRecord,
         currency: item.currency,
         transactionDate: dateToRecord.toISOString().split('T')[0],

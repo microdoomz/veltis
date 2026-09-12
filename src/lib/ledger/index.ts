@@ -1,4 +1,4 @@
-import { eq, and, sql, inArray } from 'drizzle-orm';
+import { eq, and, sql, inArray, desc } from 'drizzle-orm';
 import { db } from '../db';
 import {
   financialAccount,
@@ -6,7 +6,9 @@ import {
   transaction,
   heldForOther,
   accountState,
-  allocation
+  allocation,
+  investmentPosition,
+  investmentPriceSnapshot,
 } from '../db/schema';
 import { NotFoundError } from '../services/errors';
 
@@ -191,9 +193,48 @@ export async function getNetWealth(workspaceId: string, dbTx: any = db): Promise
     )
     .groupBy(financialAccount.id);
 
+  // Fetch investment positions for this workspace to compute live market valuation
+  const positions = await dbTx.query.investmentPosition.findMany({
+    where: eq(investmentPosition.workspaceId, workspaceId),
+  });
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const positionIds = positions.map((p: any) => p.id);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  let latestSnapshots: any[] = [];
+  if (positionIds.length > 0) {
+    const allSnapshots = await dbTx.query.investmentPriceSnapshot.findMany({
+      where: inArray(investmentPriceSnapshot.positionId, positionIds),
+      orderBy: [desc(investmentPriceSnapshot.observedAt)],
+    });
+    const seen = new Set();
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    latestSnapshots = allSnapshots.filter((s: any) => {
+      if (seen.has(s.positionId)) return false;
+      seen.add(s.positionId);
+      return true;
+    });
+  }
+
   let netWealth = 0n;
   for (const acc of accounts) {
-    const bal = BigInt(acc.openingBalance) + BigInt(acc.legSum);
+    let bal = BigInt(acc.openingBalance) + BigInt(acc.legSum);
+
+    // If investment account, calculate current wealth based on how investments are doing currently (units * current NAV/price)
+    if (acc.accountType === 'investment') {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const pos = positions.find((p: any) => p.financialAccountId === acc.id);
+      if (pos) {
+        const units = Number(pos.units || 0);
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const snapshot = latestSnapshots.find((s: any) => s.positionId === pos.id);
+        const currentPrice = BigInt(snapshot?.priceMinor || pos.averageCostMinor || 0);
+        if (units > 0 && currentPrice > 0n) {
+          bal = BigInt(Math.round(units * Number(currentPrice)));
+        }
+      }
+    }
+
     if (acc.accountType === 'credit_card') {
       netWealth -= bal;
     } else {
@@ -205,15 +246,13 @@ export async function getNetWealth(workspaceId: string, dbTx: any = db): Promise
 }
 
 /**
- * Liquid Balance = Total Wealth - Total Investments.
+ * Liquid Balance = Sum of liquid accounts (bank, cash_wallet, digital_wallet).
  * Available Free to Spend = Liquid Balance - Total Allocations.
  */
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export async function getLiquidSummary(workspaceId: string, dbTx: any = db): Promise<LiquidSummary> {
-  const totalWealth = await getNetWealth(workspaceId, dbTx);
-
-  // Total Investments = sum of balanceMinor of all active investment accounts
-  const investmentAccounts = await dbTx
+  // Directly sum liquid asset balances (bank, cash_wallet, digital_wallet)
+  const liquidAccounts = await dbTx
     .select({
       id: financialAccount.id,
       openingBalance: financialAccount.openingBalanceMinor,
@@ -238,18 +277,15 @@ export async function getLiquidSummary(workspaceId: string, dbTx: any = db): Pro
       and(
         eq(financialAccount.workspaceId, workspaceId),
         eq(financialAccount.status, 'active'),
-        eq(financialAccount.accountType, 'investment')
+        inArray(financialAccount.accountType, ['bank', 'cash_wallet', 'digital_wallet'])
       )
     )
     .groupBy(financialAccount.id);
 
-  let totalInvestments = 0n;
-  for (const acc of investmentAccounts) {
-    totalInvestments += BigInt(acc.openingBalance) + BigInt(acc.legSum);
+  let totalLiquid = 0n;
+  for (const acc of liquidAccounts) {
+    totalLiquid += BigInt(acc.openingBalance) + BigInt(acc.legSum);
   }
-
-  // Liquid Balance = Total Wealth - Total Investments
-  const totalLiquid = totalWealth - totalInvestments;
 
   // Active allocations across active accounts
   const allocResult = await dbTx

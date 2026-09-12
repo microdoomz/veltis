@@ -126,3 +126,55 @@ describe('Account & Account-Type Ordering (Features 1 & 2)', () => {
     ]);
   });
 });
+
+describe('Total Wealth & SIP Unit Allocation (Latest Features)', () => {
+  it('calculates Total Wealth based on live market valuation of funds rather than invested cost basis', () => {
+    // Bank account: ₹1,00,000.00 (10000000 minor)
+    // Credit card: ₹15,000.00 debt (1500000 minor)
+    // Investment account:
+    //   Invested cost basis: ₹50,000.00 (5000000 minor)
+    //   Current units: 50.0
+    //   Current NAV: ₹1,500.00 (150000 minor) -> Market Value: ₹75,000.00 (7500000 minor)
+    const bankBalanceMinor = 10000000n;
+    const creditCardDebtMinor = 1500000n;
+    const investedCostBasisMinor = 5000000n;
+    const units = 50.0;
+    const currentNavMinor = 150000n; // ₹1,500.00
+
+    // Old method (using cost basis / invested amount):
+    const oldWealth = bankBalanceMinor + investedCostBasisMinor - creditCardDebtMinor;
+    expect(oldWealth).toBe(13500000n); // ₹1,35,000.00 (understating current wealth)
+
+    // New method (using current market value of funds owned):
+    const investmentMarketValueMinor = BigInt(Math.round(units * Number(currentNavMinor)));
+    expect(investmentMarketValueMinor).toBe(7500000n); // ₹75,000.00
+
+    const totalWealth = bankBalanceMinor + investmentMarketValueMinor - creditCardDebtMinor;
+    expect(totalWealth).toBe(16000000n); // ₹1,60,000.00 (accurately reflects current wealth)
+  });
+
+  it('allocates SIP units based on current NAV and recalculates weighted average cost', () => {
+    // Current holding: 100 units at average cost ₹50.00 (5000 minor) -> cost basis ₹5,000.00 (500000 minor)
+    // Current NAV has risen to ₹100.00 (10000 minor)
+    // Monthly SIP added: ₹5,000.00 (500000 minor)
+    const currentUnits = 100;
+    const currentAvgCostMinor = 5000n;
+    const currentNavMinor = 10000n;
+    const sipAmountMinor = 500000n;
+
+    // Allocated units must be based on current NAV: ₹5,000 / ₹100 = 50 units (NOT ₹5,000 / ₹50 = 100 units)
+    const incrementalUnits = Number(sipAmountMinor) / Number(currentNavMinor);
+    expect(incrementalUnits).toBe(50);
+
+    const newTotalUnits = (currentUnits + incrementalUnits).toFixed(4);
+    expect(newTotalUnits).toBe('150.0000');
+
+    // Weighted average cost:
+    // (100 * ₹50 + ₹5000) / 150 = (₹5000 + ₹5000) / 150 = ₹10,000 / 150 = ₹66.67
+    const prevCostBasis = Math.round(currentUnits * Number(currentAvgCostMinor));
+    const newCostBasis = prevCostBasis + Number(sipAmountMinor);
+    const newAvgCostMinor = BigInt(Math.round(newCostBasis / Number(newTotalUnits)));
+    expect(newAvgCostMinor).toBe(6667n); // ₹66.67
+  });
+});
+

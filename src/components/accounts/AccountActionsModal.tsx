@@ -67,7 +67,7 @@ export function AccountActionsModal({ account }: AccountActionsProps) {
       setCurrency(account.currency);
       setColor(account.color || colorOptions[0].value);
       
-      fetch(`/api/accounts/${account.id}`)
+      fetch(`/api/accounts/${account.id}`, { cache: 'no-store' })
         .then((res) => res.json())
         .then((data) => {
           if (data.sipMonthlyAmount) {

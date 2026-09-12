@@ -103,7 +103,11 @@ export const Amount = React.forwardRef<HTMLSpanElement, AmountProps>(
     }
 
     const handleClick = (e: React.MouseEvent<HTMLSpanElement>) => {
-      if (isPrivacyModeEnabled && toggleReveal) {
+      // If inside an interactive parent (like a card link or table row), allow parent navigation/action on first tap!
+      const targetEl = e.target as HTMLElement | null;
+      const isInsideClickable = targetEl?.parentElement?.closest('a, button, [role="button"], tr, li, [data-clickable="true"]');
+
+      if (!isInsideClickable && isPrivacyModeEnabled && toggleReveal) {
         e.preventDefault();
         e.stopPropagation();
         toggleReveal();

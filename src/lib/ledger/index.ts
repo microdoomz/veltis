@@ -151,6 +151,8 @@ export interface LiquidSummary {
   totalLiquid: bigint;
   freeToSpend: bigint;
   totalAllocated: bigint;
+  freeToSpendCash: bigint;
+  freeToSpendOnline: bigint;
 }
 
 /**
@@ -268,9 +270,76 @@ export async function getLiquidSummary(workspaceId: string, dbTx: any = db): Pro
   // Free to spend = Liquid Balance - Total Allocations
   const freeToSpend = totalLiquid - totalAllocated;
 
+  // Compute Cash vs Online breakdown
+  // 1. Total Cash Balance
+  const cashAccounts = await dbTx
+    .select({
+      id: financialAccount.id,
+      openingBalance: financialAccount.openingBalanceMinor,
+      legSum: sql<string>`COALESCE(SUM(
+        CASE 
+          WHEN ${transaction.status} NOT IN ('deleted', 'voided') AND ${transactionLeg.legRole} != 'reference_only' THEN
+            CASE 
+              WHEN ${transactionLeg.direction} = 'debit' THEN ${transactionLeg.amountMinor}
+              ELSE -${transactionLeg.amountMinor}
+            END
+          ELSE 0
+        END
+      ), 0)`,
+    })
+    .from(financialAccount)
+    .leftJoin(transactionLeg, eq(transactionLeg.accountId, financialAccount.id))
+    .leftJoin(
+      transaction,
+      eq(transaction.id, transactionLeg.transactionId)
+    )
+    .where(
+      and(
+        eq(financialAccount.workspaceId, workspaceId),
+        eq(financialAccount.status, 'active'),
+        eq(financialAccount.accountType, 'cash_wallet')
+      )
+    )
+    .groupBy(financialAccount.id);
+
+  let totalCashBalance = 0n;
+  for (const acc of cashAccounts) {
+    totalCashBalance += BigInt(acc.openingBalance) + BigInt(acc.legSum);
+  }
+
+  // Active allocations on cash wallets
+  const cashAllocResult = await dbTx
+    .select({
+      totalAlloc: sql<string>`COALESCE(SUM(${allocation.amountMinor}), 0)`
+    })
+    .from(allocation)
+    .innerJoin(financialAccount, eq(financialAccount.id, allocation.financialAccountId))
+    .where(
+      and(
+        eq(allocation.workspaceId, workspaceId),
+        eq(allocation.status, 'active'),
+        eq(financialAccount.status, 'active'),
+        eq(financialAccount.accountType, 'cash_wallet')
+      )
+    );
+  const totalCashAllocated = BigInt(cashAllocResult[0]?.totalAlloc || 0);
+
+  let freeToSpendCash = totalCashBalance - totalCashAllocated;
+  if (freeToSpendCash < 0n) freeToSpendCash = 0n;
+
+  if (freeToSpend > 0n && freeToSpendCash > freeToSpend) {
+    freeToSpendCash = freeToSpend;
+  } else if (freeToSpend <= 0n) {
+    freeToSpendCash = 0n;
+  }
+
+  const freeToSpendOnline = freeToSpend - freeToSpendCash;
+
   return {
     totalLiquid,
     freeToSpend,
     totalAllocated,
+    freeToSpendCash,
+    freeToSpendOnline,
   };
 }

@@ -3,7 +3,7 @@ import { requireWorkspaceAccess } from '@/lib/auth/guards';
 import { updateAccount, deleteAccount, updateAccountSchema, getAccountById } from '@/lib/services/account';
 
 import { db } from '@/lib/db';
-import { recurringItem } from '@/lib/db/schema';
+import { recurringItem, investmentPosition } from '@/lib/db/schema';
 import { eq, and } from 'drizzle-orm';
 
 export async function GET(
@@ -24,11 +24,24 @@ export async function GET(
       ),
     });
 
+    // Check for associated investment position
+    let position = null;
+    if (account.accountType === 'investment') {
+      position = await db.query.investmentPosition.findFirst({
+        where: and(
+          eq(investmentPosition.financialAccountId, id),
+          eq(investmentPosition.workspaceId, authContext.workspaceId)
+        ),
+      });
+    }
+
     return NextResponse.json({
       ...account,
       openingBalanceMinor: account.openingBalanceMinor.toString(),
       sipMonthlyAmount: recurring ? Number(recurring.expectedAmountMinor) / 100 : null,
       sipMonthlyDay: recurring?.customDay ?? null,
+      units: position?.units ?? null,
+      averageCostMinor: position?.averageCostMinor ? position.averageCostMinor.toString() : null,
     });
   } catch (error: unknown) {
     if (error instanceof Error && error.message.includes('not found')) {

@@ -166,7 +166,8 @@ export async function getAccountSummary(workspaceId: string) {
     where: and(
       eq(financialAccount.workspaceId, workspaceId),
       eq(financialAccount.status, 'active')
-    )
+    ),
+    orderBy: [asc(financialAccount.displayOrder), asc(financialAccount.createdAt)],
   });
 
   const activeAllocations = await db.query.allocation.findMany({

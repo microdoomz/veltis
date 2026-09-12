@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { SyncProvider } from "@/components/sync/SyncProvider";
@@ -19,6 +19,20 @@ export const metadata: Metadata = {
   title: "Veltis",
   description: "Personal finance and budgeting",
   manifest: "/manifest.json",
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "default",
+    title: "Veltis",
+  },
+};
+
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  maximumScale: 1,
+  userScalable: false,
+  viewportFit: "cover",
+  themeColor: "#0f766e",
 };
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {

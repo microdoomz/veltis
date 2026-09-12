@@ -22,6 +22,7 @@ import {
   CheckCircle2,
   Loader2,
 } from "lucide-react"
+import { formatISTDateTime } from "@/lib/date"
 
 export interface TransactionItem {
   id: string
@@ -30,6 +31,7 @@ export interface TransactionItem {
   amountMinor: string | number | bigint
   currency: string
   transactionDate: string | Date
+  createdAt?: string | Date | null
   transactionType: string
   source: string
   categoryId?: string | null
@@ -224,14 +226,14 @@ export function TransactionList({
                 {accountDisplay}
               </div>
 
-              {/* Desktop Date */}
-              <div className="hidden md:block text-xs text-muted-foreground">
-                {new Date(txn.transactionDate).toLocaleDateString()}
+              {/* Desktop Date & Time */}
+              <div className="hidden md:block text-xs text-muted-foreground whitespace-nowrap">
+                {formatISTDateTime(txn.createdAt, txn.transactionDate)}
               </div>
 
               {/* Mobile Inline Meta */}
-              <div className="text-xs text-muted-foreground flex items-center gap-2 md:hidden">
-                <span>{new Date(txn.transactionDate).toLocaleDateString()}</span>
+              <div className="text-xs text-muted-foreground flex flex-wrap items-center gap-1.5 md:hidden">
+                <span>{formatISTDateTime(txn.createdAt, txn.transactionDate)}</span>
                 {txn.category && (
                   <span className="bg-muted px-1.5 py-0.5 rounded text-[10px] uppercase font-medium">
                     {txn.category.name}
@@ -513,10 +515,10 @@ export function TransactionList({
                   <div className="p-3 rounded-xl border border-border/60 bg-muted/10 space-y-1">
                     <span className="text-muted-foreground flex items-center gap-1">
                       <Calendar className="w-3.5 h-3.5" />
-                      Date
+                      Date &amp; Time (IST)
                     </span>
                     <p className="font-semibold text-foreground text-sm">
-                      {new Date(selectedTxn.transactionDate).toLocaleDateString()}
+                      {formatISTDateTime(selectedTxn.createdAt, selectedTxn.transactionDate)}
                     </p>
                   </div>
 

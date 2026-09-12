@@ -11,6 +11,7 @@ import {
 import { NotFoundError, ValidationError } from '../services/errors';
 import { money } from '../money';
 import { marketProvider } from './provider';
+import { fetchInvestmentQuote } from './quote';
 
 /**
  * Ensures the account exists and is an investment account.
@@ -318,13 +319,39 @@ export async function updateMarketPrice(workspaceId: string, positionId: string,
   let currency = manualCurrency || pos.currency;
   let provider = 'manual';
 
-  if (!priceMinor && pos.symbol) {
-    // Try to fetch automatically
-    const result = await marketProvider.fetchPrice(pos.symbol);
-    if (result) {
-      priceMinor = result.priceMinor;
-      currency = result.currency;
-      provider = marketProvider.getProviderName();
+  if (!priceMinor) {
+    // 1. Try our high-accuracy consensus quote engine (MFAPI, AMFI, Yahoo)
+    try {
+      const quoteQuery = pos.symbol || pos.name;
+      const quote = await fetchInvestmentQuote(quoteQuery);
+      if (quote.found && quote.currentPrice) {
+        priceMinor = BigInt(Math.round(quote.currentPrice * 100));
+        currency = quote.currency || pos.currency || 'INR';
+        provider = quote.provider || 'live_market';
+      } else if (pos.name && pos.symbol && pos.symbol !== pos.name) {
+        const nameQuote = await fetchInvestmentQuote(pos.name);
+        if (nameQuote.found && nameQuote.currentPrice) {
+          priceMinor = BigInt(Math.round(nameQuote.currentPrice * 100));
+          currency = nameQuote.currency || pos.currency || 'INR';
+          provider = nameQuote.provider || 'live_market';
+        }
+      }
+    } catch (err) {
+      console.warn(`Consensus quote fetch failed for ${pos.name}:`, err);
+    }
+
+    // 2. Fallback to existing marketProvider if still no price
+    if (!priceMinor && pos.symbol) {
+      try {
+        const result = await marketProvider.fetchPrice(pos.symbol);
+        if (result) {
+          priceMinor = result.priceMinor;
+          currency = result.currency;
+          provider = marketProvider.getProviderName();
+        }
+      } catch {
+        // Provider not configured or lookup failed
+      }
     }
   }
 
@@ -338,7 +365,10 @@ export async function updateMarketPrice(workspaceId: string, positionId: string,
       observedAt: new Date(),
       isEstimated: true,
     });
+    return { success: true, positionId, priceMinor, currency, provider };
   }
+
+  return { success: false, positionId, error: `Could not fetch live price for ${pos.name}` };
 }
 
 /**

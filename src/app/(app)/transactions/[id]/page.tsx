@@ -9,6 +9,7 @@ import { Amount } from "@/components/ui/amount"
 import { notFound } from "next/navigation"
 import Link from "next/link"
 import { TransactionActionsModal } from "@/components/transactions/TransactionActionsModal"
+import { formatISTDateTime } from "@/lib/date"
 
 export default async function TransactionDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
@@ -78,8 +79,8 @@ export default async function TransactionDetailPage({ params }: { params: Promis
 
           <div className="grid grid-cols-2 gap-4 text-sm">
             <div>
-              <p className="text-muted-foreground mb-1">Date</p>
-              <p className="font-medium">{new Date(txn.transactionDate).toLocaleDateString()}</p>
+              <p className="text-muted-foreground mb-1">Date &amp; Time (IST)</p>
+              <p className="font-medium">{formatISTDateTime(txn.createdAt, txn.transactionDate)}</p>
             </div>
             {txn.category && (
               <div>

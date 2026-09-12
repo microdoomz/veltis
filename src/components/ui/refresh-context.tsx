@@ -3,6 +3,8 @@
 import React, { createContext, useContext, useState, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 
+import { refreshAllDataAction } from '@/app/actions/refresh';
+
 interface RefreshContextType {
   isRefreshing: boolean;
   triggerRefresh: () => void;
@@ -17,13 +19,23 @@ export function RefreshProvider({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const [isRefreshing, setIsRefreshing] = useState(false);
 
-  const triggerRefresh = useCallback(() => {
+  const triggerRefresh = useCallback(async () => {
     if (isRefreshing) return;
     setIsRefreshing(true);
-    router.refresh();
-    setTimeout(() => {
-      setIsRefreshing(false);
-    }, 750);
+    try {
+      await refreshAllDataAction();
+      router.refresh();
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new CustomEvent('app:refresh'));
+      }
+    } catch (e) {
+      console.error('Refresh error:', e);
+      router.refresh();
+    } finally {
+      setTimeout(() => {
+        setIsRefreshing(false);
+      }, 750);
+    }
   }, [isRefreshing, router]);
 
   return (

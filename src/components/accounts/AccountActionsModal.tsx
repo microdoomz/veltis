@@ -48,10 +48,11 @@ export function AccountActionsModal({ account }: AccountActionsProps) {
   const [color, setColor] = useState(account.color || colorOptions[0].value);
   const [sipMonthlyAmount, setSipMonthlyAmount] = useState<string>('');
   const [sipMonthlyDay, setSipMonthlyDay] = useState<string>('5');
+  const [units, setUnits] = useState<string>('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Fetch current SIP details when edit modal is opened
+  // Fetch current SIP and units details when edit modal is opened
   useEffect(() => {
     if (isEditOpen) {
       setName(account.name);
@@ -70,6 +71,11 @@ export function AccountActionsModal({ account }: AccountActionsProps) {
           }
           if (data.sipMonthlyDay) {
             setSipMonthlyDay(data.sipMonthlyDay.toString());
+          }
+          if (data.units) {
+            setUnits(data.units.toString());
+          } else {
+            setUnits('');
           }
         })
         .catch(() => {});
@@ -99,6 +105,9 @@ export function AccountActionsModal({ account }: AccountActionsProps) {
       };
 
       if (accountType === 'investment') {
+        if (units.trim() !== '') {
+          payload.units = units.trim();
+        }
         const parsedSipAmount = parseFloat(sipMonthlyAmount);
         if (!isNaN(parsedSipAmount) && parsedSipAmount > 0) {
           payload.sipMonthlyAmount = parsedSipAmount;
@@ -248,6 +257,23 @@ export function AccountActionsModal({ account }: AccountActionsProps) {
                   </select>
                 </div>
               </div>
+
+              {/* Units Held (Only for investment accounts) */}
+              {accountType === 'investment' && (
+                <div className="space-y-1.5">
+                  <label className="text-sm font-medium">Units Currently Held</label>
+                  <Input
+                    type="number"
+                    step="0.0001"
+                    placeholder="e.g. 312.456"
+                    value={units}
+                    onChange={(e) => setUnits(e.target.value)}
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    Actual units currently owned. Correcting this recalculates market value and gain/loss without buying or selling.
+                  </p>
+                </div>
+              )}
 
               {/* SIP Recurring Investment (Only for investment accounts) */}
               {accountType === 'investment' && (

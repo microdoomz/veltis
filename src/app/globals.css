@@ -144,3 +144,16 @@ body {
   }
 }
 
+/* Mobile PWA & touch optimization */
+html,
+body,
+button,
+a,
+[role="button"],
+input,
+select,
+textarea {
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+}
+

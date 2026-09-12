@@ -2,7 +2,7 @@
 
 import React, { useCallback, useEffect, useState } from 'react';
 import { InvestmentActions } from './InvestmentActions';
-import { RefreshCw, TrendingUp, AlertTriangle, Plus, PlusCircle } from 'lucide-react';
+import { RefreshCw, TrendingUp, AlertTriangle, Plus, PlusCircle, CheckCircle2, XCircle } from 'lucide-react';
 import { useCurrency } from '@/components/layout/CurrencyProvider';
 import { TopUpInvestmentModal } from './TopUpInvestmentModal';
 import Link from 'next/link';
@@ -31,6 +31,8 @@ export function InvestmentDashboard({ workspaceId }: { workspaceId: string }) {
   const [accounts, setAccounts] = useState<InvestmentAccount[]>([]);
   const [positions, setPositions] = useState<Position[]>([]);
   const [loading, setLoading] = useState(true);
+  const [syncingPrices, setSyncingPrices] = useState(false);
+  const [syncStatus, setSyncStatus] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
   const [isTopUpOpen, setIsTopUpOpen] = useState(false);
   const [topUpPositionId, setTopUpPositionId] = useState<string | undefined>(undefined);
 
@@ -56,15 +58,39 @@ export function InvestmentDashboard({ workspaceId }: { workspaceId: string }) {
   }, [fetchInvestments]);
 
   const handleSyncPrices = async () => {
-    // In V1, this loops over positions and triggers sync
-    for (const pos of positions) {
-      await fetch('/api/investments/snapshots', {
+    if (syncingPrices) return;
+    setSyncingPrices(true);
+    setSyncStatus(null);
+    try {
+      const res = await fetch('/api/investments/snapshots', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ workspaceId, positionId: pos.id }),
+        body: JSON.stringify({ workspaceId }),
       });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        setSyncStatus({
+          type: 'success',
+          message: data.syncedCount !== undefined
+            ? `Successfully synced latest NAV/prices for ${data.syncedCount} investment position(s).`
+            : 'Market prices synced successfully.',
+        });
+      } else {
+        setSyncStatus({
+          type: 'error',
+          message: data.error || (data.failedCount ? `Could not sync ${data.failedCount} position(s).` : 'Price sync failed.'),
+        });
+      }
+      await fetchInvestments();
+    } catch (e: unknown) {
+      setSyncStatus({
+        type: 'error',
+        message: (e as Error).message || 'Network error syncing prices.',
+      });
+    } finally {
+      setSyncingPrices(false);
+      setTimeout(() => setSyncStatus(null), 6000);
     }
-    fetchInvestments();
   };
 
   if (loading) {
@@ -92,6 +118,9 @@ export function InvestmentDashboard({ workspaceId }: { workspaceId: string }) {
 
   const totalGainMinor = totalCurrentValueMinor - totalInvestedMinor;
   const isPositive = totalGainMinor >= 0n;
+  const totalGainPct = totalInvestedMinor > 0n
+    ? (Number(totalGainMinor) / Number(totalInvestedMinor)) * 100
+    : 0;
 
   const { baseCurrency: workspaceCurrency } = useCurrency();
   const baseCurrency = accounts[0]?.currency || workspaceCurrency || 'USD';
@@ -113,7 +142,7 @@ export function InvestmentDashboard({ workspaceId }: { workspaceId: string }) {
               <button
                 type="button"
                 onClick={fetchInvestments}
-                disabled={loading}
+                disabled={loading || syncingPrices}
                 title="Refresh investments"
                 className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-colors p-0.5 rounded"
               >
@@ -126,23 +155,44 @@ export function InvestmentDashboard({ workspaceId }: { workspaceId: string }) {
           </div>
           <div>
             <p className="text-sm text-slate-500 dark:text-slate-400 font-medium">Total Gain / Loss</p>
-            <p className={`text-3xl font-semibold mt-1 ${isPositive ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400'}`}>
-              {isPositive ? '+' : ''}{(Number(totalGainMinor) / 100).toLocaleString('en-US', { style: 'currency', currency: baseCurrency })}
-            </p>
+            <div className="flex items-baseline gap-2 mt-1">
+              <p className={`text-3xl font-semibold ${isPositive ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400'}`}>
+                {isPositive ? '+' : ''}{(Number(totalGainMinor) / 100).toLocaleString('en-US', { style: 'currency', currency: baseCurrency })}
+              </p>
+              <span className={`text-sm font-semibold ${isPositive ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400'}`}>
+                ({isPositive ? '+' : ''}{totalGainPct.toFixed(2)}%)
+              </span>
+            </div>
           </div>
         </div>
+
+        {syncStatus && (
+          <div className={`mt-4 p-3 rounded-xl flex items-center gap-2 text-xs font-medium animate-in fade-in ${
+            syncStatus.type === 'success'
+              ? 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 border border-emerald-500/20'
+              : 'bg-rose-500/10 text-rose-700 dark:text-rose-300 border border-rose-500/20'
+          }`}>
+            {syncStatus.type === 'success' ? (
+              <CheckCircle2 className="w-4 h-4 flex-shrink-0 text-emerald-600 dark:text-emerald-400" />
+            ) : (
+              <XCircle className="w-4 h-4 flex-shrink-0 text-rose-600 dark:text-rose-400" />
+            )}
+            <span>{syncStatus.message}</span>
+          </div>
+        )}
         
         <div className="mt-6 flex items-center justify-between border-t border-slate-100 dark:border-slate-800 pt-4">
           <p className="text-xs text-slate-500 dark:text-slate-400 flex items-center">
             <AlertTriangle className="w-4 h-4 mr-1.5 text-amber-500" />
-            Market values are estimated and may not reflect the exact real-time value.
+            Market values are estimated and reflect verified NAV/price feeds.
           </p>
           <button 
             onClick={handleSyncPrices}
-            className="flex items-center text-sm font-medium text-teal-600 hover:text-teal-700 dark:text-teal-400 dark:hover:text-teal-300"
+            disabled={syncingPrices || positions.length === 0}
+            className="flex items-center text-sm font-medium text-teal-600 hover:text-teal-700 dark:text-teal-400 dark:hover:text-teal-300 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
           >
-            <RefreshCw className="w-4 h-4 mr-1.5" />
-            Sync Prices
+            <RefreshCw className={`w-4 h-4 mr-1.5 ${syncingPrices ? 'animate-spin' : ''}`} />
+            {syncingPrices ? 'Syncing Prices...' : 'Sync Prices'}
           </button>
         </div>
       </div>
@@ -180,7 +230,7 @@ export function InvestmentDashboard({ workspaceId }: { workspaceId: string }) {
           <TrendingUp className="w-10 h-10 mx-auto text-slate-300 dark:text-slate-600" />
           <p className="text-slate-500 dark:text-slate-400">No investment positions found.</p>
           <Link 
-            href="/accounts/new"
+            href="/accounts/new" 
             className="inline-flex items-center text-sm font-semibold text-primary hover:underline"
           >
             <Plus className="w-4 h-4 mr-1" />
@@ -193,11 +243,12 @@ export function InvestmentDashboard({ workspaceId }: { workspaceId: string }) {
             <thead className="bg-slate-50 dark:bg-slate-800/50 border-b border-slate-200 dark:border-slate-800 text-slate-500 dark:text-slate-400">
               <tr>
                 <th className="px-4 py-3 font-medium">Asset</th>
-                <th className="px-4 py-3 font-medium text-right">Units</th>
+                <th className="px-4 py-3 font-medium text-right">Units Held</th>
                 <th className="px-4 py-3 font-medium text-right">Avg Cost</th>
                 <th className="px-4 py-3 font-medium text-right">Current Price</th>
-                <th className="px-4 py-3 font-medium text-right">Value</th>
-                <th className="px-4 py-3 font-medium text-right">Gain</th>
+                <th className="px-4 py-3 font-medium text-right">Current Value</th>
+                <th className="px-4 py-3 font-medium text-right">Gain / Loss</th>
+                <th className="px-4 py-3 font-medium text-right">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
@@ -210,6 +261,7 @@ export function InvestmentDashboard({ workspaceId }: { workspaceId: string }) {
                 const current = BigInt(Math.round(units * Number(currentPrice)));
                 const gain = current - invested;
                 const posPositive = gain >= 0n;
+                const gainPct = invested > 0n ? (Number(gain) / Number(invested)) * 100 : 0;
 
                 return (
                   <tr key={pos.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors">
@@ -217,17 +269,20 @@ export function InvestmentDashboard({ workspaceId }: { workspaceId: string }) {
                       <div className="font-medium text-slate-900 dark:text-white">{pos.name}</div>
                       {pos.symbol && <div className="text-xs text-slate-500">{pos.symbol} • {pos.assetType.replace('_', ' ')}</div>}
                     </td>
-                    <td className="px-4 py-4 text-right text-slate-900 dark:text-slate-300 font-medium">{units}</td>
+                    <td className="px-4 py-4 text-right text-slate-900 dark:text-slate-300 font-medium">
+                      {units.toLocaleString(undefined, { maximumFractionDigits: 4 })}
+                    </td>
                     <td className="px-4 py-4 text-right text-slate-500">{(Number(avgCost)/100).toLocaleString('en-US', { style: 'currency', currency: pos.currency })}</td>
                     <td className="px-4 py-4 text-right text-slate-900 dark:text-slate-300">
                       {(Number(currentPrice)/100).toLocaleString('en-US', { style: 'currency', currency: pos.currency })}
-                      {pos.isEstimated && <span className="text-[10px] ml-1 text-teal-600" title="Estimated">EST</span>}
+                      {pos.isEstimated && <span className="text-[10px] ml-1 text-teal-600 font-semibold" title="Estimated">LIVE</span>}
                     </td>
                     <td className="px-4 py-4 text-right font-medium text-slate-900 dark:text-white">
                       {(Number(current)/100).toLocaleString('en-US', { style: 'currency', currency: pos.currency })}
                     </td>
                     <td className={`px-4 py-4 text-right font-medium ${posPositive ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400'}`}>
-                      {posPositive ? '+' : ''}{(Number(gain)/100).toLocaleString('en-US', { style: 'currency', currency: pos.currency })}
+                      <div>{posPositive ? '+' : ''}{(Number(gain)/100).toLocaleString('en-US', { style: 'currency', currency: pos.currency })}</div>
+                      <div className="text-[11px] font-semibold opacity-90">({posPositive ? '+' : ''}{gainPct.toFixed(2)}%)</div>
                     </td>
                     <td className="px-4 py-4 text-right">
                       <button

@@ -9,6 +9,7 @@ import { OnboardingBanner } from "@/components/onboarding/OnboardingBanner"
 import { Wallet, CreditCard, Building2, TrendingUp, PiggyBank, ShieldCheck, Lock } from "lucide-react"
 import Link from "next/link"
 import { redirect } from "next/navigation"
+import { formatISTDateTime } from "@/lib/date"
 
 function getAccountIcon(type: string) {
   switch (type) {
@@ -96,7 +97,7 @@ export default async function HomePage() {
 
             {/* Sub-metrics */}
             <div className="grid grid-cols-2 gap-3 pt-2.5 border-t border-border/60">
-              <div className="space-y-0.5">
+              <div className="space-y-1">
                 <div className="flex items-center gap-1 text-xs text-muted-foreground">
                   <ShieldCheck className="w-3.5 h-3.5 text-positive" />
                   <span>Free to spend</span>
@@ -107,6 +108,11 @@ export default async function HomePage() {
                   showSign={false}
                   className="text-sm font-bold text-positive"
                 />
+                <div className="flex flex-wrap items-center gap-1.5 text-[11px] text-muted-foreground pt-0.5">
+                  <span>Online: <Amount valueMinor={liquidSummary.freeToSpendOnline} currency={currentWorkspace?.baseCurrency || 'USD'} showSign={false} className="font-semibold text-foreground" /></span>
+                  <span>•</span>
+                  <span>Cash: <Amount valueMinor={liquidSummary.freeToSpendCash} currency={currentWorkspace?.baseCurrency || 'USD'} showSign={false} className="font-semibold text-foreground" /></span>
+                </div>
               </div>
 
               <div className="space-y-0.5">
@@ -132,87 +138,22 @@ export default async function HomePage() {
         <div className="space-y-4 min-w-0 w-full">
           <h2 className="text-lg font-semibold tracking-tight">Your Accounts</h2>
           <div className="space-y-3 min-w-0">
-            {assetAccounts.map(acc => (
-              <Card 
-                key={acc.id}
-                className="min-w-0 overflow-hidden"
-                style={{ borderLeft: acc.color ? `4px solid ${acc.color}` : undefined }}
-              >
-                <div className="p-3.5 sm:p-4 space-y-2.5 min-w-0">
-                  <div className="flex items-start justify-between gap-3 min-w-0">
-                    <div className="flex items-start gap-2.5 sm:gap-3 min-w-0 flex-1">
-                      <div 
-                        className="p-2 rounded-full shrink-0 mt-0.5"
-                        style={{
-                          backgroundColor: acc.color ? `${acc.color}20` : 'var(--muted)',
-                          color: acc.color || 'inherit',
-                        }}
-                      >
-                        {getAccountIcon(acc.accountType)}
-                      </div>
-                      <div className="min-w-0 flex-1">
-                        <div className="flex items-center gap-1.5 flex-wrap">
-                          <p className="font-medium text-sm leading-snug break-words">{acc.name}</p>
-                          {acc.color && (
-                            <span 
-                              className="inline-block w-2 h-2 rounded-full shrink-0" 
-                              style={{ backgroundColor: acc.color }} 
-                              title="Account Color"
-                            />
-                          )}
-                        </div>
-                        <p className="text-xs text-muted-foreground capitalize mt-0.5 break-words">{acc.accountType.replace('_', ' ')}</p>
-                      </div>
-                    </div>
-                    <div className="text-right shrink-0 whitespace-nowrap pl-2">
-                      <Amount valueMinor={acc.balanceMinor} currency={acc.currency} colorize="default" className="font-semibold text-base" />
-                      <p className="text-[10px] text-muted-foreground">Total Balance</p>
-                    </div>
-                  </div>
-
-                  {acc.allocations && acc.allocations.length > 0 && (
-                    <div className="pt-2 border-t border-border/50 space-y-1.5 min-w-0">
-                      <div className="flex flex-wrap items-center justify-between gap-1 text-xs min-w-0">
-                        <span className="text-[11px] text-muted-foreground flex items-center gap-1 shrink-0">
-                          <PiggyBank className="w-3 h-3 text-amber-500" />
-                          Set Aside ({acc.allocations.length}):
-                        </span>
-                        <div className="flex flex-wrap items-center gap-1 justify-end min-w-0">
-                          {acc.allocations.map((al) => (
-                            <span key={al.id} className="text-[10px] px-1.5 py-0.2 rounded bg-muted/60 border border-border/40 text-foreground truncate max-w-[150px]">
-                              {al.name}: <Amount valueMinor={BigInt(al.amountMinor)} currency={acc.currency} className="font-medium" />
-                            </span>
-                          ))}
-                        </div>
-                      </div>
-                      <div className="flex items-center justify-between text-xs pt-0.5 min-w-0">
-                        <span className="text-[11px] text-emerald-600 dark:text-emerald-400 font-medium flex items-center gap-1 shrink-0">
-                          <ShieldCheck className="w-3 h-3" /> Free to spend:
-                        </span>
-                        <Amount valueMinor={acc.freeToSpendMinor} currency={acc.currency} className="font-bold text-emerald-600 dark:text-emerald-400 text-xs shrink-0 whitespace-nowrap" />
-                      </div>
-                    </div>
-                  )}
-                </div>
-              </Card>
-            ))}
-
-            {liabilityAccounts.length > 0 && (
-              <div className="pt-4 space-y-3 min-w-0">
-                <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">Liabilities</h3>
-                {liabilityAccounts.map(acc => (
-                  <Card 
-                    key={acc.id} 
-                    className="border-danger/20 min-w-0 overflow-hidden"
-                    style={{ borderLeft: acc.color ? `4px solid ${acc.color}` : undefined }}
-                  >
-                    <div className="flex items-start justify-between p-3.5 sm:p-4 gap-3 min-w-0">
+            {accounts.map(acc => {
+              const isLiability = acc.accountType === 'credit_card';
+              return (
+                <Card 
+                  key={acc.id}
+                  className={`min-w-0 overflow-hidden ${isLiability ? 'border-danger/20' : ''}`}
+                  style={{ borderLeft: acc.color ? `4px solid ${acc.color}` : undefined }}
+                >
+                  <div className="p-3.5 sm:p-4 space-y-2.5 min-w-0">
+                    <div className="flex items-start justify-between gap-3 min-w-0">
                       <div className="flex items-start gap-2.5 sm:gap-3 min-w-0 flex-1">
                         <div 
                           className="p-2 rounded-full shrink-0 mt-0.5"
                           style={{
-                            backgroundColor: acc.color ? `${acc.color}20` : 'rgba(239, 68, 68, 0.1)',
-                            color: acc.color || 'inherit',
+                            backgroundColor: acc.color ? `${acc.color}20` : isLiability ? 'rgba(239, 68, 68, 0.1)' : 'var(--muted)',
+                            color: acc.color || (isLiability ? 'var(--danger)' : 'inherit'),
                           }}
                         >
                           {getAccountIcon(acc.accountType)}
@@ -224,6 +165,7 @@ export default async function HomePage() {
                               <span 
                                 className="inline-block w-2 h-2 rounded-full shrink-0" 
                                 style={{ backgroundColor: acc.color }} 
+                                title="Account Color"
                               />
                             )}
                           </div>
@@ -231,14 +173,38 @@ export default async function HomePage() {
                         </div>
                       </div>
                       <div className="text-right shrink-0 whitespace-nowrap pl-2">
-                        {/* Note: Credit cards usually have negative ledger balances representing debt. */}
-                        <Amount valueMinor={acc.balanceMinor} currency={acc.currency} colorize="default" className="font-medium" />
+                        <Amount valueMinor={acc.balanceMinor} currency={acc.currency} colorize="default" className="font-semibold text-base" />
+                        <p className="text-[10px] text-muted-foreground">{isLiability ? 'Current Debt' : 'Total Balance'}</p>
                       </div>
                     </div>
-                  </Card>
-                ))}
-              </div>
-            )}
+
+                    {acc.allocations && acc.allocations.length > 0 && (
+                      <div className="pt-2 border-t border-border/50 space-y-1.5 min-w-0">
+                        <div className="flex flex-wrap items-center justify-between gap-1 text-xs min-w-0">
+                          <span className="text-[11px] text-muted-foreground flex items-center gap-1 shrink-0">
+                            <PiggyBank className="w-3.5 h-3.5 text-amber-500" />
+                            Set Aside ({acc.allocations.length}):
+                          </span>
+                          <div className="flex flex-wrap items-center gap-1 justify-end min-w-0">
+                            {acc.allocations.map((al) => (
+                              <span key={al.id} className="text-[10px] px-1.5 py-0.2 rounded bg-muted/60 border border-border/40 text-foreground truncate max-w-[150px]">
+                                {al.name}: <Amount valueMinor={BigInt(al.amountMinor)} currency={acc.currency} className="font-medium" />
+                              </span>
+                            ))}
+                          </div>
+                        </div>
+                        <div className="flex items-center justify-between text-xs pt-0.5 min-w-0">
+                          <span className="text-[11px] text-emerald-600 dark:text-emerald-400 font-medium flex items-center gap-1 shrink-0">
+                            <ShieldCheck className="w-3.5 h-3.5" /> Free to spend:
+                          </span>
+                          <Amount valueMinor={acc.freeToSpendMinor} currency={acc.currency} className="font-bold text-emerald-600 dark:text-emerald-400 text-xs shrink-0 whitespace-nowrap" />
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </Card>
+              );
+            })}
           </div>
           
           <div className="pt-2">
@@ -265,7 +231,7 @@ export default async function HomePage() {
                         {txn.description || (txn.transactionType === 'expense' ? 'Expense' : txn.transactionType === 'income' ? 'Income' : 'Transfer')}
                       </p>
                       <p className="text-xs text-muted-foreground flex items-center gap-2 truncate">
-                        <span className="shrink-0">{new Date(txn.transactionDate).toLocaleDateString()}</span>
+                        <span className="shrink-0">{formatISTDateTime(txn.createdAt, txn.transactionDate)}</span>
                         {txn.category && (
                           <>
                             <span>&bull;</span>

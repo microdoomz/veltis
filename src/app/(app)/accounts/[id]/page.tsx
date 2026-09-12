@@ -7,6 +7,7 @@ import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { AccountActionsModal } from "@/components/accounts/AccountActionsModal"
 import { AccountAllocations } from "@/components/accounts/AccountAllocations"
+import { formatISTDateTime } from "@/lib/date"
 
 export default async function AccountDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
@@ -77,7 +78,7 @@ export default async function AccountDetailPage({ params }: { params: Promise<{ 
                       {txn.description || (txn.transactionType === 'expense' ? 'Expense' : txn.transactionType === 'income' ? 'Income' : 'Transfer')}
                     </p>
                     <div className="text-xs text-muted-foreground flex items-center gap-2 mt-1 truncate">
-                      <span className="shrink-0">{new Date(txn.transactionDate).toLocaleDateString()}</span>
+                      <span className="shrink-0">{formatISTDateTime(txn.createdAt, txn.transactionDate)}</span>
                       {txn.category && (
                         <>
                           <span>&bull;</span>

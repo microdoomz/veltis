@@ -67,8 +67,15 @@ export function TransactionForm({
       }
 
       if (typeof window !== "undefined" && navigator.onLine) {
-        // Direct synchronous submission to guarantee instant database commit and visibility
-        const syncId = `tx_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`
+        // Direct synchronous submission with valid UUID to guarantee instant database commit
+        const syncId = typeof crypto !== 'undefined' && crypto.randomUUID
+          ? crypto.randomUUID()
+          : 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
+              const r = (Math.random() * 16) | 0;
+              const v = c === 'x' ? r : (r & 0x3) | 0x8;
+              return v.toString(16);
+            });
+
         const res = await fetch('/api/sync/transactions', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -92,6 +99,9 @@ export function TransactionForm({
         await triggerSync()
       }
 
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new CustomEvent('app:refresh'));
+      }
       router.push("/transactions")
       router.refresh()
     } catch (error) {

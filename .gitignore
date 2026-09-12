@@ -49,7 +49,6 @@ test-coverage-audit.json
 verify-schema.ts
 
 # Tests, results, scripts, and scratch
-/tests/
 /test-results/
 /playwright-report/
 /scripts/

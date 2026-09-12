@@ -56,6 +56,7 @@ export default function NewAccountPage() {
   // Investment specific state
   const [sipMonthlyAmount, setSipMonthlyAmount] = useState('');
   const [sipMonthlyDay, setSipMonthlyDay] = useState('5');
+  const [customUnits, setCustomUnits] = useState('');
   const [livePrice, setLivePrice] = useState<number | null>(null);
   const [liveSymbol, setLiveSymbol] = useState<string | null>(null);
   const [livePriceDate, setLivePriceDate] = useState<string | null>(null);
@@ -128,8 +129,10 @@ export default function NewAccountPage() {
   const totalInvestedNum = parseFloat(openingBalance) || 0;
   const currentNav = livePrice || 0;
   const calculatedUnits = currentNav > 0 && totalInvestedNum > 0 ? (totalInvestedNum / currentNav) : 0;
-  const estimatedCurrentValue = currentNav > 0 && calculatedUnits > 0 ? calculatedUnits * currentNav : totalInvestedNum;
+  const effectiveUnits = customUnits.trim() !== '' ? (parseFloat(customUnits) || 0) : calculatedUnits;
+  const estimatedCurrentValue = currentNav > 0 && effectiveUnits > 0 ? effectiveUnits * currentNav : totalInvestedNum;
   const estimatedGain = estimatedCurrentValue - totalInvestedNum;
+  const estimatedGainPct = totalInvestedNum > 0 ? (estimatedGain / totalInvestedNum) * 100 : 0;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -154,7 +157,7 @@ export default function NewAccountPage() {
       if (isInvestment) {
         payload.symbol = liveSymbol || undefined;
         payload.currentPrice = currentNav > 0 ? currentNav : undefined;
-        payload.units = calculatedUnits > 0 ? calculatedUnits.toFixed(4) : undefined;
+        payload.units = effectiveUnits > 0 ? effectiveUnits.toFixed(4) : undefined;
         if (parseFloat(sipMonthlyAmount) > 0) {
           payload.sipMonthlyAmount = parseFloat(sipMonthlyAmount);
           payload.sipMonthlyDay = parseInt(sipMonthlyDay, 10) || 1;
@@ -375,8 +378,8 @@ export default function NewAccountPage() {
                   )}
                 </div>
 
-                {/* Currency & Total Invested */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                {/* Currency & Total Invested & Units Held */}
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                   <div className="space-y-2">
                     <label className="text-sm font-medium">Currency</label>
                     <select
@@ -405,7 +408,24 @@ export default function NewAccountPage() {
                       onChange={(e) => setOpeningBalance(e.target.value)}
                       required
                     />
-                    <p className="text-xs text-muted-foreground">Total money you have invested so far</p>
+                    <p className="text-xs text-muted-foreground">Amount actually invested / cost basis</p>
+                  </div>
+
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <label className="text-sm font-medium">Units Currently Held</label>
+                      {calculatedUnits > 0 && !customUnits && (
+                        <span className="text-[10px] text-primary font-medium">Suggested: {calculatedUnits.toFixed(4)}</span>
+                      )}
+                    </div>
+                    <Input
+                      type="number"
+                      step="0.0001"
+                      placeholder={calculatedUnits > 0 ? calculatedUnits.toFixed(4) : "e.g. 312.456"}
+                      value={customUnits}
+                      onChange={(e) => setCustomUnits(e.target.value)}
+                    />
+                    <p className="text-xs text-muted-foreground">Actual units currently owned (for older investments)</p>
                   </div>
                 </div>
 
@@ -454,15 +474,22 @@ export default function NewAccountPage() {
                 {totalInvestedNum > 0 && (
                   <div className="p-4 bg-muted/40 border border-border rounded-xl space-y-3">
                     <div className="flex items-center justify-between text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-                      <span>Investment Overview & Market Value</span>
+                      <span>Investment Valuation Summary</span>
                       {livePriceDate && <span>NAV Date: {livePriceDate}</span>}
                     </div>
 
-                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 pt-1">
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 pt-1">
                       <div>
                         <p className="text-xs text-muted-foreground">Invested Amount</p>
                         <p className="text-base font-bold text-foreground font-mono">
-                          {currency} {totalInvestedNum.toLocaleString()}
+                          {currency} {totalInvestedNum.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                        </p>
+                      </div>
+
+                      <div>
+                        <p className="text-xs text-muted-foreground">Units Held</p>
+                        <p className="text-base font-bold text-foreground font-mono">
+                          {effectiveUnits > 0 ? effectiveUnits.toFixed(4) : '—'}
                         </p>
                       </div>
 
@@ -481,14 +508,12 @@ export default function NewAccountPage() {
                       </div>
                     </div>
 
-                    {currentNav > 0 && calculatedUnits > 0 && (
-                      <div className="text-xs text-muted-foreground pt-1 border-t border-border/50 flex justify-between">
-                        <span>Calculated Units: <strong className="text-foreground">{calculatedUnits.toFixed(4)}</strong></span>
-                        {estimatedGain !== 0 && (
-                          <span className={estimatedGain >= 0 ? 'text-emerald-600 font-medium' : 'text-rose-600 font-medium'}>
-                            {estimatedGain >= 0 ? `+${currency} ${estimatedGain.toFixed(2)}` : `-${currency} ${Math.abs(estimatedGain).toFixed(2)}`}
-                          </span>
-                        )}
+                    {effectiveUnits > 0 && currentNav > 0 && (
+                      <div className="text-xs text-muted-foreground pt-2 border-t border-border/50 flex flex-wrap items-center justify-between gap-2">
+                        <span>Current Value = {effectiveUnits.toFixed(4)} units × {currency} {currentNav}</span>
+                        <span className={`font-semibold ${estimatedGain >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400'}`}>
+                          {estimatedGain >= 0 ? '+' : ''}{currency} {estimatedGain.toFixed(2)} ({estimatedGain >= 0 ? '+' : ''}{estimatedGainPct.toFixed(2)}%)
+                        </span>
                       </div>
                     )}
                   </div>

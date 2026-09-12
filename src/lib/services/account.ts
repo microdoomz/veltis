@@ -27,6 +27,13 @@ export async function createAccount(data: z.infer<typeof createAccountSchema>) {
   }
 
   return await db.transaction(async (tx) => {
+    const existingAccounts = await tx.query.financialAccount.findMany({
+      where: eq(financialAccount.workspaceId, data.workspaceId),
+      orderBy: (acc, { desc }) => [desc(acc.displayOrder)],
+      limit: 1,
+    });
+    const nextOrder = existingAccounts.length > 0 ? (existingAccounts[0].displayOrder ?? 0) + 1 : 0;
+
     const [newAccount] = await tx.insert(financialAccount).values({
       workspaceId: data.workspaceId,
       name: data.name,
@@ -35,6 +42,7 @@ export async function createAccount(data: z.infer<typeof createAccountSchema>) {
       currency: data.currency.toUpperCase(),
       color: data.color || null,
       iconKey: data.iconKey || null,
+      displayOrder: nextOrder,
       openingBalanceMinor: data.openingBalanceMinor,
       openingBalanceDate: data.openingBalanceDate.toISOString().split('T')[0],
       status: 'active',
@@ -55,7 +63,18 @@ export async function getAccounts(workspaceId: string) {
       eq(financialAccount.workspaceId, workspaceId),
       eq(financialAccount.status, 'active')
     ),
-    orderBy: (acc, { asc }) => [asc(acc.name)],
+    orderBy: (acc, { asc }) => [asc(acc.displayOrder), asc(acc.createdAt)],
+  });
+}
+
+export async function reorderAccounts(workspaceId: string, accountIds: string[]) {
+  return await db.transaction(async (tx) => {
+    for (let index = 0; index < accountIds.length; index++) {
+      const id = accountIds[index];
+      await tx.update(financialAccount)
+        .set({ displayOrder: index, updatedAt: new Date() })
+        .where(and(eq(financialAccount.id, id), eq(financialAccount.workspaceId, workspaceId)));
+    }
   });
 }
 
@@ -83,6 +102,7 @@ export const updateAccountSchema = z.object({
   iconKey: z.string().optional().nullable(),
   sipMonthlyAmount: z.coerce.number().optional().nullable(),
   sipMonthlyDay: z.coerce.number().min(1).max(31).optional().nullable(),
+  units: z.union([z.string(), z.number()]).optional().nullable(),
 });
 
 export async function updateAccount(
@@ -113,6 +133,25 @@ export async function updateAccount(
       eq(financialAccount.workspaceId, workspaceId)
     ))
     .returning();
+
+  // If units are specified for an investment account, update linked investment position
+  if (data.units !== undefined && data.units !== null) {
+    const pos = await db.query.investmentPosition.findFirst({
+      where: and(
+        eq(investmentPosition.financialAccountId, accountId),
+        eq(investmentPosition.workspaceId, workspaceId)
+      ),
+    });
+
+    if (pos) {
+      await db.update(investmentPosition)
+        .set({
+          units: data.units.toString(),
+          updatedAt: new Date(),
+        })
+        .where(eq(investmentPosition.id, pos.id));
+    }
+  }
 
   // Handle SIP monthly updates if specified
   if (data.sipMonthlyAmount !== undefined) {

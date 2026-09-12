@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { revalidatePath } from 'next/cache';
 import { requireUser, requireStrictWorkspaceAccess } from '@/lib/auth/guards';
 import { checkIdempotency, recordIdempotency } from '@/lib/services/idempotency';
 import { createExpense, createIncome, createTransfer } from '@/lib/services/transaction';
@@ -164,6 +165,16 @@ export async function POST(req: Request) {
           throw err;
         }
       }
+    }
+
+    // Invalidate caches so UI updates immediately across home, accounts, and transactions
+    try {
+      revalidatePath('/(app)', 'layout');
+      revalidatePath('/home');
+      revalidatePath('/transactions');
+      revalidatePath('/accounts');
+    } catch (e) {
+      console.warn('Cache revalidation error in sync transactions:', e);
     }
 
     return NextResponse.json({ results });

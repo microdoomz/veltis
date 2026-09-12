@@ -1,5 +1,5 @@
 import { db } from '../db';
-import { financialAccount, accountState, workspace, allocation, investmentPosition, recurringItem } from '../db/schema';
+import { financialAccount, accountState, workspace, allocation, investmentPosition, recurringItem, investmentPriceSnapshot } from '../db/schema';
 import { eq, and } from 'drizzle-orm';
 import { z } from 'zod';
 import { NotFoundError, ValidationError } from './errors';
@@ -103,6 +103,8 @@ export const updateAccountSchema = z.object({
   sipMonthlyAmount: z.coerce.number().optional().nullable(),
   sipMonthlyDay: z.coerce.number().min(1).max(31).optional().nullable(),
   units: z.union([z.string(), z.number()]).optional().nullable(),
+  symbol: z.string().optional().nullable(),
+  currentPrice: z.union([z.string(), z.number()]).optional().nullable(),
 });
 
 export async function updateAccount(
@@ -134,8 +136,8 @@ export async function updateAccount(
     ))
     .returning();
 
-  // If units are specified for an investment account, update linked investment position
-  if (data.units !== undefined && data.units !== null) {
+  // If position attributes (units, symbol, currentPrice) are specified for an investment account, update linked investment position
+  if (data.units !== undefined || data.symbol !== undefined || data.currentPrice !== undefined) {
     const pos = await db.query.investmentPosition.findFirst({
       where: and(
         eq(investmentPosition.financialAccountId, accountId),
@@ -144,12 +146,26 @@ export async function updateAccount(
     });
 
     if (pos) {
+      const posUpdates: Record<string, unknown> = { updatedAt: new Date() };
+      if (data.name) posUpdates.name = data.name.trim();
+      if (data.units !== undefined && data.units !== null) posUpdates.units = data.units.toString();
+      if (data.symbol !== undefined) posUpdates.symbol = data.symbol?.trim() || null;
+
       await db.update(investmentPosition)
-        .set({
-          units: data.units.toString(),
-          updatedAt: new Date(),
-        })
+        .set(posUpdates)
         .where(eq(investmentPosition.id, pos.id));
+
+      if (data.currentPrice !== undefined && data.currentPrice !== null && !isNaN(Number(data.currentPrice))) {
+        await db.insert(investmentPriceSnapshot).values({
+          positionId: pos.id,
+          provider: 'manual_override',
+          symbol: (data.symbol || pos.symbol) ?? null,
+          priceMinor: BigInt(Math.round(Number(data.currentPrice) * 100)),
+          currency: updated.currency,
+          observedAt: new Date(),
+          isEstimated: false,
+        });
+      }
     }
   }
 

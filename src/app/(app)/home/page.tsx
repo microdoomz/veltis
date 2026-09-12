@@ -44,9 +44,29 @@ export default async function HomePage() {
     getWorkspaceById(workspaceId),
   ])
 
+  // Order accounts according to the workspace's accountTypeOrder and individual displayOrder
+  const defaultTypeOrder = ['bank', 'cash_wallet', 'digital_wallet', 'investment', 'credit_card'];
+  const workspaceTypeOrder = (currentWorkspace?.accountTypeOrder as string[] | undefined) || [];
+  const typeOrder = [
+    ...workspaceTypeOrder,
+    ...defaultTypeOrder.filter((t) => !workspaceTypeOrder.includes(t)),
+  ];
+
+  const sortedAccounts = [...accounts].sort((a, b) => {
+    const aTypeIdx = typeOrder.indexOf(a.accountType);
+    const bTypeIdx = typeOrder.indexOf(b.accountType);
+    const finalAIdx = aTypeIdx === -1 ? 999 : aTypeIdx;
+    const finalBIdx = bTypeIdx === -1 ? 999 : bTypeIdx;
+
+    if (finalAIdx !== finalBIdx) {
+      return finalAIdx - finalBIdx;
+    }
+    return (a.displayOrder ?? 0) - (b.displayOrder ?? 0);
+  });
+
   // Group accounts for summary
-  const assetAccounts = accounts.filter(a => !['credit_card'].includes(a.accountType))
-  const liabilityAccounts = accounts.filter(a => ['credit_card'].includes(a.accountType))
+  const assetAccounts = sortedAccounts.filter(a => !['credit_card'].includes(a.accountType))
+  const liabilityAccounts = sortedAccounts.filter(a => ['credit_card'].includes(a.accountType))
 
   return (
     <div className="space-y-6 w-full max-w-full min-w-0">
@@ -138,7 +158,7 @@ export default async function HomePage() {
         <div className="space-y-4 min-w-0 w-full">
           <h2 className="text-lg font-semibold tracking-tight">Your Accounts</h2>
           <div className="space-y-3 min-w-0">
-            {accounts.map(acc => {
+            {sortedAccounts.map(acc => {
               const isLiability = acc.accountType === 'credit_card';
               return (
                 <Card 

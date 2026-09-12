@@ -99,12 +99,8 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // Fallback for normal requests (simple network-first)
-  event.respondWith(
-    fetch(request).catch(() => {
-      return new Response("Offline");
-    })
-  );
+  // Normal GET / navigation requests pass through natively to browser networking
+  // This prevents WebKit IPC queue starvation and unresponsiveness during fast taps
 });
 
 self.addEventListener('sync', (event) => {

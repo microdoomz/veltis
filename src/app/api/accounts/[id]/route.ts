@@ -3,8 +3,8 @@ import { requireWorkspaceAccess } from '@/lib/auth/guards';
 import { updateAccount, deleteAccount, updateAccountSchema, getAccountById } from '@/lib/services/account';
 
 import { db } from '@/lib/db';
-import { recurringItem, investmentPosition } from '@/lib/db/schema';
-import { eq, and } from 'drizzle-orm';
+import { recurringItem, investmentPosition, investmentPriceSnapshot } from '@/lib/db/schema';
+import { eq, and, desc } from 'drizzle-orm';
 
 export async function GET(
   req: Request,
@@ -26,6 +26,7 @@ export async function GET(
 
     // Check for associated investment position
     let position = null;
+    let latestSnapshot = null;
     if (account.accountType === 'investment') {
       position = await db.query.investmentPosition.findFirst({
         where: and(
@@ -33,6 +34,13 @@ export async function GET(
           eq(investmentPosition.workspaceId, authContext.workspaceId)
         ),
       });
+
+      if (position) {
+        latestSnapshot = await db.query.investmentPriceSnapshot.findFirst({
+          where: eq(investmentPriceSnapshot.positionId, position.id),
+          orderBy: [desc(investmentPriceSnapshot.observedAt)],
+        });
+      }
     }
 
     return NextResponse.json({
@@ -41,6 +49,8 @@ export async function GET(
       sipMonthlyAmount: recurring ? Number(recurring.expectedAmountMinor) / 100 : null,
       sipMonthlyDay: recurring?.customDay ?? null,
       units: position?.units ?? null,
+      symbol: position?.symbol ?? null,
+      currentPrice: latestSnapshot?.priceMinor ? (Number(latestSnapshot.priceMinor) / 100).toString() : null,
       averageCostMinor: position?.averageCostMinor ? position.averageCostMinor.toString() : null,
     });
   } catch (error: unknown) {

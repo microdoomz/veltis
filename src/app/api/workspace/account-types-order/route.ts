@@ -30,7 +30,9 @@ export async function PATCH(req: Request) {
       })
       .where(eq(workspace.id, workspaceId));
 
+    revalidatePath('/(app)', 'layout');
     revalidatePath('/accounts');
+    revalidatePath('/home');
 
     return NextResponse.json({ success: true, accountTypeOrder: parsed.data.accountTypeOrder });
   } catch (error: unknown) {

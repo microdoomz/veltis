@@ -2,7 +2,7 @@
 
 import React, { useCallback, useEffect, useState } from 'react';
 import { InvestmentActions } from './InvestmentActions';
-import { RefreshCw, TrendingUp, AlertTriangle, Plus, PlusCircle, CheckCircle2, XCircle } from 'lucide-react';
+import { RefreshCw, TrendingUp, AlertTriangle, Plus, PlusCircle, CheckCircle2, XCircle, Edit, Search, Loader2, X, Check } from 'lucide-react';
 import { useCurrency } from '@/components/layout/CurrencyProvider';
 import { TopUpInvestmentModal } from './TopUpInvestmentModal';
 import Link from 'next/link';
@@ -35,6 +35,23 @@ export function InvestmentDashboard({ workspaceId }: { workspaceId: string }) {
   const [syncStatus, setSyncStatus] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
   const [isTopUpOpen, setIsTopUpOpen] = useState(false);
   const [topUpPositionId, setTopUpPositionId] = useState<string | undefined>(undefined);
+
+  // Edit Position Modal State
+  const [isEditOpen, setIsEditOpen] = useState(false);
+  const [editForm, setEditForm] = useState({
+    financialAccountId: '',
+    positionId: '',
+    name: '',
+    symbol: '',
+    units: '',
+    currentPrice: '',
+  });
+  const [searchQuery, setSearchQuery] = useState('');
+  const [searchResults, setSearchResults] = useState<Array<{ schemeCode: number; schemeName: string }>>([]);
+  const [isSearching, setIsSearching] = useState(false);
+  const [showSearchDropdown, setShowSearchDropdown] = useState(false);
+  const [isSavingEdit, setIsSavingEdit] = useState(false);
+  const [editError, setEditError] = useState<string | null>(null);
 
   const fetchInvestments = useCallback(async () => {
     setLoading(true);
@@ -90,6 +107,114 @@ export function InvestmentDashboard({ workspaceId }: { workspaceId: string }) {
     } finally {
       setSyncingPrices(false);
       setTimeout(() => setSyncStatus(null), 6000);
+    }
+  };
+
+  const handleOpenEditPosition = (pos: Position) => {
+    setEditError(null);
+    setSearchQuery('');
+    setSearchResults([]);
+    setShowSearchDropdown(false);
+    setEditForm({
+      financialAccountId: pos.financialAccountId,
+      positionId: pos.id,
+      name: pos.name,
+      symbol: pos.symbol || '',
+      units: pos.units || '',
+      currentPrice: pos.currentPriceMinor ? (Number(pos.currentPriceMinor) / 100).toString() : '',
+    });
+    setIsEditOpen(true);
+  };
+
+  const handleSearchScheme = async (q: string) => {
+    setSearchQuery(q);
+    if (!q || q.trim().length < 2) {
+      setSearchResults([]);
+      setShowSearchDropdown(false);
+      return;
+    }
+    setIsSearching(true);
+    try {
+      const res = await fetch(`https://api.mfapi.in/mf/search?q=${encodeURIComponent(q.trim())}`);
+      if (res.ok) {
+        const data = await res.json();
+        if (Array.isArray(data)) {
+          setSearchResults(data.slice(0, 8));
+          setShowSearchDropdown(true);
+        }
+      }
+    } catch {
+      // silent
+    } finally {
+      setIsSearching(false);
+    }
+  };
+
+  const handleSelectScheme = async (item: { schemeCode: number; schemeName: string }) => {
+    setEditForm(prev => ({
+      ...prev,
+      name: item.schemeName,
+      symbol: item.schemeCode.toString(),
+    }));
+    setShowSearchDropdown(false);
+    setSearchQuery('');
+
+    // Fetch latest NAV for this scheme code immediately
+    try {
+      const res = await fetch(`https://api.mfapi.in/mf/${item.schemeCode}/latest`);
+      if (res.ok) {
+        const d = await res.json();
+        const latestNav = d?.data?.[0]?.nav;
+        if (latestNav && !isNaN(parseFloat(latestNav))) {
+          setEditForm(prev => ({ ...prev, currentPrice: parseFloat(latestNav).toFixed(2) }));
+        }
+      }
+    } catch {
+      // ignore
+    }
+  };
+
+  const handleSaveEditPosition = async () => {
+    if (!editForm.financialAccountId) return;
+    setIsSavingEdit(true);
+    setEditError(null);
+    try {
+      const payload: Record<string, unknown> = {
+        name: editForm.name.trim() || undefined,
+        symbol: editForm.symbol.trim() || null,
+      };
+
+      if (editForm.units !== '') {
+        const parsedUnits = parseFloat(editForm.units);
+        if (!isNaN(parsedUnits) && parsedUnits >= 0) {
+          payload.units = parsedUnits;
+        }
+      }
+
+      if (editForm.currentPrice !== '') {
+        const parsedPrice = parseFloat(editForm.currentPrice);
+        if (!isNaN(parsedPrice) && parsedPrice >= 0) {
+          payload.currentPrice = parsedPrice;
+        }
+      }
+
+      const res = await fetch(`/api/accounts/${editForm.financialAccountId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+
+      if (!res.ok) {
+        const d = await res.json().catch(() => ({}));
+        throw new Error(d.error || 'Failed to update investment details.');
+      }
+
+      await fetchInvestments();
+      setIsEditOpen(false);
+    } catch (e: unknown) {
+      setEditError((e as Error).message || 'Failed to update investment details.');
+    } finally {
+      setIsSavingEdit(false);
     }
   };
 
@@ -285,15 +410,25 @@ export function InvestmentDashboard({ workspaceId }: { workspaceId: string }) {
                       <div className="text-[11px] font-semibold opacity-90">({posPositive ? '+' : ''}{gainPct.toFixed(2)}%)</div>
                     </td>
                     <td className="px-4 py-4 text-right">
-                      <button
-                        onClick={() => {
-                          setTopUpPositionId(pos.id);
-                          setIsTopUpOpen(true);
-                        }}
-                        className="text-xs px-2.5 py-1 rounded-lg bg-primary/10 text-primary hover:bg-primary/20 font-medium transition-colors"
-                      >
-                        + Top Up
-                      </button>
+                      <div className="flex items-center justify-end gap-1.5">
+                        <button
+                          onClick={() => handleOpenEditPosition(pos)}
+                          className="text-xs px-2.5 py-1 rounded-lg bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 font-medium inline-flex items-center gap-1 transition-colors"
+                          title="Edit scheme, NAV, or units"
+                        >
+                          <Edit className="w-3 h-3" />
+                          Edit
+                        </button>
+                        <button
+                          onClick={() => {
+                            setTopUpPositionId(pos.id);
+                            setIsTopUpOpen(true);
+                          }}
+                          className="text-xs px-2.5 py-1 rounded-lg bg-primary/10 text-primary hover:bg-primary/20 font-medium transition-colors"
+                        >
+                          + Top Up
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 );
@@ -312,6 +447,165 @@ export function InvestmentDashboard({ workspaceId }: { workspaceId: string }) {
         onClose={() => setIsTopUpOpen(false)}
         onSuccess={fetchInvestments}
       />
+
+      {/* Edit Investment Position Modal */}
+      {isEditOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs overflow-y-auto">
+          <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-xl w-full max-w-lg max-h-[90vh] flex flex-col overflow-hidden animate-in fade-in zoom-in-95">
+            {/* Header */}
+            <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 dark:border-slate-800 shrink-0">
+              <div>
+                <h3 className="text-base font-semibold text-slate-900 dark:text-white">Edit Investment Position</h3>
+                <p className="text-xs text-slate-500">Correct scheme, live NAV, or units held</p>
+              </div>
+              <button
+                onClick={() => setIsEditOpen(false)}
+                className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 p-1 rounded-lg"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Body */}
+            <div className="p-6 space-y-4 overflow-y-auto flex-1">
+              {editError && (
+                <div className="p-3 rounded-xl bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-900/50 text-xs text-rose-700 dark:text-rose-300 flex items-center gap-2">
+                  <XCircle className="w-4 h-4 shrink-0" />
+                  <span>{editError}</span>
+                </div>
+              )}
+
+              {/* Fund Search */}
+              <div className="relative">
+                <label className="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-1">
+                  Search &amp; Pick Verified Scheme (MFAPI)
+                </label>
+                <div className="relative">
+                  <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                  <input
+                    type="text"
+                    value={searchQuery}
+                    onChange={(e) => handleSearchScheme(e.target.value)}
+                    placeholder="Search e.g. Nippon India Growth, Parag Parikh..."
+                    className="w-full pl-9 pr-8 py-2 text-sm rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950/50 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary text-slate-900 dark:text-white"
+                  />
+                  {isSearching && (
+                    <Loader2 className="w-4 h-4 absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 animate-spin" />
+                  )}
+                </div>
+
+                {showSearchDropdown && searchResults.length > 0 && (
+                  <div className="absolute z-20 top-full left-0 right-0 mt-1 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl shadow-lg max-h-48 overflow-y-auto divide-y divide-slate-100 dark:divide-slate-800">
+                    {searchResults.map((item) => (
+                      <button
+                        key={item.schemeCode}
+                        type="button"
+                        onClick={() => handleSelectScheme(item)}
+                        className="w-full text-left px-3 py-2.5 text-xs hover:bg-slate-50 dark:hover:bg-slate-800 flex items-center justify-between gap-2"
+                      >
+                        <span className="font-medium text-slate-800 dark:text-slate-200 line-clamp-1">{item.schemeName}</span>
+                        <span className="text-[10px] text-slate-500 shrink-0 font-mono bg-slate-100 dark:bg-slate-800 px-1.5 py-0.5 rounded">
+                          {item.schemeCode}
+                        </span>
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {/* Asset / Scheme Name */}
+              <div>
+                <label className="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-1">
+                  Asset / Scheme Name
+                </label>
+                <input
+                  type="text"
+                  value={editForm.name}
+                  onChange={(e) => setEditForm(prev => ({ ...prev, name: e.target.value }))}
+                  className="w-full px-3 py-2 text-sm rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary text-slate-900 dark:text-white"
+                />
+              </div>
+
+              {/* Scheme Code / Symbol & Current Price */}
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-1">
+                    Scheme Code / Symbol
+                  </label>
+                  <input
+                    type="text"
+                    value={editForm.symbol}
+                    onChange={(e) => setEditForm(prev => ({ ...prev, symbol: e.target.value }))}
+                    placeholder="e.g. 118668"
+                    className="w-full px-3 py-2 text-sm rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary font-mono text-slate-900 dark:text-white"
+                  />
+                  <p className="text-[10px] text-slate-400 mt-1">MFAPI scheme code for auto-sync</p>
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-1">
+                    Current Price / NAV
+                  </label>
+                  <input
+                    type="number"
+                    step="0.0001"
+                    value={editForm.currentPrice}
+                    onChange={(e) => setEditForm(prev => ({ ...prev, currentPrice: e.target.value }))}
+                    placeholder="e.g. 4943.76"
+                    className="w-full px-3 py-2 text-sm rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary font-medium text-slate-900 dark:text-white"
+                  />
+                  <p className="text-[10px] text-slate-400 mt-1">Direct NAV or price in base currency</p>
+                </div>
+              </div>
+
+              {/* Units Held */}
+              <div>
+                <label className="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-1">
+                  Units Currently Held
+                </label>
+                <input
+                  type="number"
+                  step="0.0001"
+                  value={editForm.units}
+                  onChange={(e) => setEditForm(prev => ({ ...prev, units: e.target.value }))}
+                  placeholder="e.g. 15.24"
+                  className="w-full px-3 py-2 text-sm rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary font-medium text-slate-900 dark:text-white"
+                />
+                <p className="text-[10px] text-slate-400 mt-1">Total units allocated across all investments in this fund</p>
+              </div>
+            </div>
+
+            {/* Footer */}
+            <div className="flex items-center justify-end gap-3 px-6 py-4 border-t border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-950/50 shrink-0">
+              <button
+                type="button"
+                onClick={() => setIsEditOpen(false)}
+                disabled={isSavingEdit}
+                className="px-4 py-2 text-sm font-medium text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleSaveEditPosition}
+                disabled={isSavingEdit}
+                className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-primary hover:opacity-90 rounded-xl shadow-xs transition-opacity disabled:opacity-50"
+              >
+                {isSavingEdit ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    Saving...
+                  </>
+                ) : (
+                  <>
+                    <Check className="w-4 h-4" />
+                    Save Position
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

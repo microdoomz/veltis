@@ -74,7 +74,7 @@ export default async function AccountsPage() {
         <AccountsList
           workspaceId={authContext.workspaceId}
           initialAccounts={accounts}
-          savedAccountTypeOrder={currentWorkspace?.accountTypeOrder}
+          savedAccountTypeOrder={currentWorkspace?.accountTypeOrder ?? undefined}
         />
       ) : (
         <EmptyState

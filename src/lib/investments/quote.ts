@@ -58,7 +58,7 @@ function scoreMatch(schemeName: string, query: string): number {
 async function fetchAmfiNav(schemeCode: number): Promise<QuoteSourceResult | null> {
   try {
     const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 4000);
+    const timeout = setTimeout(() => controller.abort(), 2000);
 
     const res = await fetch('https://www.amfiindia.com/spages/NAVAll.txt', {
       signal: controller.signal,
@@ -88,8 +88,8 @@ async function fetchAmfiNav(schemeCode: number): Promise<QuoteSourceResult | nul
         }
       }
     }
-  } catch (err) {
-    console.warn('AMFI NAV fetch error:', err);
+  } catch {
+    // AMFI may time out or block, ignore and let MFAPI provide the quote
   }
   return null;
 }
@@ -97,15 +97,21 @@ async function fetchAmfiNav(schemeCode: number): Promise<QuoteSourceResult | nul
 /**
  * Robust, multi-source live quote fetcher.
  * 1. Checks Indian Mutual Fund schemes via MFAPI and AMFI India.
- * 2. Reaches consensus cluster among MFAPI Latest, AMFI Official, MFAPI Historical, and Yahoo Finance.
- * 3. Falls back to Yahoo Finance for global stocks/ETFs.
+ * 2. If scheme code is provided or query is numeric, uses MFAPI directly.
+ * 3. Falls back to Yahoo Finance only for non-mutual-fund global stocks/ETFs.
  */
 export async function fetchInvestmentQuote(
   queryParam?: string,
   schemeCodeParam?: string
 ): Promise<InvestmentQuoteResult> {
-  const query = (queryParam || '').trim();
-  const schemeCode = (schemeCodeParam || '').trim();
+  let query = (queryParam || '').trim();
+  let schemeCode = (schemeCodeParam || '').trim();
+
+  // If query is purely numeric digits (e.g. "118668"), it is directly a schemeCode!
+  if (!schemeCode && /^\d+$/.test(query)) {
+    schemeCode = query;
+    query = '';
+  }
 
   if (!query && !schemeCode) {
     return { found: false, message: 'Query or schemeCode parameter is required' };
@@ -183,34 +189,10 @@ export async function fetchInvestmentQuote(
       return null;
     })();
 
-    const p4 = (async () => {
-      try {
-        // @ts-expect-error loose library types
-        yahooFinance.suppressNotices(['yahooSurvey']);
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const searchData: any = await yahooFinance.search(query || topScheme?.schemeName || '');
-        const firstQuote = searchData?.quotes?.[0];
-        if (firstQuote?.symbol) {
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          const yQuote: any = await yahooFinance.quote(firstQuote.symbol);
-          if (yQuote && yQuote.regularMarketPrice) {
-            return {
-              source: 'Yahoo Finance',
-              nav: yQuote.regularMarketPrice,
-              date: new Date().toISOString().split('T')[0],
-              schemeName: yQuote.longName || yQuote.shortName,
-            };
-          }
-        }
-      } catch {}
-      return null;
-    })();
-
-    const [r1, r2, r3, r4] = await Promise.all([p1, p2, p3, p4]);
+    const [r1, r2, r3] = await Promise.all([p1, p2, p3]);
     if (r1) quoteResults.push(r1);
     if (r2) quoteResults.push(r2);
     if (r3) quoteResults.push(r3);
-    if (r4) quoteResults.push(r4);
 
     if (quoteResults.length > 0) {
       const clusters: QuoteSourceResult[][] = [];

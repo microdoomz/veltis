@@ -4,7 +4,7 @@ import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Edit2, Trash2, AlertTriangle, Check, X, Calendar } from 'lucide-react';
+import { Edit2, Trash2, AlertTriangle, Check, X, Calendar, Search, Loader2 } from 'lucide-react';
 
 const colorOptions = [
   { name: 'Emerald', value: '#10B981' },
@@ -49,10 +49,16 @@ export function AccountActionsModal({ account }: AccountActionsProps) {
   const [sipMonthlyAmount, setSipMonthlyAmount] = useState<string>('');
   const [sipMonthlyDay, setSipMonthlyDay] = useState<string>('5');
   const [units, setUnits] = useState<string>('');
+  const [symbol, setSymbol] = useState<string>('');
+  const [currentPrice, setCurrentPrice] = useState<string>('');
+  const [searchQuery, setSearchQuery] = useState<string>('');
+  const [searchResults, setSearchResults] = useState<Array<{ schemeCode: number; schemeName: string }>>([]);
+  const [isSearching, setIsSearching] = useState(false);
+  const [showSearchDropdown, setShowSearchDropdown] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Fetch current SIP and units details when edit modal is opened
+  // Fetch current SIP, units, symbol and price details when edit modal is opened
   useEffect(() => {
     if (isEditOpen) {
       setName(account.name);
@@ -77,10 +83,60 @@ export function AccountActionsModal({ account }: AccountActionsProps) {
           } else {
             setUnits('');
           }
+          if (data.symbol) {
+            setSymbol(data.symbol.toString());
+          } else {
+            setSymbol('');
+          }
+          if (data.currentPrice) {
+            setCurrentPrice(data.currentPrice.toString());
+          } else {
+            setCurrentPrice('');
+          }
         })
         .catch(() => {});
     }
   }, [isEditOpen, account]);
+
+  const handleFundSearch = async (query: string) => {
+    setSearchQuery(query);
+    if (!query || query.trim().length < 2) {
+      setSearchResults([]);
+      setShowSearchDropdown(false);
+      return;
+    }
+    setIsSearching(true);
+    try {
+      const res = await fetch(`https://api.mfapi.in/mf/search?q=${encodeURIComponent(query.trim())}`);
+      if (res.ok) {
+        const schemes = await res.json();
+        setSearchResults(Array.isArray(schemes) ? schemes.slice(0, 10) : []);
+        setShowSearchDropdown(true);
+      }
+    } catch {
+      setSearchResults([]);
+    } finally {
+      setIsSearching(false);
+    }
+  };
+
+  const handleSelectScheme = async (scheme: { schemeCode: number; schemeName: string }) => {
+    setName(scheme.schemeName);
+    setSymbol(scheme.schemeCode.toString());
+    setShowSearchDropdown(false);
+    setSearchQuery('');
+    // Fetch latest NAV for the selected scheme
+    try {
+      const res = await fetch(`https://api.mfapi.in/mf/${scheme.schemeCode}/latest`);
+      if (res.ok) {
+        const d = await res.json();
+        const latestNav = d?.data?.[0]?.nav;
+        if (latestNav && !isNaN(parseFloat(latestNav))) {
+          setCurrentPrice(parseFloat(latestNav).toFixed(2));
+        }
+      }
+    } catch {}
+  };
 
   // Delete confirmation state
   const [deleteConfirmed, setDeleteConfirmed] = useState(false);
@@ -107,6 +163,12 @@ export function AccountActionsModal({ account }: AccountActionsProps) {
       if (accountType === 'investment') {
         if (units.trim() !== '') {
           payload.units = units.trim();
+        }
+        if (symbol.trim() !== '') {
+          payload.symbol = symbol.trim();
+        }
+        if (currentPrice.trim() !== '' && !isNaN(parseFloat(currentPrice))) {
+          payload.currentPrice = parseFloat(currentPrice);
         }
         const parsedSipAmount = parseFloat(sipMonthlyAmount);
         if (!isNaN(parsedSipAmount) && parsedSipAmount > 0) {
@@ -188,158 +250,227 @@ export function AccountActionsModal({ account }: AccountActionsProps) {
 
       {/* Edit Account Modal */}
       {isEditOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-background/80 backdrop-blur-sm animate-in fade-in">
-          <div className="bg-card border border-border rounded-xl shadow-xl w-full max-w-lg p-6 space-y-5">
-            <div className="flex justify-between items-center pb-2 border-b border-border">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-background/80 backdrop-blur-sm animate-in fade-in overflow-y-auto">
+          <div className="bg-card border border-border rounded-xl shadow-xl w-full max-w-lg my-auto max-h-[90vh] flex flex-col overflow-hidden">
+            <div className="flex justify-between items-center p-4 sm:p-5 border-b border-border shrink-0 bg-card">
               <h2 className="text-lg font-semibold tracking-tight">Edit Account Details</h2>
               <button 
+                type="button"
                 onClick={() => setIsEditOpen(false)}
-                className="p-1 text-muted-foreground hover:text-foreground rounded-md"
+                className="p-1 text-muted-foreground hover:text-foreground rounded-md transition-colors"
               >
                 <X className="w-5 h-5" />
               </button>
             </div>
 
             {error && (
-              <div className="p-3 bg-destructive/10 border border-destructive/20 text-destructive text-sm rounded-lg">
+              <div className="mx-4 sm:mx-6 mt-3 p-3 bg-destructive/10 border border-destructive/20 text-destructive text-sm rounded-lg shrink-0">
                 {error}
               </div>
             )}
 
-            <form onSubmit={handleUpdate} className="space-y-4">
-              <div className="space-y-1.5">
-                <label className="text-sm font-medium">Account Name *</label>
-                <Input 
-                  value={name} 
-                  onChange={(e) => setName(e.target.value)} 
-                  required 
-                />
-              </div>
-
-              <div className="space-y-1.5">
-                <label className="text-sm font-medium">Financial Institution</label>
-                <Input 
-                  value={institutionName} 
-                  onChange={(e) => setInstitutionName(e.target.value)} 
-                  placeholder="e.g. Chase, HDFC, Revolut"
-                />
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
+            <form onSubmit={handleUpdate} className="flex flex-col flex-1 overflow-hidden">
+              <div className="p-4 sm:p-6 space-y-4 overflow-y-auto flex-1">
                 <div className="space-y-1.5">
-                  <label className="text-sm font-medium">Account Type</label>
-                  <select 
-                    value={accountType} 
-                    onChange={(e) => setAccountType(e.target.value)}
-                    className="flex h-10 w-full rounded-md border border-border bg-background px-3 py-2 text-sm"
-                  >
-                    {accountTypes.map((t) => (
-                      <option key={t.id} value={t.id}>{t.label}</option>
-                    ))}
-                  </select>
-                </div>
-
-                <div className="space-y-1.5">
-                  <label className="text-sm font-medium">Currency</label>
-                  <select 
-                    value={currency} 
-                    onChange={(e) => setCurrency(e.target.value)}
-                    className="flex h-10 w-full rounded-md border border-border bg-background px-3 py-2 text-sm"
-                  >
-                    <option value="USD">USD ($)</option>
-                    <option value="EUR">EUR (€)</option>
-                    <option value="GBP">GBP (£)</option>
-                    <option value="INR">INR (₹)</option>
-                    <option value="JPY">JPY (¥)</option>
-                    <option value="CAD">CAD ($)</option>
-                    <option value="AUD">AUD ($)</option>
-                    <option value="SGD">SGD ($)</option>
-                  </select>
-                </div>
-              </div>
-
-              {/* Units Held (Only for investment accounts) */}
-              {accountType === 'investment' && (
-                <div className="space-y-1.5">
-                  <label className="text-sm font-medium">Units Currently Held</label>
-                  <Input
-                    type="number"
-                    step="0.0001"
-                    placeholder="e.g. 312.456"
-                    value={units}
-                    onChange={(e) => setUnits(e.target.value)}
+                  <label className="text-sm font-medium">Account Name *</label>
+                  <Input 
+                    value={name} 
+                    onChange={(e) => setName(e.target.value)} 
+                    required 
                   />
-                  <p className="text-xs text-muted-foreground">
-                    Actual units currently owned. Correcting this recalculates market value and gain/loss without buying or selling.
-                  </p>
                 </div>
-              )}
 
-              {/* SIP Recurring Investment (Only for investment accounts) */}
-              {accountType === 'investment' && (
-                <div className="p-3.5 bg-muted/40 rounded-lg border border-border/70 space-y-3">
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm font-medium flex items-center gap-1.5">
-                      <Calendar className="w-4 h-4 text-primary" />
-                      Monthly SIP Automation
-                    </span>
-                    <span className="text-xs text-muted-foreground">Optional</span>
-                  </div>
-
-                  <div className="grid grid-cols-2 gap-3">
-                    <div className="space-y-1.5">
-                      <label className="text-xs font-medium text-muted-foreground">Monthly SIP Amount</label>
-                      <Input
-                        type="number"
-                        placeholder="e.g. 5000"
-                        value={sipMonthlyAmount}
-                        onChange={(e) => setSipMonthlyAmount(e.target.value)}
-                        min="0"
-                        step="any"
-                      />
-                    </div>
-
-                    <div className="space-y-1.5">
-                      <label className="text-xs font-medium text-muted-foreground">Day of Month (1 - 31)</label>
-                      <Input
-                        type="number"
-                        placeholder="e.g. 5"
-                        value={sipMonthlyDay}
-                        onChange={(e) => setSipMonthlyDay(e.target.value)}
-                        min="1"
-                        max="31"
-                        disabled={!parseFloat(sipMonthlyAmount) || parseFloat(sipMonthlyAmount) <= 0}
-                      />
-                    </div>
-                  </div>
-                  <p className="text-[11px] text-muted-foreground">
-                    Set an amount to automate your monthly recurring investment reminder. Set to 0 to remove SIP.
-                  </p>
+                <div className="space-y-1.5">
+                  <label className="text-sm font-medium">Financial Institution</label>
+                  <Input 
+                    value={institutionName} 
+                    onChange={(e) => setInstitutionName(e.target.value)} 
+                    placeholder="e.g. Chase, HDFC, Revolut"
+                  />
                 </div>
-              )}
 
-              {/* Accent Color */}
-              <div className="space-y-1.5">
-                <label className="text-sm font-medium">Accent Color Theme</label>
-                <div className="flex items-center gap-3 pt-1">
-                  {colorOptions.map((c) => (
-                    <button
-                      key={c.value}
-                      type="button"
-                      onClick={() => setColor(c.value)}
-                      style={{ backgroundColor: c.value }}
-                      className={`h-7 w-7 rounded-full flex items-center justify-center transition-transform ${
-                        color === c.value ? 'scale-110 ring-2 ring-primary ring-offset-2' : 'hover:scale-105'
-                      }`}
-                      title={c.name}
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-1.5">
+                    <label className="text-sm font-medium">Account Type</label>
+                    <select 
+                      value={accountType} 
+                      onChange={(e) => setAccountType(e.target.value)}
+                      className="flex h-10 w-full rounded-md border border-border bg-background px-3 py-2 text-sm"
                     >
-                      {color === c.value && <Check className="h-3.5 w-3.5 text-white" />}
-                    </button>
-                  ))}
+                      {accountTypes.map((t) => (
+                        <option key={t.id} value={t.id}>{t.label}</option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <label className="text-sm font-medium">Currency</label>
+                    <select 
+                      value={currency} 
+                      onChange={(e) => setCurrency(e.target.value)}
+                      className="flex h-10 w-full rounded-md border border-border bg-background px-3 py-2 text-sm"
+                    >
+                      <option value="USD">USD ($)</option>
+                      <option value="EUR">EUR (€)</option>
+                      <option value="GBP">GBP (£)</option>
+                      <option value="INR">INR (₹)</option>
+                      <option value="JPY">JPY (¥)</option>
+                      <option value="CAD">CAD ($)</option>
+                      <option value="AUD">AUD ($)</option>
+                      <option value="SGD">SGD ($)</option>
+                    </select>
+                  </div>
+                </div>
+
+                {/* Investment specific controls: Fund Scheme, Price & Units */}
+                {accountType === 'investment' && (
+                  <div className="p-3.5 bg-muted/30 rounded-xl border border-border/70 space-y-3.5">
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm font-semibold text-foreground">Fund &amp; Valuation Details</span>
+                      <span className="text-xs text-muted-foreground">MFAPI / AMFI</span>
+                    </div>
+
+                    {/* Live fund search */}
+                    <div className="space-y-1.5 relative">
+                      <label className="text-xs font-medium text-muted-foreground flex items-center gap-1">
+                        <Search className="w-3.5 h-3.5" />
+                        Search &amp; Select Correct Scheme
+                      </label>
+                      <div className="relative">
+                        <Input
+                          placeholder="Type fund name (e.g. Nippon India Growth)..."
+                          value={searchQuery}
+                          onChange={(e) => handleFundSearch(e.target.value)}
+                          className="pr-8 text-xs"
+                        />
+                        {isSearching && (
+                          <Loader2 className="w-3.5 h-3.5 animate-spin absolute right-2.5 top-3 text-muted-foreground" />
+                        )}
+                      </div>
+
+                      {showSearchDropdown && searchResults.length > 0 && (
+                        <div className="absolute left-0 right-0 top-full mt-1 z-50 bg-card border border-border rounded-lg shadow-xl max-h-48 overflow-y-auto divide-y divide-border/50 text-xs">
+                          {searchResults.map((s) => (
+                            <button
+                              key={s.schemeCode}
+                              type="button"
+                              onClick={() => handleSelectScheme(s)}
+                              className="w-full text-left px-3 py-2 hover:bg-muted/70 flex flex-col gap-0.5 transition-colors"
+                            >
+                              <span className="font-medium text-foreground">{s.schemeName}</span>
+                              <span className="text-[10px] text-muted-foreground">Scheme Code: {s.schemeCode}</span>
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-3">
+                      <div className="space-y-1">
+                        <label className="text-xs font-medium text-muted-foreground">Scheme Code / Symbol</label>
+                        <Input
+                          placeholder="e.g. 118668"
+                          value={symbol}
+                          onChange={(e) => setSymbol(e.target.value)}
+                          className="text-xs"
+                        />
+                      </div>
+                      <div className="space-y-1">
+                        <label className="text-xs font-medium text-muted-foreground">Current Price / NAV (₹)</label>
+                        <Input
+                          type="number"
+                          step="any"
+                          placeholder="e.g. 4943.76"
+                          value={currentPrice}
+                          onChange={(e) => setCurrentPrice(e.target.value)}
+                          className="text-xs"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="space-y-1">
+                      <label className="text-xs font-medium text-muted-foreground">Units Currently Held</label>
+                      <Input
+                        type="number"
+                        step="0.0001"
+                        placeholder="e.g. 312.456"
+                        value={units}
+                        onChange={(e) => setUnits(e.target.value)}
+                        className="text-xs"
+                      />
+                      <p className="text-[11px] text-muted-foreground">
+                        Correcting this recalculates market value and gain/loss without recording trades.
+                      </p>
+                    </div>
+                  </div>
+                )}
+
+                {/* SIP Recurring Investment (Only for investment accounts) */}
+                {accountType === 'investment' && (
+                  <div className="p-3.5 bg-muted/40 rounded-lg border border-border/70 space-y-3">
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm font-medium flex items-center gap-1.5">
+                        <Calendar className="w-4 h-4 text-primary" />
+                        Monthly SIP Automation
+                      </span>
+                      <span className="text-xs text-muted-foreground">Optional</span>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-3">
+                      <div className="space-y-1.5">
+                        <label className="text-xs font-medium text-muted-foreground">Monthly SIP Amount</label>
+                        <Input
+                          type="number"
+                          placeholder="e.g. 5000"
+                          value={sipMonthlyAmount}
+                          onChange={(e) => setSipMonthlyAmount(e.target.value)}
+                          min="0"
+                          step="any"
+                        />
+                      </div>
+
+                      <div className="space-y-1.5">
+                        <label className="text-xs font-medium text-muted-foreground">Day of Month (1 - 31)</label>
+                        <Input
+                          type="number"
+                          placeholder="e.g. 5"
+                          value={sipMonthlyDay}
+                          onChange={(e) => setSipMonthlyDay(e.target.value)}
+                          min="1"
+                          max="31"
+                          disabled={!parseFloat(sipMonthlyAmount) || parseFloat(sipMonthlyAmount) <= 0}
+                        />
+                      </div>
+                    </div>
+                    <p className="text-[11px] text-muted-foreground">
+                      Set an amount to automate your monthly recurring investment reminder. Set to 0 to remove SIP.
+                    </p>
+                  </div>
+                )}
+
+                {/* Accent Color */}
+                <div className="space-y-1.5">
+                  <label className="text-sm font-medium">Accent Color Theme</label>
+                  <div className="flex items-center gap-3 pt-1 flex-wrap">
+                    {colorOptions.map((c) => (
+                      <button
+                        key={c.value}
+                        type="button"
+                        onClick={() => setColor(c.value)}
+                        style={{ backgroundColor: c.value }}
+                        className={`h-7 w-7 rounded-full flex items-center justify-center transition-transform ${
+                          color === c.value ? 'scale-110 ring-2 ring-primary ring-offset-2' : 'hover:scale-105'
+                        }`}
+                        title={c.name}
+                      >
+                        {color === c.value && <Check className="h-3.5 w-3.5 text-white" />}
+                      </button>
+                    ))}
+                  </div>
                 </div>
               </div>
 
-              <div className="flex justify-end gap-3 pt-4 border-t border-border">
+              <div className="flex justify-end gap-3 p-4 sm:p-5 border-t border-border bg-card shrink-0">
                 <Button type="button" variant="outline" onClick={() => setIsEditOpen(false)}>
                   Cancel
                 </Button>

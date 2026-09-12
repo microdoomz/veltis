@@ -322,19 +322,11 @@ export async function updateMarketPrice(workspaceId: string, positionId: string,
   if (!priceMinor) {
     // 1. Try our high-accuracy consensus quote engine (MFAPI, AMFI, Yahoo)
     try {
-      const quoteQuery = pos.symbol || pos.name;
-      const quote = await fetchInvestmentQuote(quoteQuery);
+      const quote = await fetchInvestmentQuote(pos.name, pos.symbol || undefined);
       if (quote.found && quote.currentPrice) {
         priceMinor = BigInt(Math.round(quote.currentPrice * 100));
         currency = quote.currency || pos.currency || 'INR';
         provider = quote.provider || 'live_market';
-      } else if (pos.name && pos.symbol && pos.symbol !== pos.name) {
-        const nameQuote = await fetchInvestmentQuote(pos.name);
-        if (nameQuote.found && nameQuote.currentPrice) {
-          priceMinor = BigInt(Math.round(nameQuote.currentPrice * 100));
-          currency = nameQuote.currency || pos.currency || 'INR';
-          provider = nameQuote.provider || 'live_market';
-        }
       }
     } catch (err) {
       console.warn(`Consensus quote fetch failed for ${pos.name}:`, err);

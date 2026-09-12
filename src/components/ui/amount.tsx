@@ -4,7 +4,6 @@ import { cn } from "@/lib/utils"
 import { PrivacyContext } from "@/components/layout/PrivacyProvider"
 import { useCurrency } from "@/components/layout/CurrencyProvider"
 import { useRefresh } from "@/components/ui/refresh-context"
-import { motion, AnimatePresence } from "framer-motion"
 
 interface AmountProps extends React.HTMLAttributes<HTMLSpanElement> {
   valueMinor: bigint;
@@ -103,13 +102,11 @@ export const Amount = React.forwardRef<HTMLSpanElement, AmountProps>(
     }
 
     const handleClick = (e: React.MouseEvent<HTMLSpanElement>) => {
-      // If inside an interactive parent (like a card link or table row), allow parent navigation/action on first tap!
+      // If privacy mode is on and clicking an isolated amount, toggle reveal
       const targetEl = e.target as HTMLElement | null;
-      const isInsideClickable = targetEl?.parentElement?.closest('a, button, [role="button"], tr, li, [data-clickable="true"]');
+      const isInsideClickable = targetEl?.closest('a, button, [role="button"], tr, li, [data-clickable="true"]');
 
       if (!isInsideClickable && isPrivacyModeEnabled && toggleReveal) {
-        e.preventDefault();
-        e.stopPropagation();
         toggleReveal();
       }
       onClick?.(e);
@@ -127,27 +124,18 @@ export const Amount = React.forwardRef<HTMLSpanElement, AmountProps>(
             : undefined
         }
         className={cn(
-          "font-mono tabular-nums tracking-tight",
-          isPrivacyModeEnabled && "cursor-pointer select-none hover:opacity-80 transition-opacity",
+          "font-mono tabular-nums tracking-tight transition-opacity duration-150",
+          isPrivacyModeEnabled && "cursor-pointer select-none hover:opacity-80",
           colorClass,
           className
         )}
         {...props}
       >
-        <AnimatePresence mode="popLayout" initial={false}>
-          <motion.span
-            key={formatted}
-            initial={{ opacity: 0, filter: "blur(4px)" }}
-            animate={{ opacity: 1, filter: "blur(0px)" }}
-            exit={{ opacity: 0, filter: "blur(4px)" }}
-            transition={{ duration: 0.2 }}
-            className="inline-block"
-          >
-            {formatted}
-          </motion.span>
-        </AnimatePresence>
+        <span className="inline-block">
+          {formatted}
+        </span>
       </span>
-    )
+    );
   }
-)
+);
 Amount.displayName = "Amount"

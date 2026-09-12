@@ -1,6 +1,6 @@
 'use client';
 
-import React, { createContext, useContext, useState, useCallback } from 'react';
+import React, { createContext, useContext, useState, useTransition, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 
 import { refreshAllDataAction } from '@/app/actions/refresh';
@@ -17,24 +17,26 @@ const RefreshContext = createContext<RefreshContextType>({
 
 export function RefreshProvider({ children }: { children: React.ReactNode }) {
   const router = useRouter();
-  const [isRefreshing, setIsRefreshing] = useState(false);
+  const [isPending, startTransition] = useTransition();
+  const [isActionPending, setIsActionPending] = useState(false);
+
+  const isRefreshing = isPending || isActionPending;
 
   const triggerRefresh = useCallback(async () => {
     if (isRefreshing) return;
-    setIsRefreshing(true);
+    setIsActionPending(true);
     try {
       await refreshAllDataAction();
-      router.refresh();
       if (typeof window !== 'undefined') {
         window.dispatchEvent(new CustomEvent('app:refresh'));
       }
+      startTransition(() => {
+        router.refresh();
+      });
     } catch (e) {
       console.error('Refresh error:', e);
-      router.refresh();
     } finally {
-      setTimeout(() => {
-        setIsRefreshing(false);
-      }, 750);
+      setIsActionPending(false);
     }
   }, [isRefreshing, router]);
 

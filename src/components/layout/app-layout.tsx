@@ -64,6 +64,122 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
     router.prefetch?.('/shortcuts');
   }, [router]);
 
+  // Close mobile sidebar on route change
+  useEffect(() => {
+    setMobileMenuOpen(false);
+  }, [pathname]);
+
+  // Lock body scroll and support Escape key when mobile menu is open
+  useEffect(() => {
+    if (mobileMenuOpen) {
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = '';
+    }
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && mobileMenuOpen) {
+        setMobileMenuOpen(false);
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => {
+      document.body.style.overflow = '';
+      window.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [mobileMenuOpen]);
+
+  // Swipe from left edge to open sidebar on mobile phones, and swipe left to close
+  useEffect(() => {
+    let startX = 0;
+    let startY = 0;
+    let isTrackingEdgeOpen = false;
+    let isTrackingSwipeClose = false;
+
+    const handleTouchStart = (e: TouchEvent) => {
+      if (e.touches.length !== 1 || window.innerWidth >= 768) return;
+
+      const touch = e.touches[0];
+      startX = touch.clientX;
+      startY = touch.clientY;
+
+      if (!mobileMenuOpen) {
+        // Touch starts within edge zone (<= 45px from left edge of screen)
+        const edgeThreshold = Math.max(45, window.innerWidth * 0.1);
+        if (startX <= edgeThreshold) {
+          isTrackingEdgeOpen = true;
+        } else {
+          isTrackingEdgeOpen = false;
+        }
+      } else {
+        // When sidebar is open, swipe left anywhere on screen or drawer to close
+        isTrackingSwipeClose = true;
+      }
+    };
+
+    const handleTouchMove = (e: TouchEvent) => {
+      if (e.touches.length !== 1 || window.innerWidth >= 768) return;
+
+      const touch = e.touches[0];
+      const deltaX = touch.clientX - startX;
+      const deltaY = touch.clientY - startY;
+
+      // Swiping right from left edge to open sidebar
+      if (isTrackingEdgeOpen && !mobileMenuOpen) {
+        // Predominantly horizontal swipe rightwards exceeding 40px
+        if (deltaX > 40 && Math.abs(deltaX) > Math.abs(deltaY) * 1.2) {
+          setMobileMenuOpen(true);
+          isTrackingEdgeOpen = false;
+        }
+      }
+
+      // Swiping left to close sidebar
+      if (isTrackingSwipeClose && mobileMenuOpen) {
+        // Predominantly horizontal swipe leftwards exceeding 40px
+        if (deltaX < -40 && Math.abs(deltaX) > Math.abs(deltaY) * 1.2) {
+          setMobileMenuOpen(false);
+          isTrackingSwipeClose = false;
+        }
+      }
+    };
+
+    const handleTouchEnd = (e: TouchEvent) => {
+      if (e.changedTouches.length === 1 && window.innerWidth < 768) {
+        const touch = e.changedTouches[0];
+        const deltaX = touch.clientX - startX;
+        const deltaY = touch.clientY - startY;
+
+        if (isTrackingEdgeOpen && !mobileMenuOpen) {
+          if (deltaX > 35 && Math.abs(deltaX) > Math.abs(deltaY) * 1.2) {
+            setMobileMenuOpen(true);
+          }
+        }
+
+        if (isTrackingSwipeClose && mobileMenuOpen) {
+          if (deltaX < -35 && Math.abs(deltaX) > Math.abs(deltaY) * 1.2) {
+            setMobileMenuOpen(false);
+          }
+        }
+      }
+
+      isTrackingEdgeOpen = false;
+      isTrackingSwipeClose = false;
+    };
+
+    window.addEventListener('touchstart', handleTouchStart, { passive: true });
+    window.addEventListener('touchmove', handleTouchMove, { passive: true });
+    window.addEventListener('touchend', handleTouchEnd, { passive: true });
+    window.addEventListener('touchcancel', handleTouchEnd, { passive: true });
+
+    return () => {
+      window.removeEventListener('touchstart', handleTouchStart);
+      window.removeEventListener('touchmove', handleTouchMove);
+      window.removeEventListener('touchend', handleTouchEnd);
+      window.removeEventListener('touchcancel', handleTouchEnd);
+    };
+  }, [mobileMenuOpen]);
+
   const handleLogout = async () => {
     setIsLoggingOut(true);
     await authClient.signOut({

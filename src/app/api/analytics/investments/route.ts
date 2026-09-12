@@ -22,15 +22,18 @@ export async function GET(req: Request) {
       positions: result.positions.map(p => ({
         ...p,
         averageCostMinor: p.averageCostMinor?.toString(),
+        currentPriceMinor: p.currentPriceMinor?.toString(),
         latestPriceMinor: p.latestPriceMinor?.toString(),
         estimatedValueMinor: p.estimatedValueMinor.toString(),
         totalCostPosition: p.totalCostPosition.toString(),
         unrealizedGainLoss: p.unrealizedGainLoss.toString(),
+        unrealizedGainLossPct: p.unrealizedGainLossPct,
       })),
       summary: {
         totalValueMinor: result.summary.totalValueMinor.toString(),
         totalCostMinor: result.summary.totalCostMinor.toString(),
         totalUnrealizedGainLoss: result.summary.totalUnrealizedGainLoss.toString(),
+        totalGainPct: result.summary.totalGainPct,
       }
     };
 

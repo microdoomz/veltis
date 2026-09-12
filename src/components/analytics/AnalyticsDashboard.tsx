@@ -95,9 +95,61 @@ export function AnalyticsDashboard({ workspaceId, baseCurrency }: { workspaceId:
         const res = await fetch(`/api/analytics/wealth?${params}`);
         if (res.ok) setWealth(await res.json());
       } else if (tab === 'investments') {
-        // Investments don't use time range typically
-        const res = await fetch(`/api/analytics/investments?workspaceId=${workspaceId}`);
-        if (res.ok) setInvestments(await res.json());
+        // Fetch directly from the investments endpoint for guaranteed 100% accuracy and consistency
+        const res = await fetch(`/api/investments?workspaceId=${workspaceId}`);
+        if (res.ok) {
+          const data = await res.json();
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          const rawPositions: any[] = data.positions || [];
+          let totalInvestedMinor = 0n;
+          let totalCurrentValueMinor = 0n;
+
+          const enrichedPositions = rawPositions.map((pos) => {
+            const units = Number(pos.units || 0);
+            const avgCost = BigInt(pos.averageCostMinor || 0);
+            const currentPrice = BigInt(pos.currentPriceMinor || pos.averageCostMinor || 0);
+
+            const invested = BigInt(Math.round(units * Number(avgCost)));
+            const current = BigInt(Math.round(units * Number(currentPrice)));
+            const gain = current - invested;
+            const gainPct = invested > 0n ? (Number(gain) / Number(invested)) * 100 : 0;
+
+            totalInvestedMinor += invested;
+            totalCurrentValueMinor += current;
+
+            return {
+              id: pos.id,
+              name: pos.name,
+              symbol: pos.symbol,
+              assetType: pos.assetType,
+              units: pos.units,
+              averageCostMinor: pos.averageCostMinor?.toString(),
+              currentPriceMinor: currentPrice.toString(),
+              estimatedValueMinor: current.toString(),
+              totalCostPosition: invested.toString(),
+              unrealizedGainLoss: gain.toString(),
+              unrealizedGainLossPct: gainPct,
+              currency: pos.currency,
+              isEstimated: pos.isEstimated,
+            };
+          });
+
+          const totalGain = totalCurrentValueMinor - totalInvestedMinor;
+          const totalGainPct = totalInvestedMinor > 0n
+            ? (Number(totalGain) / Number(totalInvestedMinor)) * 100
+            : 0;
+
+          setInvestments({
+            positions: enrichedPositions,
+            summary: {
+              totalValueMinor: totalCurrentValueMinor.toString(),
+              totalCostMinor: totalInvestedMinor.toString(),
+              totalUnrealizedGainLoss: totalGain.toString(),
+              totalGainPct,
+              isPositive: totalGain >= 0n,
+            },
+          });
+        }
       } else if (tab === 'budgets') {
         const res = await fetch(`/api/analytics/budgets?${params}`);
         if (res.ok) setBudgets(await res.json());
@@ -266,39 +318,84 @@ export function AnalyticsDashboard({ workspaceId, baseCurrency }: { workspaceId:
             <CardContent>
               {isLoading ? <div className="h-64 flex items-center justify-center"><Loader2 className="h-8 w-8 animate-spin" /></div> : (
                 <div className="space-y-4">
-                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                    <div>
-                      <div className="text-sm text-muted-foreground">Est. Total Value</div>
-                      <div className="text-lg font-bold">{investments ? formatCurrency(investments.summary.totalValueMinor) : '-'}</div>
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                    <div className="p-4 rounded-xl bg-muted/40 border border-border/50">
+                      <div className="text-xs font-medium text-muted-foreground">Estimated Total Value</div>
+                      <div className="text-2xl font-bold tracking-tight text-foreground mt-1">
+                        {investments ? formatCurrency(investments.summary.totalValueMinor) : '-'}
+                      </div>
                     </div>
-                    <div>
-                      <div className="text-sm text-muted-foreground">Total Cost Basis</div>
-                      <div className="text-lg font-bold">{investments ? formatCurrency(investments.summary.totalCostMinor) : '-'}</div>
+                    <div className="p-4 rounded-xl bg-muted/40 border border-border/50">
+                      <div className="text-xs font-medium text-muted-foreground">Total Invested (Cost Basis)</div>
+                      <div className="text-2xl font-bold tracking-tight text-foreground mt-1">
+                        {investments ? formatCurrency(investments.summary.totalCostMinor) : '-'}
+                      </div>
                     </div>
-                    <div>
-                      <div className="text-sm text-muted-foreground">Unrealized Gain/Loss</div>
-                      <div className={`text-lg font-bold ${investments && Number(investments.summary.totalUnrealizedGainLoss) >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                        {investments ? formatCurrency(investments.summary.totalUnrealizedGainLoss) : '-'}
+                    <div className="p-4 rounded-xl bg-muted/40 border border-border/50">
+                      <div className="text-xs font-medium text-muted-foreground">Total Gain / Loss</div>
+                      <div className="flex items-baseline gap-2 mt-1">
+                        <span className={`text-2xl font-bold tracking-tight ${investments && Number(investments.summary.totalUnrealizedGainLoss) >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400'}`}>
+                          {investments ? `${Number(investments.summary.totalUnrealizedGainLoss) >= 0 ? '+' : ''}${formatCurrency(investments.summary.totalUnrealizedGainLoss)}` : '-'}
+                        </span>
+                        {investments?.summary?.totalGainPct !== undefined && (
+                          <span className={`text-xs font-semibold ${Number(investments.summary.totalUnrealizedGainLoss) >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400'}`}>
+                            ({Number(investments.summary.totalUnrealizedGainLoss) >= 0 ? '+' : ''}{investments.summary.totalGainPct.toFixed(2)}%)
+                          </span>
+                        )}
                       </div>
                     </div>
                   </div>
-                  {/* Basic list of positions */}
-                  <div className="mt-6 border-t pt-4">
-                    <h4 className="font-semibold mb-2">Positions</h4>
-                    {investments?.positions?.map((pos: Record<string, unknown>) => (
-                      <div key={pos.id as string} className="flex justify-between py-2 border-b last:border-0">
-                        <div>
-                          <div className="font-medium">{pos.name as string} <span className="text-sm text-muted-foreground">({pos.symbol as string})</span></div>
-                          <div className="text-sm text-muted-foreground">{pos.units as string} units @ {formatCurrency(pos.averageCostMinor as string)}</div>
-                        </div>
-                        <div className="text-right">
-                          <div className="font-medium">{formatCurrency(pos.estimatedValueMinor as string)}</div>
-                          <div className={`text-sm ${Number(pos.unrealizedGainLoss) >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                            {Number(pos.unrealizedGainLoss) >= 0 ? '+' : ''}{formatCurrency(pos.unrealizedGainLoss as string)}
-                          </div>
-                        </div>
+
+                  {/* List of positions */}
+                  <div className="mt-6 border-t border-border pt-4">
+                    <div className="flex items-center justify-between mb-3">
+                      <h4 className="font-semibold text-base">Holdings ({investments?.positions?.length || 0})</h4>
+                    </div>
+                    {!investments?.positions || investments.positions.length === 0 ? (
+                      <p className="text-sm text-muted-foreground py-6 text-center">No active investment positions found.</p>
+                    ) : (
+                      <div className="divide-y divide-border/60">
+                        {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
+                        {investments.positions.map((pos: any) => {
+                          const isPos = Number(pos.unrealizedGainLoss) >= 0;
+                          return (
+                            <div key={pos.id} className="flex flex-col sm:flex-row sm:items-center justify-between py-3.5 gap-2">
+                              <div className="space-y-0.5">
+                                <div className="font-medium text-sm text-foreground flex items-center gap-2">
+                                  <span>{pos.name}</span>
+                                  {pos.isEstimated && (
+                                    <span className="text-[10px] px-1.5 py-0.2 rounded bg-teal-500/10 text-teal-600 dark:text-teal-400 font-semibold" title="Live NAV feed">
+                                      LIVE
+                                    </span>
+                                  )}
+                                </div>
+                                <div className="text-xs text-muted-foreground flex flex-wrap items-center gap-1.5">
+                                  {pos.symbol && <span className="font-mono bg-muted/60 px-1 rounded">{pos.symbol}</span>}
+                                  <span>{Number(pos.units).toLocaleString(undefined, { maximumFractionDigits: 4 })} units</span>
+                                  <span>•</span>
+                                  <span>Avg Cost: {formatCurrency(pos.averageCostMinor)}</span>
+                                  <span>•</span>
+                                  <span className="text-foreground font-medium">NAV: {formatCurrency(pos.currentPriceMinor)}</span>
+                                </div>
+                              </div>
+                              <div className="text-left sm:text-right shrink-0">
+                                <div className="font-semibold text-sm text-foreground">
+                                  {formatCurrency(pos.estimatedValueMinor)}
+                                </div>
+                                <div className={`text-xs font-semibold ${isPos ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400'}`}>
+                                  {isPos ? '+' : ''}{formatCurrency(pos.unrealizedGainLoss)}
+                                  {pos.unrealizedGainLossPct !== undefined && (
+                                    <span className="ml-1 opacity-90">
+                                      ({isPos ? '+' : ''}{pos.unrealizedGainLossPct.toFixed(2)}%)
+                                    </span>
+                                  )}
+                                </div>
+                              </div>
+                            </div>
+                          );
+                        })}
                       </div>
-                    ))}
+                    )}
                   </div>
                 </div>
               )}

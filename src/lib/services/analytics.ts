@@ -1,5 +1,5 @@
 import { db } from '../db';
-import { transaction, category, investmentPosition, investmentPriceSnapshot, budget } from '../db/schema';
+import { transaction, category, financialAccount, investmentPosition, investmentPriceSnapshot, budget } from '../db/schema';
 import { eq, and, gte, lte, sql, desc, inArray } from 'drizzle-orm';
 
 export type TimeFilter = {
@@ -163,54 +163,98 @@ export async function getWealthTrendAnalytics(workspaceId: string, timeFilter: T
 
 // 5. Investment Analytics
 export async function getInvestmentAnalytics(workspaceId: string) {
-  const positions = await db
-    .select({
-      id: investmentPosition.id,
-      name: investmentPosition.name,
-      symbol: investmentPosition.symbol,
-      assetType: investmentPosition.assetType,
-      units: investmentPosition.units,
-      averageCostMinor: investmentPosition.averageCostMinor,
-      currency: investmentPosition.currency,
-      latestPriceMinor: sql<string>`(
-        SELECT price_minor 
-        FROM ${investmentPriceSnapshot} 
-        WHERE position_id = ${investmentPosition.id} 
-        ORDER BY observed_at DESC 
-        LIMIT 1
-      )`,
-    })
-    .from(investmentPosition)
-    .where(eq(investmentPosition.workspaceId, workspaceId));
+  // Fetch active investment accounts only
+  const activeAccounts = await db.query.financialAccount.findMany({
+    where: and(
+      eq(financialAccount.workspaceId, workspaceId),
+      eq(financialAccount.accountType, 'investment'),
+      eq(financialAccount.status, 'active')
+    ),
+  });
+
+  const activeAccountIds = activeAccounts.map(a => a.id);
+  if (activeAccountIds.length === 0) {
+    return {
+      positions: [],
+      summary: {
+        totalValueMinor: 0n,
+        totalCostMinor: 0n,
+        totalUnrealizedGainLoss: 0n,
+        totalGainPct: 0,
+      }
+    };
+  }
+
+  const positions = await db.query.investmentPosition.findMany({
+    where: and(
+      eq(investmentPosition.workspaceId, workspaceId),
+      inArray(investmentPosition.financialAccountId, activeAccountIds)
+    ),
+  });
+
+  const positionIds = positions.map(p => p.id);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  let latestSnapshots: any[] = [];
+  if (positionIds.length > 0) {
+    const allSnapshots = await db.query.investmentPriceSnapshot.findMany({
+      where: inArray(investmentPriceSnapshot.positionId, positionIds),
+      orderBy: [desc(investmentPriceSnapshot.observedAt)],
+    });
+
+    const seen = new Set();
+    latestSnapshots = allSnapshots.filter(s => {
+      if (seen.has(s.positionId)) return false;
+      seen.add(s.positionId);
+      return true;
+    });
+  }
 
   let totalValueMinor = 0n;
   let totalCostMinor = 0n;
 
   const enrichedPositions = positions.map(pos => {
-    const units = parseFloat(pos.units?.toString() || '0');
-    const cost = BigInt(pos.averageCostMinor || 0n);
-    const rawPrice = BigInt(pos.latestPriceMinor || '0');
-    const effectivePrice = rawPrice > 0n ? rawPrice : cost;
-    const estimatedValueMinor = BigInt(Math.floor(units * Number(effectivePrice)));
-    const totalCostPosition = BigInt(Math.floor(units * Number(cost)));
+    const snapshot = latestSnapshots.find(s => s.positionId === pos.id);
+    const units = Number(pos.units || 0);
+    const avgCost = BigInt(pos.averageCostMinor || 0);
+    const currentPrice = BigInt(snapshot?.priceMinor || pos.averageCostMinor || 0);
 
-    totalValueMinor += estimatedValueMinor;
-    totalCostMinor += totalCostPosition;
+    const invested = BigInt(Math.round(units * Number(avgCost)));
+    const current = BigInt(Math.round(units * Number(currentPrice)));
+    const gain = current - invested;
+    const gainPct = invested > 0n ? (Number(gain) / Number(invested)) * 100 : 0;
+
+    totalValueMinor += current;
+    totalCostMinor += invested;
 
     return {
-      ...pos,
-      estimatedValueMinor,
-      totalCostPosition,
-      unrealizedGainLoss: estimatedValueMinor - totalCostPosition
+      id: pos.id,
+      financialAccountId: pos.financialAccountId,
+      name: pos.name,
+      symbol: pos.symbol,
+      assetType: pos.assetType,
+      units: pos.units,
+      averageCostMinor: pos.averageCostMinor,
+      currentPriceMinor: currentPrice,
+      latestPriceMinor: currentPrice,
+      estimatedValueMinor: current,
+      totalCostPosition: invested,
+      unrealizedGainLoss: gain,
+      unrealizedGainLossPct: gainPct,
+      currency: pos.currency,
+      isEstimated: !!snapshot,
     };
   });
+
+  const totalGainMinor = totalValueMinor - totalCostMinor;
+  const totalGainPct = totalCostMinor > 0n ? (Number(totalGainMinor) / Number(totalCostMinor)) * 100 : 0;
 
   return {
     positions: enrichedPositions,
     summary: {
       totalValueMinor,
       totalCostMinor,
-      totalUnrealizedGainLoss: totalValueMinor - totalCostMinor
+      totalUnrealizedGainLoss: totalGainMinor,
+      totalGainPct,
     }
   };
 }

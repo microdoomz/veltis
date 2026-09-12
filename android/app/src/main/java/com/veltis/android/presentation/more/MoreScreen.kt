@@ -22,21 +22,32 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
+import androidx.fragment.app.FragmentActivity
+import android.widget.Toast
 import com.veltis.android.data.model.*
+import com.veltis.android.data.storage.SessionManager
 import com.veltis.android.presentation.home.formatCurrency
 import com.veltis.android.presentation.theme.*
+import com.veltis.android.util.BiometricHelper
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun MoreScreen(
     viewModel: MoreViewModel,
+    sessionManager: SessionManager,
     onLogout: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     val state by viewModel.uiState.collectAsState()
     val snackbarHostState = remember { SnackbarHostState() }
+    val context = LocalContext.current
+    val activity = context as? FragmentActivity
+
+    val isBiometricSupported = remember { BiometricHelper.isBiometricAvailable(context) }
+    var isBiometricEnabled by remember { mutableStateOf(sessionManager.isBiometricEnabled()) }
 
     var selectedSection by remember { mutableStateOf("budgets") } // 'budgets', 'debt', 'recurring', 'settings'
     var showCreateBudgetDialog by remember { mutableStateOf(false) }
@@ -214,6 +225,32 @@ fun MoreScreen(
                 "settings" -> SettingsSection(
                     isPrivacyMode = state.isPrivacyMode,
                     onTogglePrivacy = { viewModel.togglePrivacyMode() },
+                    isBiometricSupported = isBiometricSupported,
+                    isBiometricEnabled = isBiometricEnabled,
+                    onToggleBiometrics = { shouldEnable ->
+                        if (shouldEnable) {
+                            if (activity != null) {
+                                BiometricHelper.showBiometricPrompt(
+                                    activity = activity,
+                                    title = "Enable Biometric Unlock",
+                                    subtitle = "Verify fingerprint or face to enable biometric sign-in",
+                                    negativeButtonText = "Cancel",
+                                    onSuccess = {
+                                        sessionManager.setBiometricEnabled(true)
+                                        isBiometricEnabled = true
+                                        Toast.makeText(context, "Biometric authentication enabled", Toast.LENGTH_SHORT).show()
+                                    },
+                                    onError = { _, err ->
+                                        Toast.makeText(context, err.toString(), Toast.LENGTH_SHORT).show()
+                                    }
+                                )
+                            }
+                        } else {
+                            sessionManager.setBiometricEnabled(false)
+                            isBiometricEnabled = false
+                            Toast.makeText(context, "Biometric authentication disabled", Toast.LENGTH_SHORT).show()
+                        }
+                    },
                     onLogoutClick = { showLogoutConfirm = true },
                     onDeleteAccountClick = { showDeleteAccountConfirm = true }
                 )
@@ -561,6 +598,9 @@ fun RecurringSection(
 fun SettingsSection(
     isPrivacyMode: Boolean,
     onTogglePrivacy: () -> Unit,
+    isBiometricSupported: Boolean,
+    isBiometricEnabled: Boolean,
+    onToggleBiometrics: (Boolean) -> Unit,
     onLogoutClick: () -> Unit,
     onDeleteAccountClick: () -> Unit
 ) {
@@ -588,7 +628,7 @@ fun SettingsSection(
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Column {
+                    Column(modifier = Modifier.weight(1f).padding(end = 12.dp)) {
                         Text(text = "Privacy Mode (Mask Balances)", fontSize = 14.sp, fontWeight = FontWeight.SemiBold, color = Color.White)
                         Text(text = "Obscures money numbers when viewing in public", fontSize = 11.sp, color = TextMuted)
                     }
@@ -597,6 +637,47 @@ fun SettingsSection(
                         onCheckedChange = { onTogglePrivacy() },
                         colors = SwitchDefaults.colors(checkedThumbColor = TealLight, checkedTrackColor = TealDark)
                     )
+                }
+            }
+        }
+
+        if (isBiometricSupported) {
+            item {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(14.dp))
+                        .background(VeltisCardBg)
+                        .border(1.dp, VeltisCardBorder, RoundedCornerShape(14.dp))
+                        .padding(16.dp)
+                ) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier.weight(1f).padding(end = 12.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Fingerprint,
+                                contentDescription = "Biometrics",
+                                tint = TealLight,
+                                modifier = Modifier.size(24.dp)
+                            )
+                            Spacer(modifier = Modifier.width(12.dp))
+                            Column {
+                                Text(text = "Biometric Authentication", fontSize = 14.sp, fontWeight = FontWeight.SemiBold, color = Color.White)
+                                Text(text = "Sign in & unlock with fingerprint or face ID", fontSize = 11.sp, color = TextMuted)
+                            }
+                        }
+                        Switch(
+                            checked = isBiometricEnabled,
+                            onCheckedChange = { onToggleBiometrics(it) },
+                            colors = SwitchDefaults.colors(checkedThumbColor = TealLight, checkedTrackColor = TealDark)
+                        )
+                    }
                 }
             }
         }

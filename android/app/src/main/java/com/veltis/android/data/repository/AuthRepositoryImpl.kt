@@ -6,6 +6,7 @@ import com.veltis.android.data.model.ApiErrorDto
 import com.veltis.android.data.model.ForgetPasswordRequestDto
 import com.veltis.android.data.model.SignInEmailRequestDto
 import com.veltis.android.data.model.SignUpEmailRequestDto
+import com.veltis.android.data.model.SocialSignInRequestDto
 import com.veltis.android.data.storage.SessionManager
 import com.veltis.android.domain.model.User
 import com.veltis.android.domain.model.VeltisError
@@ -55,6 +56,7 @@ class AuthRepositoryImpl(
                 )
 
                 sessionManager.saveSession(token = token, user = user)
+                sessionManager.saveBiometricSessionToken(token)
                 VeltisResult.Success(user)
             } else {
                 VeltisResult.Failure(parseAuthError(response))
@@ -95,6 +97,7 @@ class AuthRepositoryImpl(
                 )
 
                 sessionManager.saveSession(token = token, user = user)
+                sessionManager.saveBiometricSessionToken(token)
                 VeltisResult.Success(user)
             } else {
                 VeltisResult.Failure(parseAuthError(response))
@@ -164,6 +167,46 @@ class AuthRepositoryImpl(
             VeltisResult.Failure(VeltisError.Network("Unable to connect to server."))
         } catch (e: Exception) {
             VeltisResult.Failure(VeltisError.Unknown(e.message ?: "Failed to send password reset."))
+        }
+    }
+
+    override suspend fun getGoogleSignInUrl(): VeltisResult<String> = withContext(Dispatchers.IO) {
+        try {
+            val callbackUrl = "${networkClient.baseUrl}api/auth/mobile-callback"
+            val response = api.signInSocial(
+                SocialSignInRequestDto(
+                    provider = "google",
+                    callbackURL = callbackUrl,
+                    disableRedirect = true
+                )
+            )
+            val authUrl = response.body()?.url
+            if (response.isSuccessful && !authUrl.isNullOrBlank()) {
+                VeltisResult.Success(authUrl)
+            } else {
+                VeltisResult.Success("${networkClient.baseUrl}api/auth/sign-in/social?provider=google&callbackURL=${callbackUrl}")
+            }
+        } catch (_: Exception) {
+            val callbackUrl = "${networkClient.baseUrl}api/auth/mobile-callback"
+            VeltisResult.Success("${networkClient.baseUrl}api/auth/sign-in/social?provider=google&callbackURL=${callbackUrl}")
+        }
+    }
+
+    override suspend fun handleOAuthCallback(token: String): VeltisResult<User> = withContext(Dispatchers.IO) {
+        try {
+            val initialUser = User(id = "google_user", email = "google_user@veltis", name = "Google Account")
+            sessionManager.saveSession(token = token, user = initialUser)
+            sessionManager.saveBiometricSessionToken(token)
+
+            val sessionResult = restoreSession()
+            if (sessionResult is VeltisResult.Success && sessionResult.data != null) {
+                sessionManager.saveSession(token = token, user = sessionResult.data)
+                VeltisResult.Success(sessionResult.data)
+            } else {
+                VeltisResult.Success(sessionManager.getUser() ?: initialUser)
+            }
+        } catch (e: Exception) {
+            VeltisResult.Failure(VeltisError.Unknown(e.message ?: "Failed to process Google sign-in."))
         }
     }
 

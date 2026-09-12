@@ -11,4 +11,6 @@ interface AuthRepository {
     suspend fun signOut(): VeltisResult<Unit>
     suspend fun restoreSession(): VeltisResult<User?>
     suspend fun sendPasswordReset(email: String): VeltisResult<Unit>
+    suspend fun getGoogleSignInUrl(): VeltisResult<String>
+    suspend fun handleOAuthCallback(token: String): VeltisResult<User>
 }

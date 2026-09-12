@@ -47,3 +47,19 @@ data class SessionResponseDto(
     val session: SessionDto? = null,
     val user: UserDto? = null
 )
+
+@Serializable
+data class SocialSignInRequestDto(
+    val provider: String = "google",
+    val callbackURL: String? = null,
+    val disableRedirect: Boolean? = true
+)
+
+@Serializable
+data class SocialSignInResponseDto(
+    val url: String? = null,
+    val redirect: Boolean? = null,
+    val token: String? = null,
+    val user: UserDto? = null
+)
+

@@ -1,6 +1,9 @@
 package com.veltis.android.presentation.auth
 
+import android.widget.Toast
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -9,6 +12,7 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Email
+import androidx.compose.material.icons.filled.Fingerprint
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material.icons.filled.VisibilityOff
@@ -18,6 +22,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusDirection
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
@@ -26,11 +31,68 @@ import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.fragment.app.FragmentActivity
+import com.veltis.android.data.storage.SessionManager
+import com.veltis.android.util.BiometricHelper
+
+@Composable
+fun GoogleBrandIcon(modifier: Modifier = Modifier) {
+    Box(
+        modifier = modifier.size(20.dp),
+        contentAlignment = Alignment.Center
+    ) {
+        Canvas(modifier = Modifier.fillMaxSize()) {
+            val stroke = size.width * 0.18f
+            val radius = (size.width - stroke) / 2f
+            val center = androidx.compose.ui.geometry.Offset(size.width / 2f, size.height / 2f)
+
+            // Blue
+            drawArc(
+                color = Color(0xFF4285F4),
+                startAngle = 0f,
+                sweepAngle = -90f,
+                useCenter = false,
+                style = androidx.compose.ui.graphics.drawscope.Stroke(width = stroke)
+            )
+            // Green
+            drawArc(
+                color = Color(0xFF34A853),
+                startAngle = 0f,
+                sweepAngle = 90f,
+                useCenter = false,
+                style = androidx.compose.ui.graphics.drawscope.Stroke(width = stroke)
+            )
+            // Yellow
+            drawArc(
+                color = Color(0xFFFBBC05),
+                startAngle = 90f,
+                sweepAngle = 90f,
+                useCenter = false,
+                style = androidx.compose.ui.graphics.drawscope.Stroke(width = stroke)
+            )
+            // Red
+            drawArc(
+                color = Color(0xFFEA4335),
+                startAngle = 180f,
+                sweepAngle = 90f,
+                useCenter = false,
+                style = androidx.compose.ui.graphics.drawscope.Stroke(width = stroke)
+            )
+            // Horizontal bar for G
+            drawRect(
+                color = Color(0xFF4285F4),
+                topLeft = androidx.compose.ui.geometry.Offset(center.x, center.y - stroke / 2),
+                size = androidx.compose.ui.geometry.Size(radius, stroke)
+            )
+        }
+    }
+}
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun LoginScreen(
     viewModel: AuthViewModel,
+    sessionManager: SessionManager,
     onNavigateToSignup: () -> Unit,
     onNavigateToForgotPassword: () -> Unit,
     onLoginSuccess: () -> Unit,
@@ -38,10 +100,15 @@ fun LoginScreen(
 ) {
     val state by viewModel.uiState.collectAsState()
     val focusManager = LocalFocusManager.current
+    val context = LocalContext.current
+    val activity = context as? FragmentActivity
 
-    val bgColor = Color(0xFF0B0F19)
-    val cardColor = Color(0xFF151B28)
-    val primaryColor = Color(0xFF2563EB)
+    val isBiometricsAvailable = remember { BiometricHelper.isBiometricAvailable(context) }
+    val hasSavedBiometricToken = remember { !sessionManager.getBiometricSessionToken().isNullOrBlank() }
+
+    val bgColor = Color(0xFF09090B)
+    val cardColor = Color(0xFF141418)
+    val primaryColor = Color(0xFF10B981) // Veltis Emerald
     val textPrimary = Color(0xFFF8FAFC)
     val textSecondary = Color(0xFF94A3B8)
     val errorColor = Color(0xFFEF4444)
@@ -59,28 +126,53 @@ fun LoginScreen(
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Center
         ) {
-            Spacer(modifier = Modifier.height(32.dp))
+            Spacer(modifier = Modifier.height(24.dp))
 
             // Brand Header
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.Center,
+                modifier = Modifier.padding(bottom = 6.dp)
+            ) {
+                Surface(
+                    shape = RoundedCornerShape(8.dp),
+                    color = primaryColor,
+                    modifier = Modifier.size(36.dp)
+                ) {
+                    Box(contentAlignment = Alignment.Center) {
+                        Text(
+                            text = "V",
+                            color = Color.White,
+                            fontWeight = FontWeight.Black,
+                            fontSize = 20.sp
+                        )
+                    }
+                }
+                Spacer(modifier = Modifier.width(10.dp))
+                Text(
+                    text = "VELTIS",
+                    fontSize = 28.sp,
+                    fontWeight = FontWeight.ExtraBold,
+                    color = Color.White,
+                    letterSpacing = 2.sp
+                )
+            }
+
             Text(
-                text = "VELTIS",
-                fontSize = 32.sp,
-                fontWeight = FontWeight.ExtraBold,
-                color = primaryColor,
-                letterSpacing = 2.sp
-            )
-            Text(
-                text = "Intelligent Wealth Tracking",
-                fontSize = 14.sp,
+                text = "Authoritative Double-Entry Ledger",
+                fontSize = 13.sp,
                 color = textSecondary,
-                modifier = Modifier.padding(top = 4.dp, bottom = 32.dp)
+                modifier = Modifier.padding(bottom = 28.dp)
             )
 
             // Auth Card
             Card(
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(20.dp),
-                colors = CardDefaults.cardColors(containerColor = cardColor)
+                colors = CardDefaults.cardColors(containerColor = cardColor),
+                border = CardDefaults.outlinedCardBorder().copy(
+                    brush = androidx.compose.ui.graphics.SolidColor(Color(0xFF27272A))
+                )
             ) {
                 Column(
                     modifier = Modifier.padding(24.dp),
@@ -104,6 +196,7 @@ fun LoginScreen(
                         Surface(
                             shape = RoundedCornerShape(10.dp),
                             color = errorColor.copy(alpha = 0.15f),
+                            border = androidx.compose.foundation.BorderStroke(1.dp, errorColor.copy(alpha = 0.3f)),
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .padding(bottom = 16.dp)
@@ -115,6 +208,121 @@ fun LoginScreen(
                                 modifier = Modifier.padding(12.dp)
                             )
                         }
+                    }
+
+                    // 1. Google Sign-In Button
+                    OutlinedButton(
+                        onClick = {
+                            viewModel.initiateGoogleSignIn(context)
+                        },
+                        enabled = !state.isLoading,
+                        shape = RoundedCornerShape(12.dp),
+                        colors = ButtonDefaults.outlinedButtonColors(
+                            containerColor = Color(0xFF1E293B).copy(alpha = 0.6f),
+                            contentColor = textPrimary
+                        ),
+                        border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF334155)),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(48.dp)
+                    ) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.Center
+                        ) {
+                            GoogleBrandIcon()
+                            Spacer(modifier = Modifier.width(10.dp))
+                            Text(
+                                text = "Continue with Google",
+                                fontSize = 14.sp,
+                                fontWeight = FontWeight.SemiBold,
+                                color = textPrimary
+                            )
+                        }
+                    }
+
+                    // 2. Biometric Sign-In Button (If hardware supported)
+                    if (isBiometricsAvailable) {
+                        Spacer(modifier = Modifier.height(10.dp))
+                        OutlinedButton(
+                            onClick = {
+                                if (activity != null) {
+                                    BiometricHelper.showBiometricPrompt(
+                                        activity = activity,
+                                        title = "Unlock Veltis",
+                                        subtitle = "Authenticate using fingerprint or face unlock",
+                                        negativeButtonText = "Use Password",
+                                        onSuccess = {
+                                            viewModel.signInWithBiometrics(
+                                                sessionManager = sessionManager,
+                                                onSuccess = onLoginSuccess
+                                            )
+                                        },
+                                        onError = { code, err ->
+                                            if (code != androidx.biometric.BiometricPrompt.ERROR_USER_CANCELED &&
+                                                code != androidx.biometric.BiometricPrompt.ERROR_NEGATIVE_BUTTON
+                                            ) {
+                                                Toast.makeText(context, err.toString(), Toast.LENGTH_SHORT).show()
+                                            }
+                                        }
+                                    )
+                                } else {
+                                    Toast.makeText(context, "Biometric authentication not ready", Toast.LENGTH_SHORT).show()
+                                }
+                            },
+                            enabled = !state.isLoading,
+                            shape = RoundedCornerShape(12.dp),
+                            colors = ButtonDefaults.outlinedButtonColors(
+                                containerColor = primaryColor.copy(alpha = 0.08f),
+                                contentColor = primaryColor
+                            ),
+                            border = androidx.compose.foundation.BorderStroke(1.dp, primaryColor.copy(alpha = 0.4f)),
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(48.dp)
+                        ) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.Center
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Fingerprint,
+                                    contentDescription = "Biometrics",
+                                    tint = primaryColor,
+                                    modifier = Modifier.size(20.dp)
+                                )
+                                Spacer(modifier = Modifier.width(10.dp))
+                                Text(
+                                    text = if (hasSavedBiometricToken) "Unlock with Biometrics" else "Sign In with Biometrics",
+                                    fontSize = 14.sp,
+                                    fontWeight = FontWeight.SemiBold,
+                                    color = primaryColor
+                                )
+                            }
+                        }
+                    }
+
+                    // Divider
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(vertical = 18.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        HorizontalDivider(
+                            modifier = Modifier.weight(1f),
+                            color = Color(0xFF27272A)
+                        )
+                        Text(
+                            text = "or continue with email",
+                            color = textSecondary,
+                            fontSize = 12.sp,
+                            modifier = Modifier.padding(horizontal = 12.dp)
+                        )
+                        HorizontalDivider(
+                            modifier = Modifier.weight(1f),
+                            color = Color(0xFF27272A)
+                        )
                     }
 
                     // Email Field
@@ -137,13 +345,15 @@ fun LoginScreen(
                             focusedTextColor = textPrimary,
                             unfocusedTextColor = textPrimary,
                             focusedBorderColor = primaryColor,
-                            unfocusedBorderColor = Color(0xFF334155)
+                            unfocusedBorderColor = Color(0xFF27272A),
+                            focusedContainerColor = Color(0xFF0F0F12),
+                            unfocusedContainerColor = Color(0xFF0F0F12)
                         ),
                         shape = RoundedCornerShape(12.dp),
                         modifier = Modifier.fillMaxWidth()
                     )
 
-                    Spacer(modifier = Modifier.height(16.dp))
+                    Spacer(modifier = Modifier.height(14.dp))
 
                     // Password Field
                     OutlinedTextField(
@@ -178,7 +388,9 @@ fun LoginScreen(
                             focusedTextColor = textPrimary,
                             unfocusedTextColor = textPrimary,
                             focusedBorderColor = primaryColor,
-                            unfocusedBorderColor = Color(0xFF334155)
+                            unfocusedBorderColor = Color(0xFF27272A),
+                            focusedContainerColor = Color(0xFF0F0F12),
+                            unfocusedContainerColor = Color(0xFF0F0F12)
                         ),
                         shape = RoundedCornerShape(12.dp),
                         modifier = Modifier.fillMaxWidth()
@@ -201,7 +413,7 @@ fun LoginScreen(
                         }
                     }
 
-                    Spacer(modifier = Modifier.height(16.dp))
+                    Spacer(modifier = Modifier.height(14.dp))
 
                     // Submit Button
                     Button(
@@ -224,8 +436,8 @@ fun LoginScreen(
                             )
                         } else {
                             Text(
-                                text = "Sign In",
-                                fontSize = 16.sp,
+                                text = "Sign In with Email",
+                                fontSize = 15.sp,
                                 fontWeight = FontWeight.Bold,
                                 color = Color.White
                             )
@@ -254,20 +466,6 @@ fun LoginScreen(
                     )
                 }
             }
-
-            // Companion Shortcut Token Setup link
-            TextButton(
-                onClick = onOpenCompanionSettings,
-                modifier = Modifier.padding(top = 8.dp)
-            ) {
-                Text(
-                    text = "Configure Widget Shortcut Token",
-                    color = textSecondary.copy(alpha = 0.8f),
-                    fontSize = 12.sp
-                )
-            }
-
-            Spacer(modifier = Modifier.height(32.dp))
         }
     }
 }

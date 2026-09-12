@@ -75,6 +75,7 @@ fun AppNavigation(
         ) {
             LoginScreen(
                 viewModel = authViewModel,
+                sessionManager = app.sessionManager,
                 onNavigateToSignup = { rootNavController.navigate(Screen.Signup.route) },
                 onNavigateToForgotPassword = { rootNavController.navigate(Screen.ForgotPassword.route) },
                 onLoginSuccess = {
@@ -285,6 +286,7 @@ fun MainDashboardShell(
             ) {
                 MoreScreen(
                     viewModel = moreViewModel,
+                    sessionManager = app.sessionManager,
                     onLogout = onSignOut
                 )
             }

@@ -74,6 +74,18 @@ class SessionManager(context: Context) {
 
     fun getPrivacyMode(): Boolean = prefs.getBoolean(KEY_PRIVACY_MODE, false)
 
+    fun setBiometricEnabled(enabled: Boolean) {
+        prefs.edit().putBoolean(KEY_BIOMETRIC_ENABLED, enabled).apply()
+    }
+
+    fun isBiometricEnabled(): Boolean = prefs.getBoolean(KEY_BIOMETRIC_ENABLED, true)
+
+    fun saveBiometricSessionToken(token: String) {
+        prefs.edit().putString(KEY_BIOMETRIC_TOKEN, token.trim()).apply()
+    }
+
+    fun getBiometricSessionToken(): String? = prefs.getString(KEY_BIOMETRIC_TOKEN, null)?.takeIf { it.isNotBlank() }
+
     fun clearSession() {
         prefs.edit()
             .remove(KEY_SESSION_TOKEN)
@@ -94,5 +106,7 @@ class SessionManager(context: Context) {
         private const val KEY_WORKSPACE_ID = "key_workspace_id"
         private const val KEY_BASE_CURRENCY = "key_base_currency"
         private const val KEY_PRIVACY_MODE = "key_privacy_mode"
+        private const val KEY_BIOMETRIC_ENABLED = "key_biometric_enabled"
+        private const val KEY_BIOMETRIC_TOKEN = "key_biometric_token"
     }
 }

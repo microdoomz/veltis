@@ -5,6 +5,8 @@ import com.veltis.android.data.model.ForgetPasswordRequestDto
 import com.veltis.android.data.model.SessionResponseDto
 import com.veltis.android.data.model.SignInEmailRequestDto
 import com.veltis.android.data.model.SignUpEmailRequestDto
+import com.veltis.android.data.model.SocialSignInRequestDto
+import com.veltis.android.data.model.SocialSignInResponseDto
 import retrofit2.Response
 import retrofit2.http.Body
 import retrofit2.http.GET
@@ -16,6 +18,11 @@ interface AuthApiService {
     suspend fun signIn(
         @Body request: SignInEmailRequestDto
     ): Response<AuthResponseDto>
+
+    @POST("api/auth/sign-in/social")
+    suspend fun signInSocial(
+        @Body request: SocialSignInRequestDto
+    ): Response<SocialSignInResponseDto>
 
     @POST("api/auth/sign-up/email")
     suspend fun signUp(

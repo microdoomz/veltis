@@ -19,6 +19,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusDirection
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
@@ -37,10 +38,11 @@ fun SignupScreen(
 ) {
     val state by viewModel.uiState.collectAsState()
     val focusManager = LocalFocusManager.current
+    val context = LocalContext.current
 
-    val bgColor = Color(0xFF0B0F19)
-    val cardColor = Color(0xFF151B28)
-    val primaryColor = Color(0xFF2563EB)
+    val bgColor = Color(0xFF09090B)
+    val cardColor = Color(0xFF141418)
+    val primaryColor = Color(0xFF10B981) // Veltis Emerald
     val textPrimary = Color(0xFFF8FAFC)
     val textSecondary = Color(0xFF94A3B8)
     val errorColor = Color(0xFFEF4444)
@@ -60,31 +62,58 @@ fun SignupScreen(
         ) {
             Spacer(modifier = Modifier.height(24.dp))
 
+            // Brand Header
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.Center,
+                modifier = Modifier.padding(bottom = 6.dp)
+            ) {
+                Surface(
+                    shape = RoundedCornerShape(8.dp),
+                    color = primaryColor,
+                    modifier = Modifier.size(36.dp)
+                ) {
+                    Box(contentAlignment = Alignment.Center) {
+                        Text(
+                            text = "V",
+                            color = Color.White,
+                            fontWeight = FontWeight.Black,
+                            fontSize = 20.sp
+                        )
+                    }
+                }
+                Spacer(modifier = Modifier.width(10.dp))
+                Text(
+                    text = "VELTIS",
+                    fontSize = 28.sp,
+                    fontWeight = FontWeight.ExtraBold,
+                    color = Color.White,
+                    letterSpacing = 2.sp
+                )
+            }
+
             Text(
-                text = "VELTIS",
-                fontSize = 32.sp,
-                fontWeight = FontWeight.ExtraBold,
-                color = primaryColor,
-                letterSpacing = 2.sp
-            )
-            Text(
-                text = "Create your secure financial account",
-                fontSize = 14.sp,
+                text = "Authoritative Double-Entry Ledger",
+                fontSize = 13.sp,
                 color = textSecondary,
-                modifier = Modifier.padding(top = 4.dp, bottom = 24.dp)
+                modifier = Modifier.padding(bottom = 28.dp)
             )
 
+            // Auth Card
             Card(
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(20.dp),
-                colors = CardDefaults.cardColors(containerColor = cardColor)
+                colors = CardDefaults.cardColors(containerColor = cardColor),
+                border = CardDefaults.outlinedCardBorder().copy(
+                    brush = androidx.compose.ui.graphics.SolidColor(Color(0xFF27272A))
+                )
             ) {
                 Column(
                     modifier = Modifier.padding(24.dp),
                     horizontalAlignment = Alignment.Start
                 ) {
                     Text(
-                        text = "Sign Up",
+                        text = "Create Account",
                         fontSize = 22.sp,
                         fontWeight = FontWeight.Bold,
                         color = textPrimary
@@ -100,6 +129,7 @@ fun SignupScreen(
                         Surface(
                             shape = RoundedCornerShape(10.dp),
                             color = errorColor.copy(alpha = 0.15f),
+                            border = androidx.compose.foundation.BorderStroke(1.dp, errorColor.copy(alpha = 0.3f)),
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .padding(bottom = 16.dp)
@@ -111,6 +141,60 @@ fun SignupScreen(
                                 modifier = Modifier.padding(12.dp)
                             )
                         }
+                    }
+
+                    // Google Sign-In / Sign-Up Button
+                    OutlinedButton(
+                        onClick = {
+                            viewModel.initiateGoogleSignIn(context)
+                        },
+                        enabled = !state.isLoading,
+                        shape = RoundedCornerShape(12.dp),
+                        colors = ButtonDefaults.outlinedButtonColors(
+                            containerColor = Color(0xFF1E293B).copy(alpha = 0.6f),
+                            contentColor = textPrimary
+                        ),
+                        border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF334155)),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(48.dp)
+                    ) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.Center
+                        ) {
+                            GoogleBrandIcon()
+                            Spacer(modifier = Modifier.width(10.dp))
+                            Text(
+                                text = "Sign Up with Google",
+                                fontSize = 14.sp,
+                                fontWeight = FontWeight.SemiBold,
+                                color = textPrimary
+                            )
+                        }
+                    }
+
+                    // Divider
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(vertical = 18.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        HorizontalDivider(
+                            modifier = Modifier.weight(1f),
+                            color = Color(0xFF27272A)
+                        )
+                        Text(
+                            text = "or register with email",
+                            color = textSecondary,
+                            fontSize = 12.sp,
+                            modifier = Modifier.padding(horizontal = 12.dp)
+                        )
+                        HorizontalDivider(
+                            modifier = Modifier.weight(1f),
+                            color = Color(0xFF27272A)
+                        )
                     }
 
                     // Full Name
@@ -133,7 +217,9 @@ fun SignupScreen(
                             focusedTextColor = textPrimary,
                             unfocusedTextColor = textPrimary,
                             focusedBorderColor = primaryColor,
-                            unfocusedBorderColor = Color(0xFF334155)
+                            unfocusedBorderColor = Color(0xFF27272A),
+                            focusedContainerColor = Color(0xFF0F0F12),
+                            unfocusedContainerColor = Color(0xFF0F0F12)
                         ),
                         shape = RoundedCornerShape(12.dp),
                         modifier = Modifier.fillMaxWidth()
@@ -161,7 +247,9 @@ fun SignupScreen(
                             focusedTextColor = textPrimary,
                             unfocusedTextColor = textPrimary,
                             focusedBorderColor = primaryColor,
-                            unfocusedBorderColor = Color(0xFF334155)
+                            unfocusedBorderColor = Color(0xFF27272A),
+                            focusedContainerColor = Color(0xFF0F0F12),
+                            unfocusedContainerColor = Color(0xFF0F0F12)
                         ),
                         shape = RoundedCornerShape(12.dp),
                         modifier = Modifier.fillMaxWidth()
@@ -181,7 +269,7 @@ fun SignupScreen(
                             IconButton(onClick = { viewModel.togglePasswordVisibility() }) {
                                 Icon(
                                     if (state.isPasswordVisible) Icons.Default.Visibility else Icons.Default.VisibilityOff,
-                                    contentDescription = null,
+                                    contentDescription = "Toggle password visibility",
                                     tint = textSecondary
                                 )
                             }
@@ -199,7 +287,9 @@ fun SignupScreen(
                             focusedTextColor = textPrimary,
                             unfocusedTextColor = textPrimary,
                             focusedBorderColor = primaryColor,
-                            unfocusedBorderColor = Color(0xFF334155)
+                            unfocusedBorderColor = Color(0xFF27272A),
+                            focusedContainerColor = Color(0xFF0F0F12),
+                            unfocusedContainerColor = Color(0xFF0F0F12)
                         ),
                         shape = RoundedCornerShape(12.dp),
                         modifier = Modifier.fillMaxWidth()
@@ -231,7 +321,9 @@ fun SignupScreen(
                             focusedTextColor = textPrimary,
                             unfocusedTextColor = textPrimary,
                             focusedBorderColor = primaryColor,
-                            unfocusedBorderColor = Color(0xFF334155)
+                            unfocusedBorderColor = Color(0xFF27272A),
+                            focusedContainerColor = Color(0xFF0F0F12),
+                            unfocusedContainerColor = Color(0xFF0F0F12)
                         ),
                         shape = RoundedCornerShape(12.dp),
                         modifier = Modifier.fillMaxWidth()
@@ -239,6 +331,7 @@ fun SignupScreen(
 
                     Spacer(modifier = Modifier.height(20.dp))
 
+                    // Submit Button
                     Button(
                         onClick = {
                             focusManager.clearFocus()
@@ -260,7 +353,7 @@ fun SignupScreen(
                         } else {
                             Text(
                                 text = "Create Account",
-                                fontSize = 16.sp,
+                                fontSize = 15.sp,
                                 fontWeight = FontWeight.Bold,
                                 color = Color.White
                             )
@@ -269,8 +362,9 @@ fun SignupScreen(
                 }
             }
 
+            // Login link
             Row(
-                modifier = Modifier.padding(top = 20.dp),
+                modifier = Modifier.padding(top = 24.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Text(
@@ -288,8 +382,6 @@ fun SignupScreen(
                     )
                 }
             }
-
-            Spacer(modifier = Modifier.height(24.dp))
         }
     }
 }

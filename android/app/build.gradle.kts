@@ -85,6 +85,12 @@ dependencies {
     // Encrypted Storage (Android Keystore / Jetpack Security)
     implementation("androidx.security:security-crypto:1.1.0-alpha06")
 
+    // Biometrics Authentication (Fingerprint, Face Unlock)
+    implementation("androidx.biometric:biometric:1.2.0-alpha05")
+
+    // Browser Custom Tabs (Google OAuth / Social Sign-In)
+    implementation("androidx.browser:browser:1.8.0")
+
     // Unit Testing
     testImplementation("junit:junit:4.13.2")
     testImplementation("org.jetbrains.kotlinx:kotlinx-coroutines-test:1.9.0")

@@ -23,6 +23,9 @@ class NetworkClient(
         explicitNulls = false
     }
 
+    val baseUrl: String
+        get() = tokenManager.getBaseUrl()
+
     private val authInterceptor = AuthInterceptor(tokenManager, sessionManager)
 
     private val loggingInterceptor = HttpLoggingInterceptor().apply {

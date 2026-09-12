@@ -199,4 +199,102 @@ class AuthViewModel(
             onLoggedOut()
         }
     }
+
+    fun signInWithBiometrics(
+        sessionManager: com.veltis.android.data.storage.SessionManager,
+        onSuccess: () -> Unit
+    ) {
+        val token = sessionManager.getBiometricSessionToken() ?: sessionManager.getSessionToken()
+        if (token.isNullOrBlank()) {
+            _uiState.update {
+                it.copy(errorMessage = "No previous biometric session found. Please sign in with email/password or Google once to link biometrics.")
+            }
+            return
+        }
+
+        viewModelScope.launch {
+            _uiState.update { it.copy(isLoading = true, errorMessage = null) }
+            when (val result = authRepository.handleOAuthCallback(token)) {
+                is VeltisResult.Success -> {
+                    _uiState.update {
+                        it.copy(
+                            isLoading = false,
+                            currentUser = result.data,
+                            isAuthenticated = true,
+                            errorMessage = null
+                        )
+                    }
+                    onSuccess()
+                }
+                is VeltisResult.Failure -> {
+                    _uiState.update {
+                        it.copy(
+                            isLoading = false,
+                            errorMessage = "Biometric session expired. Please sign in with password."
+                        )
+                    }
+                }
+            }
+        }
+    }
+
+    fun initiateGoogleSignIn(context: android.content.Context) {
+        viewModelScope.launch {
+            _uiState.update { it.copy(isLoading = true, errorMessage = null) }
+            when (val result = authRepository.getGoogleSignInUrl()) {
+                is VeltisResult.Success -> {
+                    _uiState.update { it.copy(isLoading = false) }
+                    try {
+                        val customTabsIntent = androidx.browser.customtabs.CustomTabsIntent.Builder()
+                            .setShowTitle(true)
+                            .build()
+                        customTabsIntent.launchUrl(context, android.net.Uri.parse(result.data))
+                    } catch (_: Exception) {
+                        val browserIntent = android.content.Intent(
+                            android.content.Intent.ACTION_VIEW,
+                            android.net.Uri.parse(result.data)
+                        ).apply {
+                            flags = android.content.Intent.FLAG_ACTIVITY_NEW_TASK
+                        }
+                        context.startActivity(browserIntent)
+                    }
+                }
+                is VeltisResult.Failure -> {
+                    _uiState.update {
+                        it.copy(
+                            isLoading = false,
+                            errorMessage = "Unable to start Google Sign-In. Please check your network."
+                        )
+                    }
+                }
+            }
+        }
+    }
+
+    fun handleDeepLinkToken(token: String, onSuccess: () -> Unit) {
+        viewModelScope.launch {
+            _uiState.update { it.copy(isLoading = true, errorMessage = null) }
+            when (val result = authRepository.handleOAuthCallback(token)) {
+                is VeltisResult.Success -> {
+                    _uiState.update {
+                        it.copy(
+                            isLoading = false,
+                            currentUser = result.data,
+                            isAuthenticated = true,
+                            errorMessage = null
+                        )
+                    }
+                    onSuccess()
+                }
+                is VeltisResult.Failure -> {
+                    _uiState.update {
+                        it.copy(
+                            isLoading = false,
+                            errorMessage = result.error.userFriendlyMessage()
+                        )
+                    }
+                }
+            }
+        }
+    }
 }

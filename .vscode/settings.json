@@ -1,0 +1,12 @@
+{
+  "java.import.exclusions": [
+    "**/node_modules/**",
+    "**/.metadata/**",
+    "**/android/**"
+  ],
+  "java.project.resourceFilters": [
+    "node_modules",
+    ".git",
+    "android"
+  ]
+}

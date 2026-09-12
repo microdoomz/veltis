@@ -91,6 +91,10 @@ dependencies {
     // Browser Custom Tabs (Google OAuth / Social Sign-In)
     implementation("androidx.browser:browser:1.8.0")
 
+    // Android WebKit & SwipeRefresh
+    implementation("androidx.webkit:webkit:1.12.1")
+    implementation("androidx.swiperefreshlayout:swiperefreshlayout:1.1.0")
+
     // Unit Testing
     testImplementation("junit:junit:4.13.2")
     testImplementation("org.jetbrains.kotlinx:kotlinx-coroutines-test:1.9.0")

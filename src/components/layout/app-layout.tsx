@@ -105,8 +105,9 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
       startY = touch.clientY;
 
       if (!mobileMenuOpen) {
-        // Touch starts within edge zone (<= 45px from left edge of screen)
-        const edgeThreshold = Math.max(45, window.innerWidth * 0.1);
+        // Touch starts in left edge zone (up to 60px or 18% of screen width)
+        // Starting 10-60px from the edge avoids the OS bezel-back gesture while capturing natural thumb swipes
+        const edgeThreshold = Math.max(60, window.innerWidth * 0.18);
         if (startX <= edgeThreshold) {
           isTrackingEdgeOpen = true;
         } else {
@@ -127,8 +128,15 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
 
       // Swiping right from left edge to open sidebar
       if (isTrackingEdgeOpen && !mobileMenuOpen) {
-        // Predominantly horizontal swipe rightwards exceeding 40px
-        if (deltaX > 40 && Math.abs(deltaX) > Math.abs(deltaY) * 1.2) {
+        // As soon as rightward horizontal movement is detected:
+        if (deltaX > 6 && Math.abs(deltaX) > Math.abs(deltaY)) {
+          // Prevent the browser from triggering native history back-navigation
+          if (e.cancelable) {
+            e.preventDefault();
+          }
+        }
+
+        if (deltaX > 30 && Math.abs(deltaX) > Math.abs(deltaY) * 1.1) {
           setMobileMenuOpen(true);
           isTrackingEdgeOpen = false;
         }
@@ -136,8 +144,13 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
 
       // Swiping left to close sidebar
       if (isTrackingSwipeClose && mobileMenuOpen) {
-        // Predominantly horizontal swipe leftwards exceeding 40px
-        if (deltaX < -40 && Math.abs(deltaX) > Math.abs(deltaY) * 1.2) {
+        if (deltaX < -6 && Math.abs(deltaX) > Math.abs(deltaY)) {
+          if (e.cancelable) {
+            e.preventDefault();
+          }
+        }
+
+        if (deltaX < -30 && Math.abs(deltaX) > Math.abs(deltaY) * 1.1) {
           setMobileMenuOpen(false);
           isTrackingSwipeClose = false;
         }
@@ -151,13 +164,13 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
         const deltaY = touch.clientY - startY;
 
         if (isTrackingEdgeOpen && !mobileMenuOpen) {
-          if (deltaX > 35 && Math.abs(deltaX) > Math.abs(deltaY) * 1.2) {
+          if (deltaX > 25 && Math.abs(deltaX) > Math.abs(deltaY) * 1.1) {
             setMobileMenuOpen(true);
           }
         }
 
         if (isTrackingSwipeClose && mobileMenuOpen) {
-          if (deltaX < -35 && Math.abs(deltaX) > Math.abs(deltaY) * 1.2) {
+          if (deltaX < -25 && Math.abs(deltaX) > Math.abs(deltaY) * 1.1) {
             setMobileMenuOpen(false);
           }
         }
@@ -168,7 +181,8 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
     };
 
     window.addEventListener('touchstart', handleTouchStart, { passive: true });
-    window.addEventListener('touchmove', handleTouchMove, { passive: true });
+    // MUST be passive: false so e.preventDefault() can intercept and stop the browser's back navigation
+    window.addEventListener('touchmove', handleTouchMove, { passive: false });
     window.addEventListener('touchend', handleTouchEnd, { passive: true });
     window.addEventListener('touchcancel', handleTouchEnd, { passive: true });
 
@@ -196,7 +210,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
   };
 
   return (
-    <div className="flex h-screen w-full bg-background overflow-hidden">
+    <div className="flex h-screen w-full bg-background overflow-hidden overscroll-none">
       {/* Desktop Sidebar */}
       <aside className={`hidden md:flex flex-col border-r border-border bg-card transition-all duration-300 ease-in-out ${isCollapsed ? 'w-20' : 'w-64'}`}>
         <div className="p-4 h-16 flex items-center justify-between">

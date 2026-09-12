@@ -146,6 +146,11 @@ body {
 
 /* Mobile PWA & touch optimization */
 html,
+body {
+  overscroll-behavior-x: none;
+}
+
+html,
 body,
 button,
 a,

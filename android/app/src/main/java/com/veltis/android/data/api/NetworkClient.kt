@@ -1,5 +1,6 @@
 package com.veltis.android.data.api
 
+import com.veltis.android.data.storage.SessionManager
 import com.veltis.android.data.storage.TokenManager
 import kotlinx.serialization.json.Json
 import okhttp3.MediaType.Companion.toMediaType
@@ -9,7 +10,10 @@ import retrofit2.Retrofit
 import retrofit2.converter.kotlinx.serialization.asConverterFactory
 import java.util.concurrent.TimeUnit
 
-class NetworkClient(private val tokenManager: TokenManager) {
+class NetworkClient(
+    private val tokenManager: TokenManager,
+    private val sessionManager: SessionManager? = null
+) {
 
     val json: Json = Json {
         ignoreUnknownKeys = true
@@ -19,12 +23,14 @@ class NetworkClient(private val tokenManager: TokenManager) {
         explicitNulls = false
     }
 
-    private val authInterceptor = AuthInterceptor(tokenManager)
+    private val authInterceptor = AuthInterceptor(tokenManager, sessionManager)
 
     private val loggingInterceptor = HttpLoggingInterceptor().apply {
         level = HttpLoggingInterceptor.Level.BASIC
-        // Critical: never log the Authorization header token
+        // Critical: never log sensitive headers
         redactHeader("Authorization")
+        redactHeader("Cookie")
+        redactHeader("Set-Cookie")
     }
 
     private val okHttpClient: OkHttpClient = OkHttpClient.Builder()
@@ -35,7 +41,7 @@ class NetworkClient(private val tokenManager: TokenManager) {
         .writeTimeout(15, TimeUnit.SECONDS)
         .build()
 
-    fun createApiService(): VeltisApiService {
+    fun <T> createService(serviceClass: Class<T>): T {
         val baseUrl = tokenManager.getBaseUrl()
         val contentType = "application/json".toMediaType()
 
@@ -44,6 +50,10 @@ class NetworkClient(private val tokenManager: TokenManager) {
             .client(okHttpClient)
             .addConverterFactory(json.asConverterFactory(contentType))
             .build()
-            .create(VeltisApiService::class.java)
+            .create(serviceClass)
+    }
+
+    fun createApiService(): VeltisApiService {
+        return createService(VeltisApiService::class.java)
     }
 }

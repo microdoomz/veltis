@@ -14,7 +14,9 @@ import {
   CheckCircle2, 
   KeyRound,
   Layers,
-  Sparkles
+  Sparkles,
+  Download,
+  Smartphone
 } from 'lucide-react';
 
 export const metadata = {
@@ -47,6 +49,12 @@ export default async function RootPage() {
           </nav>
 
           <div className="flex items-center gap-3">
+            <a href="/downloads/veltis.apk" download="veltis.apk" className="hidden sm:inline-flex">
+              <Button variant="outline" size="sm" className="gap-2 border-emerald-500/30 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500/10">
+                <Smartphone className="h-4 w-4" />
+                <span>Android App</span>
+              </Button>
+            </a>
             <Link href="/login">
               <Button variant="ghost" size="sm">Sign In</Button>
             </Link>
@@ -83,8 +91,14 @@ export default async function RootPage() {
                 <ArrowRight className="ml-2 h-4 w-4 transition-transform group-hover:translate-x-1" />
               </Button>
             </Link>
+            <a href="/downloads/veltis.apk" download="veltis.apk">
+              <Button variant="outline" size="lg" className="h-12 px-6 text-base gap-2 border-emerald-500/30 hover:border-emerald-500/60 bg-card/60 backdrop-blur-sm text-foreground">
+                <Download className="h-5 w-5 text-emerald-500" />
+                <span>Download Android APK</span>
+              </Button>
+            </a>
             <a href="#features">
-              <Button variant="outline" size="lg" className="h-12 px-6 text-base">
+              <Button variant="ghost" size="lg" className="h-12 px-6 text-base">
                 Explore Features
               </Button>
             </a>
@@ -147,6 +161,22 @@ export default async function RootPage() {
               <h3 className="font-semibold text-lg">Apple Shortcuts API</h3>
               <p className="text-sm text-muted-foreground leading-relaxed">
                 Capture purchases via Siri or the iPhone Action Button in 2 seconds flat. Protected by revocable SHA-256 hashed bearer tokens.
+              </p>
+            </Card>
+
+            <Card className="p-6 space-y-3 hover:border-emerald-500/50 transition-all hover:shadow-md border-emerald-500/20 bg-emerald-500/[0.02]">
+              <div className="p-3 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 w-fit rounded-lg flex items-center justify-between">
+                <Smartphone className="h-6 w-6" />
+              </div>
+              <h3 className="font-semibold text-lg flex items-center justify-between">
+                <span>Native Android App</span>
+                <a href="/downloads/veltis.apk" download="veltis.apk" className="text-xs font-semibold text-emerald-500 hover:underline flex items-center gap-1">
+                  <Download className="h-3.5 w-3.5" />
+                  APK
+                </a>
+              </h3>
+              <p className="text-sm text-muted-foreground leading-relaxed">
+                Smooth 60fps Jetpack Compose UI with dark mode, home-screen widget with instant 1-tap capture, and offline SQLite synchronization. Direct APK download with zero store friction.
               </p>
             </Card>
 

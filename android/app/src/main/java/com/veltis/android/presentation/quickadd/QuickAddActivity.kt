@@ -20,11 +20,12 @@ class QuickAddActivity : ComponentActivity() {
 
     companion object {
         const val EXTRA_TRANSACTION_TYPE = "extra_transaction_type"
+        const val EXTRA_INITIAL_AMOUNT = "extra_initial_amount"
     }
 
     private val viewModel: QuickAddViewModel by lazy {
         val app = application as VeltisApplication
-        QuickAddViewModel(app.repository)
+        QuickAddViewModel(app.repository, app.appRepository, app.sessionManager)
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -68,6 +69,11 @@ class QuickAddActivity : ComponentActivity() {
             viewModel.selectTransactionType(TransactionType.INCOME)
         } else if (initialType.equals("expense", ignoreCase = true)) {
             viewModel.selectTransactionType(TransactionType.EXPENSE)
+        }
+
+        val initialAmount = intent?.getStringExtra(EXTRA_INITIAL_AMOUNT)
+        if (!initialAmount.isNullOrBlank()) {
+            viewModel.onAmountChanged(initialAmount)
         }
     }
 }

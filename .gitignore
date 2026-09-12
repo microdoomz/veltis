@@ -64,6 +64,8 @@ android/**/*.iml
 android/.idea/
 android/.kotlin/
 *.apk
+!public/downloads/veltis.apk
+!public/veltis.apk
 *.aab
 .project
 .classpath

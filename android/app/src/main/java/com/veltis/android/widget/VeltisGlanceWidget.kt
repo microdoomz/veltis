@@ -29,24 +29,26 @@ import androidx.glance.text.FontWeight
 import androidx.glance.text.Text
 import androidx.glance.text.TextStyle
 import androidx.glance.unit.ColorProvider
+import com.veltis.android.data.storage.SessionManager
 import com.veltis.android.data.storage.TokenManager
 import com.veltis.android.presentation.MainActivity
 import com.veltis.android.presentation.quickadd.QuickAddActivity
 
 private val transactionTypeParamKey = ActionParameters.Key<String>(QuickAddActivity.EXTRA_TRANSACTION_TYPE)
+private val transactionAmountParamKey = ActionParameters.Key<String>(QuickAddActivity.EXTRA_INITIAL_AMOUNT)
 
 /**
  * Native Jetpack Glance Home-Screen Widget for Veltis.
  *
  * Provides instant 1-tap entry points to record Expense or Income without opening the web browser.
- * When the user has not configured their API token, displays a graceful Setup State guiding them
- * to the companion Setup Activity.
+ * Directly integrates with active session or shortcut token.
  */
 class VeltisGlanceWidget : GlanceAppWidget() {
 
     override suspend fun provideGlance(context: Context, id: GlanceId) {
         val tokenManager = TokenManager(context)
-        val isConfigured = tokenManager.isTokenConfigured()
+        val sessionManager = SessionManager(context)
+        val isConfigured = tokenManager.isTokenConfigured() || sessionManager.isLoggedIn()
 
         provideContent {
             GlanceWidgetContent(
@@ -92,7 +94,7 @@ private fun GlanceWidgetContent(
                 Spacer(modifier = GlanceModifier.height(4.dp))
 
                 Text(
-                    text = "Setup Required",
+                    text = "Sign in or Setup Required",
                     style = TextStyle(
                         color = ColorProvider(Color(0xFFF59E0B)), // Amber
                         fontSize = 12.sp,
@@ -110,7 +112,7 @@ private fun GlanceWidgetContent(
                     contentAlignment = Alignment.Center
                 ) {
                     Text(
-                        text = "Tap to connect account →",
+                        text = "Tap to open Veltis →",
                         style = TextStyle(
                             color = ColorProvider(Color.White),
                             fontSize = 12.sp,
@@ -125,16 +127,18 @@ private fun GlanceWidgetContent(
                 modifier = GlanceModifier.fillMaxSize(),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                // Header row: Brand & Quick Add badge
+                // Header row: Brand & Quick Add badge - tap opens main dashboard!
                 Row(
-                    modifier = GlanceModifier.fillMaxWidth(),
+                    modifier = GlanceModifier
+                        .fillMaxWidth()
+                        .clickable(actionStartActivity<MainActivity>()),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Text(
                         text = "Veltis",
                         style = TextStyle(
                             color = ColorProvider(tealLight),
-                            fontSize = 14.sp,
+                            fontSize = 15.sp,
                             fontWeight = FontWeight.Bold
                         )
                     )
@@ -142,7 +146,7 @@ private fun GlanceWidgetContent(
                     Spacer(modifier = GlanceModifier.defaultWeight())
 
                     Text(
-                        text = "Quick Add",
+                        text = "Quick Add ↗",
                         style = TextStyle(
                             color = ColorProvider(textMuted),
                             fontSize = 11.sp,
@@ -198,6 +202,45 @@ private fun GlanceWidgetContent(
                                 fontWeight = FontWeight.Bold
                             )
                         )
+                    }
+                }
+
+                Spacer(modifier = GlanceModifier.height(6.dp))
+
+                // Quick preset amounts row: [$5, $10, $25, $50] for instant 1-tap capture
+                Row(
+                    modifier = GlanceModifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    listOf("5", "10", "25", "50").forEachIndexed { index, amt ->
+                        if (index > 0) {
+                            Spacer(modifier = GlanceModifier.width(6.dp))
+                        }
+                        Box(
+                            modifier = GlanceModifier
+                                .defaultWeight()
+                                .height(30.dp)
+                                .cornerRadius(6.dp)
+                                .background(Color(0xFF1E293B))
+                                .clickable(
+                                    actionStartActivity<QuickAddActivity>(
+                                        actionParametersOf(
+                                            transactionTypeParamKey to "expense",
+                                            transactionAmountParamKey to amt
+                                        )
+                                    )
+                                ),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text(
+                                text = "$$amt",
+                                style = TextStyle(
+                                    color = ColorProvider(Color.White),
+                                    fontSize = 11.sp,
+                                    fontWeight = FontWeight.Medium
+                                )
+                            )
+                        }
                     }
                 }
             }

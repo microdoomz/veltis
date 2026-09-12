@@ -1,6 +1,6 @@
 "use client"
 
-import React, { useState } from "react"
+import React, { useState, useEffect } from "react"
 import { Amount } from "@/components/ui/amount"
 import { TrendingUp, TrendingDown } from "lucide-react"
 
@@ -11,13 +11,53 @@ interface InvestmentGainLossBadgeProps {
   className?: string;
 }
 
+// Global synchronization across all investment cards on the page
+const TOGGLE_EVENT = "veltis:toggle-investment-gain-loss";
+let globalShowAmount = false;
+const listeners = new Set<(val: boolean) => void>();
+
+export function setGlobalShowAmount(val: boolean) {
+  globalShowAmount = val;
+  listeners.forEach((fn) => fn(globalShowAmount));
+  if (typeof window !== "undefined") {
+    window.dispatchEvent(
+      new CustomEvent(TOGGLE_EVENT, { detail: globalShowAmount })
+    );
+  }
+}
+
+export function toggleGlobalShowAmount() {
+  setGlobalShowAmount(!globalShowAmount);
+}
+
 export function InvestmentGainLossBadge({
   gainLossMinor,
   gainLossPct,
   currency,
   className = "",
 }: InvestmentGainLossBadgeProps) {
-  const [showAmount, setShowAmount] = useState(false);
+  const [showAmount, setShowAmount] = useState(globalShowAmount);
+
+  useEffect(() => {
+    const handleListener = (val: boolean) => {
+      setShowAmount(val);
+    };
+    listeners.add(handleListener);
+
+    const handleCustomEvent = (e: Event) => {
+      const customEvent = e as CustomEvent<boolean>;
+      if (typeof customEvent.detail === "boolean") {
+        setShowAmount(customEvent.detail);
+      }
+    };
+
+    window.addEventListener(TOGGLE_EVENT, handleCustomEvent);
+
+    return () => {
+      listeners.delete(handleListener);
+      window.removeEventListener(TOGGLE_EVENT, handleCustomEvent);
+    };
+  }, []);
 
   const isPositive = gainLossMinor > 0n || gainLossPct > 0.001;
   const isNegative = gainLossMinor < 0n || gainLossPct < -0.001;
@@ -36,9 +76,10 @@ export function InvestmentGainLossBadge({
       onClick={(e) => {
         e.preventDefault();
         e.stopPropagation();
-        setShowAmount((prev) => !prev);
+        // Clicking any one investment changes all investments simultaneously
+        toggleGlobalShowAmount();
       }}
-      title="Click to toggle between percentage and amount of gain/loss"
+      title="Click to toggle all investments between percentage and amount in rupees"
       className={`inline-flex items-center gap-1 text-[11px] font-semibold px-1.5 py-0.5 rounded-md border transition-all cursor-pointer select-none active:scale-95 ${badgeColorClass} ${className}`}
     >
       {isPositive ? (

@@ -124,6 +124,9 @@ class MainViewModel(
                             isSaving = false
                         )
                     }
+                    try {
+                        com.veltis.android.widget.VeltisWidgetContract.updateWidget(com.veltis.android.VeltisApplication.instance)
+                    } catch (_: Exception) {}
                 }
                 is VeltisResult.Failure -> {
                     val errorMessage = result.error.userFriendlyMessage()
@@ -149,6 +152,11 @@ class MainViewModel(
                 statusMessage = "Token cleared",
                 accountsCount = 0
             )
+        }
+        viewModelScope.launch {
+            try {
+                com.veltis.android.widget.VeltisWidgetContract.updateWidget(com.veltis.android.VeltisApplication.instance)
+            } catch (_: Exception) {}
         }
     }
 }

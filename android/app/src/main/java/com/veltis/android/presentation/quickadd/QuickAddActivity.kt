@@ -29,11 +29,7 @@ class QuickAddActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-
-        val initialType = intent.getStringExtra(EXTRA_TRANSACTION_TYPE)
-        if (initialType.equals("income", ignoreCase = true)) {
-            viewModel.selectTransactionType(TransactionType.INCOME)
-        }
+        handleTransactionType(intent)
 
         setContent {
             VeltisTheme {
@@ -57,6 +53,21 @@ class QuickAddActivity : ComponentActivity() {
                     }
                 }
             }
+        }
+    }
+
+    override fun onNewIntent(intent: android.content.Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        handleTransactionType(intent)
+    }
+
+    private fun handleTransactionType(intent: android.content.Intent?) {
+        val initialType = intent?.getStringExtra(EXTRA_TRANSACTION_TYPE)
+        if (initialType.equals("income", ignoreCase = true)) {
+            viewModel.selectTransactionType(TransactionType.INCOME)
+        } else if (initialType.equals("expense", ignoreCase = true)) {
+            viewModel.selectTransactionType(TransactionType.EXPENSE)
         }
     }
 }

@@ -19,4 +19,8 @@
     <string name="production">Production</string>
     <string name="emulator_local">Local Emulator (10.0.2.2)</string>
     <string name="custom_url">Custom URL</string>
+    <string name="widget_name">Veltis Quick Add</string>
+    <string name="widget_description">Quickly record expenses and income into Veltis</string>
+    <string name="widget_setup_required">Setup Required</string>
+    <string name="widget_tap_to_setup">Tap to connect Veltis account</string>
 </resources>

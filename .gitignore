@@ -62,6 +62,7 @@ android/local.properties
 android/*.iml
 android/**/*.iml
 android/.idea/
+android/.kotlin/
 *.apk
 *.aab
 .project

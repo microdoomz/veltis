@@ -15,7 +15,8 @@ class NetworkClient(private val tokenManager: TokenManager) {
         ignoreUnknownKeys = true
         coerceInputValues = true
         isLenient = true
-        encodeDefaults = true
+        encodeDefaults = false
+        explicitNulls = false
     }
 
     private val authInterceptor = AuthInterceptor(tokenManager)

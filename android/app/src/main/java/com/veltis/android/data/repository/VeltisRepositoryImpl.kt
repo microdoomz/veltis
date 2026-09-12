@@ -99,13 +99,17 @@ class VeltisRepositoryImpl(
         }
 
         val idempotencyKey = draft.idempotencyKey ?: generateIdempotencyKey(type)
+        val defaultDescription = if (type == TransactionType.EXPENSE) "Quick Expense" else "Quick Income"
+        val cleanDescription = draft.description.trim().ifBlank { defaultDescription }
+        val cleanCurrency = draft.currency?.trim()?.takeIf { it.length == 3 }?.uppercase()
+        val cleanCategoryId = draft.categoryId?.trim()?.takeIf { it.isNotBlank() }
 
         val requestDto = TransactionRequestDto(
             amount = draft.amount,
-            accountId = draft.accountId,
-            description = draft.description.ifBlank { null },
-            categoryId = draft.categoryId,
-            currency = draft.currency,
+            accountId = draft.accountId.trim(),
+            description = cleanDescription,
+            categoryId = cleanCategoryId,
+            currency = cleanCurrency,
             idempotencyKey = idempotencyKey
         )
 
@@ -144,7 +148,13 @@ class VeltisRepositoryImpl(
 
         val serverMessage = if (!rawErrorBody.isNullOrBlank()) {
             try {
-                networkClient.json.decodeFromString<ApiErrorDto>(rawErrorBody).error
+                val apiError = networkClient.json.decodeFromString<ApiErrorDto>(rawErrorBody)
+                val base = apiError.error ?: apiError.message
+                if (base != null && !apiError.hint.isNullOrBlank()) {
+                    "$base: ${apiError.hint}"
+                } else {
+                    base ?: apiError.hint
+                }
             } catch (_: Exception) {
                 null
             }

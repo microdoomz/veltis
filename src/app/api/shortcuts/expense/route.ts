@@ -33,13 +33,13 @@ const shortcutExpenseSchema = z.object({
   }).refine((val) => !isNaN(val) && val > 0, {
     message: 'Amount must be a positive number greater than 0',
   }),
-  description: z.string().optional().transform((v) => v?.trim() || 'Shortcut Expense'),
-  accountId: z.string().optional(),
-  account: z.string().optional(),
-  categoryId: z.string().uuid().optional(),
-  currency: z.string().length(3).optional(),
-  date: z.string().optional(), // YYYY-MM-DD
-  idempotencyKey: z.string().optional().transform((v) => v?.trim() || `sh_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`),
+  description: z.string().nullish().transform((v) => v?.trim() || 'Shortcut Expense'),
+  accountId: z.string().nullish().transform((v) => v?.trim() || undefined),
+  account: z.string().nullish().transform((v) => v?.trim() || undefined),
+  categoryId: z.union([z.string().uuid(), z.literal(''), z.null()]).optional().transform((v) => (v && v.trim() ? v.trim() : undefined)),
+  currency: z.union([z.string().length(3), z.literal(''), z.null()]).optional().transform((v) => (v && v.trim() ? v.trim().toUpperCase() : undefined)),
+  date: z.string().nullish().transform((v) => v?.trim() || undefined), // YYYY-MM-DD
+  idempotencyKey: z.string().nullish().transform((v) => v?.trim() || `sh_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`),
 });
 
 export async function POST(req: NextRequest) {
@@ -178,7 +178,7 @@ export async function POST(req: NextRequest) {
 
     // 5. Create Transaction (Domain Logic)
     const amountMinor = BigInt(Math.round(data.amount * 100));
-    const transactionDate = data.date ? new Date(data.date) : new Date();
+    const transactionDate = data.date && !isNaN(new Date(data.date).getTime()) ? new Date(data.date) : new Date();
 
     const txn = await createExpense({
       workspaceId: shortcut.workspaceId,

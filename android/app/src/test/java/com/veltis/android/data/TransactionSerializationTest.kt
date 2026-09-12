@@ -4,12 +4,17 @@ import com.veltis.android.data.model.TransactionRequestDto
 import com.veltis.android.data.model.TransactionResponseDto
 import kotlinx.serialization.json.Json
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class TransactionSerializationTest {
 
-    private val json = Json { ignoreUnknownKeys = true; encodeDefaults = true }
+    private val json = Json {
+        ignoreUnknownKeys = true
+        encodeDefaults = false
+        explicitNulls = false
+    }
 
     @Test
     fun testExpenseRequestSerialization() {
@@ -26,6 +31,9 @@ class TransactionSerializationTest {
         assertTrue(serialized.contains("\"accountId\":\"c138f6ee-7c60-4965-bbd4-5390e1f7c5e2\""))
         assertTrue(serialized.contains("\"description\":\"Groceries\""))
         assertTrue(serialized.contains("\"idempotencyKey\":\"and_exp_12345\""))
+        // Null/default fields MUST be omitted completely so strict Zod servers don't fail
+        assertFalse(serialized.contains("\"categoryId\""))
+        assertFalse(serialized.contains("\"date\""))
     }
 
     @Test

@@ -1,11 +1,23 @@
 import { NextResponse } from 'next/server';
 import { requireWorkspaceAccess } from '@/lib/auth/guards';
-import { createAccount, getAccounts } from '@/lib/services/account';
+import { createAccount } from '@/lib/services/account';
+import { getAccountSummary } from '@/lib/ledger/queries';
+import { safeJsonResponse, safeSerialize } from '@/lib/utils/serialization';
 import { db } from '@/lib/db';
 import { workspace, investmentPosition, investmentPriceSnapshot, recurringItem } from '@/lib/db/schema';
 import { createRecurringItem } from '@/lib/services/recurring';
 import { eq } from 'drizzle-orm';
 import { z } from 'zod';
+
+const corsHeaders = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+  'Access-Control-Allow-Headers': 'Content-Type, Authorization, Cookie, x-session-token',
+};
+
+export async function OPTIONS() {
+  return new NextResponse(null, { status: 204, headers: corsHeaders });
+}
 
 const postAccountSchema = z.object({
   workspaceId: z.string().nullish().transform(v => (!v || v.trim() === '' ? undefined : v.trim())),
@@ -44,20 +56,37 @@ export async function GET(req: Request) {
     const requestedWorkspaceId = url.searchParams.get('workspaceId') || undefined;
     const authContext = await requireWorkspaceAccess(requestedWorkspaceId);
 
-    const accounts = await getAccounts(authContext.workspaceId);
+    const accounts = await getAccountSummary(authContext.workspaceId);
 
     const serialized = accounts.map((acc) => ({
-      ...acc,
-      openingBalanceMinor: acc.openingBalanceMinor.toString(),
+      id: acc.id,
+      name: acc.name,
+      accountType: acc.accountType,
+      currency: acc.currency || 'USD',
+      institutionName: acc.institutionName || null,
+      balanceMinor: Number(acc.balanceMinor ?? acc.openingBalanceMinor ?? 0),
+      openingBalanceMinor: Number(acc.openingBalanceMinor ?? 0),
+      color: acc.color || null,
+      iconKey: acc.iconKey || null,
+      displayOrder: acc.displayOrder ?? 0,
+      status: acc.status || 'active',
+      investedAmountMinor: acc.investedAmountMinor ? Number(acc.investedAmountMinor) : undefined,
+      unrealizedGainLossMinor: acc.unrealizedGainLossMinor ? Number(acc.unrealizedGainLossMinor) : undefined,
+      unrealizedGainLossPct: acc.unrealizedGainLossPct,
     }));
 
-    return NextResponse.json(serialized);
+    return safeJsonResponse(serialized, {
+      headers: {
+        ...corsHeaders,
+        'Cache-Control': 'no-store, no-cache, must-revalidate',
+      },
+    });
   } catch (error) {
     if (error instanceof Error && (error.message.includes('Unauthorized') || error.message.includes('Forbidden'))) {
-      return NextResponse.json({ error: error.message }, { status: 401 });
+      return NextResponse.json({ error: error.message }, { status: 401, headers: corsHeaders });
     }
     console.error('Failed to get accounts:', error);
-    return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
+    return NextResponse.json({ error: 'Internal Server Error' }, { status: 500, headers: corsHeaders });
   }
 }
 
@@ -162,15 +191,16 @@ export async function POST(req: Request) {
       }
     }
 
-    return NextResponse.json({
+    return safeJsonResponse({
       ...newAccount,
-      openingBalanceMinor: newAccount.openingBalanceMinor.toString(),
-    }, { status: 201 });
+      balanceMinor: Number(newAccount.openingBalanceMinor),
+      openingBalanceMinor: Number(newAccount.openingBalanceMinor),
+    }, { status: 201, headers: corsHeaders });
   } catch (error) {
     if (error instanceof Error && (error.message.includes('Unauthorized') || error.message.includes('Forbidden'))) {
-      return NextResponse.json({ error: error.message }, { status: 401 });
+      return NextResponse.json({ error: error.message }, { status: 401, headers: corsHeaders });
     }
     console.error('Failed to create account:', error);
-    return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
+    return NextResponse.json({ error: 'Internal Server Error' }, { status: 500, headers: corsHeaders });
   }
 }

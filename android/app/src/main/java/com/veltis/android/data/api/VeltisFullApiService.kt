@@ -130,4 +130,7 @@ interface VeltisFullApiService {
         @Query("startDate") startDate: String,
         @Query("endDate") endDate: String
     ): Response<List<CategorySpendingDto>>
+
+    @GET("api/app/version")
+    suspend fun getAppVersion(): Response<AppVersionDto>
 }

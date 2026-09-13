@@ -66,7 +66,7 @@ export function SignupForm() {
     try {
       await authClient.signIn.social({
         provider: 'google',
-        callbackURL: '/onboarding',
+        callbackURL: '/home',
         additionalParams: {
           prompt: 'select_account',
         },

@@ -32,7 +32,7 @@ export function OnboardingForm() {
   const [step, setStep] = useState(1);
   const [currency, setCurrency] = useState('USD');
   const [accountType, setAccountType] = useState('checking');
-  const [accountName, setAccountName] = useState('Main Checking');
+  const [accountName, setAccountName] = useState('');
   const [openingBalance, setOpeningBalance] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');

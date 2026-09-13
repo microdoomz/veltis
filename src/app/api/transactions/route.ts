@@ -8,6 +8,7 @@ import { db } from '@/lib/db';
 import { financialAccount } from '@/lib/db/schema';
 import { eq } from 'drizzle-orm';
 import { z } from 'zod';
+import { safeJsonResponse } from '@/lib/utils/serialization';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -185,7 +186,7 @@ export async function POST(req: Request) {
       console.warn('Cache revalidation error in create transaction:', e);
     }
 
-    return NextResponse.json(responsePayload, { status: 201, headers: corsHeaders });
+    return safeJsonResponse(responsePayload, { status: 201, headers: corsHeaders });
   } catch (error: unknown) {
     const err = error as Error;
     if (err.message === 'Unauthorized' || err.message.includes('Forbidden')) {
@@ -195,3 +196,4 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: err.message || 'Internal Server Error' }, { status: 500, headers: corsHeaders });
   }
 }
+

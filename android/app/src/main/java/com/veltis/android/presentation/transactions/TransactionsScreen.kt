@@ -86,15 +86,26 @@ fun TransactionsScreen(
                     )
                 },
                 actions = {
-                    IconButton(onClick = {
-                        viewModel.syncQueue()
-                        viewModel.loadTransactions()
-                    }) {
-                        Icon(
-                            imageVector = Icons.Default.Sync,
-                            contentDescription = "Sync",
-                            tint = Color.White
-                        )
+                    IconButton(
+                        onClick = {
+                            viewModel.syncQueue()
+                            viewModel.loadTransactions()
+                        },
+                        enabled = !state.isLoading
+                    ) {
+                        if (state.isLoading) {
+                            CircularProgressIndicator(
+                                modifier = Modifier.size(18.dp),
+                                color = TealPrimary,
+                                strokeWidth = 2.dp
+                            )
+                        } else {
+                            Icon(
+                                imageVector = Icons.Default.Sync,
+                                contentDescription = "Sync",
+                                tint = Color.White
+                            )
+                        }
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = VeltisDarkBg)

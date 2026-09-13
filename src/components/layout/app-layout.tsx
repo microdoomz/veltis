@@ -60,6 +60,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [isLoggingOut, setIsLoggingOut] = useState(false);
+  const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
   const lastLeftSwipeTimeRef = useRef(0);
   const isTrackingEdgeOpenRef = useRef(false);
   const router = useRouter();
@@ -155,9 +156,8 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
       startY = touch.clientY;
 
       if (!mobileMenuOpen) {
-        // Touch starts in left edge zone (up to 60px or 18% of screen width)
-        const edgeThreshold = Math.max(60, window.innerWidth * 0.18);
-        if (startX <= edgeThreshold) {
+        // Touch starts only in extreme left edge zone (up to 24px)
+        if (startX <= 24) {
           isTrackingEdgeOpen = true;
           isTrackingEdgeOpenRef.current = true;
           lastLeftSwipeTimeRef.current = Date.now();
@@ -166,7 +166,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
           isTrackingEdgeOpenRef.current = false;
         }
       } else {
-        // When sidebar is open, swipe left anywhere on screen or drawer to close
+        // When sidebar is open, swipe left to close
         isTrackingSwipeClose = true;
       }
     };
@@ -178,25 +178,17 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
       const deltaX = touch.clientX - startX;
       const deltaY = touch.clientY - startY;
 
-      // Swiping right from left edge to open sidebar
+      // Swiping right from extreme left edge to open sidebar
       if (isTrackingEdgeOpen && !mobileMenuOpen) {
         lastLeftSwipeTimeRef.current = Date.now();
-        const inPwa = isPwa();
-
-        // In PWA, aggressively prevent browser history back navigation immediately
-        if (inPwa) {
-          if (e.cancelable && (deltaX > 0 || Math.abs(deltaX) > Math.abs(deltaY))) {
+        // Only preventDefault on clear, intentional horizontal swipe
+        if (deltaX > 20 && Math.abs(deltaX) > Math.abs(deltaY) * 1.5) {
+          if (e.cancelable) {
             e.preventDefault();
-          }
-        } else {
-          if (deltaX > 6 && Math.abs(deltaX) > Math.abs(deltaY)) {
-            if (e.cancelable) {
-              e.preventDefault();
-            }
           }
         }
 
-        if (deltaX > 25 && Math.abs(deltaX) > Math.abs(deltaY) * 0.8) {
+        if (deltaX > 35 && Math.abs(deltaX) > Math.abs(deltaY) * 1.2) {
           setMobileMenuOpen(true);
           isTrackingEdgeOpen = false;
           isTrackingEdgeOpenRef.current = false;
@@ -205,13 +197,13 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
 
       // Swiping left to close sidebar
       if (isTrackingSwipeClose && mobileMenuOpen) {
-        if (deltaX < -6 && Math.abs(deltaX) > Math.abs(deltaY)) {
+        if (deltaX < -20 && Math.abs(deltaX) > Math.abs(deltaY) * 1.5) {
           if (e.cancelable) {
             e.preventDefault();
           }
         }
 
-        if (deltaX < -30 && Math.abs(deltaX) > Math.abs(deltaY) * 1.1) {
+        if (deltaX < -35 && Math.abs(deltaX) > Math.abs(deltaY) * 1.2) {
           setMobileMenuOpen(false);
           isTrackingSwipeClose = false;
         }
@@ -308,14 +300,15 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
           </Link>
           
           <button 
-            onClick={handleLogout} 
+            onClick={() => setShowLogoutConfirm(true)} 
             disabled={isLoggingOut}
-            className={`flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive justify-center md:justify-start ${isCollapsed ? 'justify-center' : ''}`}
+            className={`flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium text-red-500 hover:text-red-400 hover:bg-red-500/10 transition-colors justify-center md:justify-start ${isCollapsed ? 'justify-center' : ''}`}
+            title="Log out"
           >
             {isLoggingOut ? (
-              <Loader2 className="h-5 w-5 flex-shrink-0 animate-spin text-destructive" />
+              <Loader2 className="h-5 w-5 flex-shrink-0 animate-spin text-red-500" />
             ) : (
-              <LogOut className="h-5 w-5 flex-shrink-0" />
+              <LogOut className="h-5 w-5 flex-shrink-0 text-red-500" />
             )}
             {!isCollapsed && <span>{isLoggingOut ? "Logging out..." : "Log out"}</span>}
           </button>
@@ -359,14 +352,17 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
         </nav>
         <div className="p-4 border-t border-border">
           <button 
-            onClick={handleLogout} 
+            onClick={() => {
+              setMobileMenuOpen(false);
+              setShowLogoutConfirm(true);
+            }} 
             disabled={isLoggingOut}
-            className="flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive"
+            className="flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium text-red-500 hover:text-red-400 hover:bg-red-500/10 transition-colors"
           >
             {isLoggingOut ? (
-              <Loader2 className="h-5 w-5 flex-shrink-0 animate-spin text-destructive" />
+              <Loader2 className="h-5 w-5 flex-shrink-0 animate-spin text-red-500" />
             ) : (
-              <LogOut className="h-5 w-5 flex-shrink-0" />
+              <LogOut className="h-5 w-5 flex-shrink-0 text-red-500" />
             )}
             <span>{isLoggingOut ? "Logging out..." : "Log out"}</span>
           </button>
@@ -411,6 +407,42 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
         <MobileNavLink href="/accounts" icon={WalletCards} label="Accounts" />
         <MobileNavLink href="/analytics" icon={LineChart} label="Analytics" />
       </nav>
+
+      {/* Logout Confirmation Dialog */}
+      {showLogoutConfirm && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-in fade-in duration-200">
+          <div className="w-full max-w-sm rounded-xl border border-border bg-card p-6 shadow-xl space-y-4 animate-in zoom-in-95 duration-200">
+            <div className="space-y-2">
+              <h3 className="text-lg font-semibold text-foreground">Log Out</h3>
+              <p className="text-sm text-muted-foreground">
+                Are you sure you want to log out of your account?
+              </p>
+            </div>
+            <div className="flex items-center justify-end gap-3 pt-2">
+              <button
+                type="button"
+                onClick={() => setShowLogoutConfirm(false)}
+                disabled={isLoggingOut}
+                className="px-4 py-2 rounded-lg text-sm font-medium text-muted-foreground hover:bg-muted transition-colors cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={async () => {
+                  setShowLogoutConfirm(false);
+                  await handleLogout();
+                }}
+                disabled={isLoggingOut}
+                className="px-4 py-2 rounded-lg text-sm font-medium bg-red-600 hover:bg-red-700 text-white shadow-sm transition-colors flex items-center gap-2 cursor-pointer"
+              >
+                {isLoggingOut && <Loader2 className="h-4 w-4 animate-spin" />}
+                Log Out
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

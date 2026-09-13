@@ -20,15 +20,21 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.platform.LocalContext
+import com.veltis.android.VeltisApplication
 import com.veltis.android.data.model.AccountDetailDto
+import com.veltis.android.data.model.AppVersionDto
 import com.veltis.android.data.model.TransactionSummaryDto
 import com.veltis.android.presentation.theme.*
+import com.veltis.android.util.AppUpdateManager
+import kotlinx.coroutines.launch
 import java.text.NumberFormat
 import java.util.Locale
 
 @Composable
 fun HomeScreen(
     viewModel: HomeViewModel,
+    app: VeltisApplication? = null,
     onNavigateToTransactions: () -> Unit,
     onNavigateToAccounts: () -> Unit,
     onQuickAdd: (type: String) -> Unit,
@@ -36,9 +42,21 @@ fun HomeScreen(
 ) {
     val state by viewModel.uiState.collectAsState()
     val snackbarHostState = remember { SnackbarHostState() }
+    val coroutineScope = rememberCoroutineScope()
+    val context = LocalContext.current
+
+    var availableUpdate by remember { mutableStateOf<AppVersionDto?>(null) }
+    var isDownloadingUpdate by remember { mutableStateOf(false) }
+    var downloadProgress by remember { mutableFloatStateOf(0f) }
 
     LaunchedEffect(Unit) {
         viewModel.loadDashboard(forceRefresh = true)
+        if (app != null) {
+            val update = AppUpdateManager.checkForUpdate(app.fullApiService)
+            if (update != null) {
+                availableUpdate = update
+            }
+        }
     }
 
     LaunchedEffect(state.errorMessage) {
@@ -110,14 +128,23 @@ fun HomeScreen(
                                         viewModel.loadDashboard(forceRefresh = true)
                                         viewModel.syncOffline()
                                     },
-                                    modifier = Modifier.size(32.dp)
+                                    modifier = Modifier.size(32.dp),
+                                    enabled = !state.isRefreshing
                                 ) {
-                                    Icon(
-                                        imageVector = Icons.Default.Refresh,
-                                        contentDescription = "Refresh",
-                                        tint = TextMuted,
-                                        modifier = Modifier.size(18.dp)
-                                    )
+                                    if (state.isRefreshing) {
+                                        CircularProgressIndicator(
+                                            modifier = Modifier.size(16.dp),
+                                            color = TealPrimary,
+                                            strokeWidth = 2.dp
+                                        )
+                                    } else {
+                                        Icon(
+                                            imageVector = Icons.Default.Refresh,
+                                            contentDescription = "Refresh",
+                                            tint = TextMuted,
+                                            modifier = Modifier.size(18.dp)
+                                        )
+                                    }
                                 }
                             }
                             Text(
@@ -398,6 +425,80 @@ fun HomeScreen(
                 item { Spacer(modifier = Modifier.height(80.dp)) }
             }
         }
+    }
+
+    if (availableUpdate != null) {
+        val update = availableUpdate!!
+        AlertDialog(
+            onDismissRequest = {
+                if (!isDownloadingUpdate) availableUpdate = null
+            },
+            title = {
+                Text(
+                    text = "Update Available (v${update.versionName})",
+                    fontWeight = FontWeight.Bold,
+                    color = Color.White
+                )
+            },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text(
+                        text = if (update.changelog.isNotBlank()) update.changelog else "A new version of Veltis is available with performance and stability improvements.",
+                        fontSize = 14.sp,
+                        color = TextMuted
+                    )
+                    if (isDownloadingUpdate) {
+                        Spacer(modifier = Modifier.height(8.dp))
+                        LinearProgressIndicator(
+                            progress = { downloadProgress },
+                            modifier = Modifier.fillMaxWidth().height(6.dp),
+                            color = TealPrimary,
+                            trackColor = VeltisCardBg
+                        )
+                        Text(
+                            text = "Downloading... ${(downloadProgress * 100).toInt()}%",
+                            fontSize = 12.sp,
+                            color = TealPrimary
+                        )
+                    }
+                }
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        if (!isDownloadingUpdate) {
+                            isDownloadingUpdate = true
+                            coroutineScope.launch {
+                                AppUpdateManager.downloadAndInstallApk(
+                                    context = context,
+                                    apkUrl = update.apkUrl,
+                                    onProgress = { p -> downloadProgress = p },
+                                    onError = { err ->
+                                        isDownloadingUpdate = false
+                                        coroutineScope.launch {
+                                            snackbarHostState.showSnackbar("Update failed: $err")
+                                        }
+                                    }
+                                )
+                            }
+                        }
+                    },
+                    enabled = !isDownloadingUpdate,
+                    colors = ButtonDefaults.buttonColors(containerColor = TealPrimary)
+                ) {
+                    Text(if (isDownloadingUpdate) "Updating..." else "Update Now")
+                }
+            },
+            dismissButton = {
+                if (!isDownloadingUpdate) {
+                    TextButton(onClick = { availableUpdate = null }) {
+                        Text("Later", color = TextMuted)
+                    }
+                }
+            },
+            containerColor = VeltisCardBg,
+            shape = RoundedCornerShape(16.dp)
+        )
     }
 }
 

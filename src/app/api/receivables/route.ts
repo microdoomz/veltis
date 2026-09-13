@@ -1,39 +1,49 @@
 import { NextResponse } from 'next/server';
-import { requireUser, requireStrictWorkspaceAccess } from '@/lib/auth/guards';
+import { requireUser, requireWorkspaceAccess } from '@/lib/auth/guards';
 import { createReceivable, createReceivableSchema } from '@/lib/services/receivables';
 import { db } from '@/lib/db';
 import { receivable } from '@/lib/db/schema';
 import { eq } from 'drizzle-orm';
+import { safeJsonResponse } from '@/lib/utils/serialization';
+
+const corsHeaders = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+  'Access-Control-Allow-Headers': 'Content-Type, Authorization, Cookie',
+  'Access-Control-Max-Age': '86400',
+};
+
+export async function OPTIONS() {
+  return new NextResponse(null, { status: 204, headers: corsHeaders });
+}
 
 export async function GET(req: Request) {
   try {
     const url = new URL(req.url);
     const workspaceId = url.searchParams.get('workspaceId') || undefined;
-    const authContext = await requireStrictWorkspaceAccess(workspaceId);
+    const authContext = await requireWorkspaceAccess(workspaceId);
     
     const records = await db.query.receivable.findMany({
       where: eq(receivable.workspaceId, authContext.workspaceId),
       orderBy: (receivable, { desc }) => [desc(receivable.createdDate)]
     });
     
-    return NextResponse.json(records);
+    return safeJsonResponse(records, { headers: corsHeaders });
   } catch (error) {
-    if (error instanceof Error && (error.message.includes('unauthorized') || error.message.includes('workspace'))) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    if (error instanceof Error && (error.message.includes('unauthorized') || error.message.includes('workspace') || error.message.includes('Forbidden'))) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401, headers: corsHeaders });
     }
-    return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
+    console.error('Receivables GET error:', error);
+    return NextResponse.json({ error: 'Internal Server Error' }, { status: 500, headers: corsHeaders });
   }
 }
 
 export async function POST(req: Request) {
   try {
     const body = await req.json();
-    const authContext = await requireStrictWorkspaceAccess(body.workspaceId);
+    const authContext = await requireWorkspaceAccess(body.workspaceId);
     const userContext = await requireUser();
     
-    // Process string dates back into Date objects for Zod schema
-    
-    // Process string dates back into Date objects for Zod schema
     const dataToParse = {
       ...body,
       workspaceId: authContext.workspaceId,
@@ -46,22 +56,18 @@ export async function POST(req: Request) {
     const parsed = createReceivableSchema.safeParse(dataToParse);
     
     if (!parsed.success) {
-      return NextResponse.json({ error: 'Validation failed', details: parsed.error }, { status: 400 });
+      return NextResponse.json({ error: 'Validation failed', details: parsed.error }, { status: 400, headers: corsHeaders });
     }
     
     const newReceivable = await createReceivable(parsed.data);
     
-    // Convert BigInt to string for JSON serialization
-    const serialized = {
-      ...newReceivable,
-      amountMinor: newReceivable.amountMinor.toString()
-    };
-    
-    return NextResponse.json(serialized, { status: 201 });
+    return safeJsonResponse(newReceivable, { status: 201, headers: corsHeaders });
   } catch (error) {
-    if (error instanceof Error && (error.message.includes('unauthorized') || error.message.includes('workspace'))) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    if (error instanceof Error && (error.message.includes('unauthorized') || error.message.includes('workspace') || error.message.includes('Forbidden'))) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401, headers: corsHeaders });
     }
-    return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
+    console.error('Receivables POST error:', error);
+    return NextResponse.json({ error: 'Internal Server Error' }, { status: 500, headers: corsHeaders });
   }
 }
+

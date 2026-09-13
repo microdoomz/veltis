@@ -35,6 +35,9 @@ class VeltisApplication : Application() {
     lateinit var appRepository: VeltisAppRepository
         private set
 
+    val fullApiService: com.veltis.android.data.api.VeltisFullApiService
+        get() = networkClient.createFullApiService()
+
     override fun onCreate() {
         super.onCreate()
         instance = this

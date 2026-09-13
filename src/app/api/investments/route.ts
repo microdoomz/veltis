@@ -6,7 +6,8 @@ import {
   investmentPriceSnapshot,
   investmentTransaction
 } from '@/lib/db/schema';
-import { requireStrictWorkspaceAccess } from '@/lib/auth/guards';
+import { requireWorkspaceAccess, requireStrictWorkspaceAccess } from '@/lib/auth/guards';
+import { safeJsonResponse } from '@/lib/utils/serialization';
 import { z } from 'zod';
 import {
   recordContribution,
@@ -16,13 +17,22 @@ import {
   topUpPosition
 } from '@/lib/investments/service';
 
+const corsHeaders = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+  'Access-Control-Allow-Headers': 'Content-Type, Authorization, Cookie, x-session-token',
+};
+
+export async function OPTIONS() {
+  return new NextResponse(null, { status: 204, headers: corsHeaders });
+}
+
 export async function GET(req: Request) {
   try {
     const url = new URL(req.url);
-    const workspaceId = url.searchParams.get('workspaceId');
-    if (!workspaceId) return NextResponse.json({ error: 'Missing workspaceId' }, { status: 400 });
-    
-    await requireStrictWorkspaceAccess(workspaceId);
+    const requestedWorkspaceId = url.searchParams.get('workspaceId') || undefined;
+    const authContext = await requireWorkspaceAccess(requestedWorkspaceId);
+    const workspaceId = authContext.workspaceId;
 
     // Fetch investment accounts (active only)
     const accounts = await db.query.financialAccount.findMany({

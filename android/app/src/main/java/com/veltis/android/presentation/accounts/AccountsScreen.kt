@@ -73,12 +73,23 @@ fun AccountsScreen(
                     )
                 },
                 actions = {
-                    IconButton(onClick = { viewModel.loadAccounts(forceRefresh = true) }) {
-                        Icon(
-                            imageVector = Icons.Default.Refresh,
-                            contentDescription = "Refresh",
-                            tint = Color.White
-                        )
+                    IconButton(
+                        onClick = { viewModel.loadAccounts(forceRefresh = true) },
+                        enabled = !state.isRefreshing
+                    ) {
+                        if (state.isRefreshing) {
+                            CircularProgressIndicator(
+                                modifier = Modifier.size(18.dp),
+                                color = TealPrimary,
+                                strokeWidth = 2.dp
+                            )
+                        } else {
+                            Icon(
+                                imageVector = Icons.Default.Refresh,
+                                contentDescription = "Refresh",
+                                tint = Color.White
+                            )
+                        }
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = VeltisDarkBg)

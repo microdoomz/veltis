@@ -1,33 +1,43 @@
 import { NextResponse } from 'next/server';
-import { requireUser, requireStrictWorkspaceAccess } from '@/lib/auth/guards';
+import { requireUser, requireWorkspaceAccess } from '@/lib/auth/guards';
 import { createRecurringItem, getRecurringItemsWithOccurrences, createRecurringItemSchema } from '@/lib/services/recurring';
+import { safeJsonResponse } from '@/lib/utils/serialization';
+
+const corsHeaders = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+  'Access-Control-Allow-Headers': 'Content-Type, Authorization, Cookie',
+  'Access-Control-Max-Age': '86400',
+};
+
+export async function OPTIONS() {
+  return new NextResponse(null, { status: 204, headers: corsHeaders });
+}
 
 export async function GET(req: Request) {
   try {
     const url = new URL(req.url);
-    const workspaceId = url.searchParams.get('workspaceId');
-    const authContext = await requireStrictWorkspaceAccess(workspaceId!);
+    const workspaceId = url.searchParams.get('workspaceId') || undefined;
+    const authContext = await requireWorkspaceAccess(workspaceId);
     
     const records = await getRecurringItemsWithOccurrences(authContext.workspaceId);
     
-    return NextResponse.json(records);
+    return safeJsonResponse(records, { headers: corsHeaders });
   } catch (error) {
-    if (error instanceof Error && (error.message.includes('unauthorized') || error.message.includes('workspace'))) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    if (error instanceof Error && (error.message.includes('unauthorized') || error.message.includes('workspace') || error.message.includes('Forbidden'))) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401, headers: corsHeaders });
     }
-    return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
+    console.error('Recurring GET error:', error);
+    return NextResponse.json({ error: 'Internal Server Error' }, { status: 500, headers: corsHeaders });
   }
 }
 
 export async function POST(req: Request) {
   try {
     const body = await req.json();
-    const authContext = await requireStrictWorkspaceAccess(body.workspaceId);
+    const authContext = await requireWorkspaceAccess(body.workspaceId);
     const userContext = await requireUser();
     
-    // Convert baseDate from string to Date
-    
-    // Convert baseDate from string to Date
     const dataToParse = {
       ...body,
       workspaceId: authContext.workspaceId,
@@ -39,22 +49,18 @@ export async function POST(req: Request) {
     const parsed = createRecurringItemSchema.safeParse(dataToParse);
     
     if (!parsed.success) {
-      return NextResponse.json({ error: 'Validation failed', details: parsed.error }, { status: 400 });
+      return NextResponse.json({ error: 'Validation failed', details: parsed.error }, { status: 400, headers: corsHeaders });
     }
     
     const newItem = await createRecurringItem(parsed.data);
     
-    // Convert BigInt to string for JSON serialization
-    const serialized = {
-      ...newItem,
-      expectedAmountMinor: newItem.expectedAmountMinor.toString()
-    };
-    
-    return NextResponse.json(serialized, { status: 201 });
+    return safeJsonResponse(newItem, { status: 201, headers: corsHeaders });
   } catch (error) {
-    if (error instanceof Error && (error.message.includes('unauthorized') || error.message.includes('workspace'))) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    if (error instanceof Error && (error.message.includes('unauthorized') || error.message.includes('workspace') || error.message.includes('Forbidden'))) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401, headers: corsHeaders });
     }
-    return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
+    console.error('Recurring POST error:', error);
+    return NextResponse.json({ error: 'Internal Server Error' }, { status: 500, headers: corsHeaders });
   }
 }
+

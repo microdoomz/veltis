@@ -59,4 +59,8 @@ class NetworkClient(
     fun createApiService(): VeltisApiService {
         return createService(VeltisApiService::class.java)
     }
+
+    fun createFullApiService(): VeltisFullApiService {
+        return createService(VeltisFullApiService::class.java)
+    }
 }

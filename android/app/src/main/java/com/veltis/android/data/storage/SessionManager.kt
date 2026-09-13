@@ -31,6 +31,9 @@ class SessionManager(context: Context) {
     private val _privacyMode = MutableStateFlow(getPrivacyMode())
     val privacyMode: StateFlow<Boolean> = _privacyMode.asStateFlow()
 
+    private val _isLoggedInFlow = MutableStateFlow(isLoggedIn())
+    val isLoggedInFlow: StateFlow<Boolean> = _isLoggedInFlow.asStateFlow()
+
     fun saveSession(token: String, user: User, workspaceId: String? = null) {
         prefs.edit()
             .putString(KEY_SESSION_TOKEN, token.trim())
@@ -42,6 +45,8 @@ class SessionManager(context: Context) {
         if (!workspaceId.isNullOrBlank()) {
             saveWorkspaceId(workspaceId)
         }
+
+        _isLoggedInFlow.value = true
     }
 
     fun getSessionToken(): String? = prefs.getString(KEY_SESSION_TOKEN, null)?.takeIf { it.isNotBlank() }
@@ -94,6 +99,7 @@ class SessionManager(context: Context) {
             .remove(KEY_USER_NAME)
             .remove(KEY_WORKSPACE_ID)
             .apply()
+        _isLoggedInFlow.value = false
     }
 
     companion object {

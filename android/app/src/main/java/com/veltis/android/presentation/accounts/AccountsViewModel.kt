@@ -13,6 +13,7 @@ import kotlinx.coroutines.launch
 
 data class AccountsUiState(
     val isLoading: Boolean = false,
+    val isRefreshing: Boolean = false,
     val accounts: List<AccountDetailDto> = emptyList(),
     val errorMessage: String? = null,
     val successMessage: String? = null,
@@ -32,13 +33,19 @@ class AccountsViewModel(
 
     fun loadAccounts(forceRefresh: Boolean = false) {
         viewModelScope.launch {
-            _uiState.update { it.copy(isLoading = it.accounts.isEmpty(), errorMessage = null) }
+            _uiState.update { 
+                it.copy(
+                    isLoading = if (forceRefresh) false else it.accounts.isEmpty(),
+                    isRefreshing = forceRefresh,
+                    errorMessage = null
+                ) 
+            }
             when (val result = repository.getAccounts(forceRefresh)) {
                 is VeltisResult.Success -> {
-                    _uiState.update { it.copy(isLoading = false, accounts = result.data, errorMessage = null) }
+                    _uiState.update { it.copy(isLoading = false, isRefreshing = false, accounts = result.data, errorMessage = null) }
                 }
                 is VeltisResult.Failure -> {
-                    _uiState.update { it.copy(isLoading = false, errorMessage = result.error.userFriendlyMessage()) }
+                    _uiState.update { it.copy(isLoading = false, isRefreshing = false, errorMessage = result.error.userFriendlyMessage()) }
                 }
             }
         }

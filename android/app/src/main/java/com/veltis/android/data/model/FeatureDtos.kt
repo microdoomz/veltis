@@ -131,3 +131,12 @@ data class CategorySpendingDto(
     val count: Int = 0
 )
 
+@Serializable
+data class AppVersionDto(
+    val versionCode: Int = 1,
+    val versionName: String = "0.1.0",
+    val apkUrl: String = "",
+    val changelog: String = ""
+)
+
+

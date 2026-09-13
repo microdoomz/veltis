@@ -16,6 +16,7 @@ import kotlinx.coroutines.launch
 
 data class InvestmentsUiState(
     val isLoading: Boolean = false,
+    val isRefreshing: Boolean = false,
     val isSubmitting: Boolean = false,
     val data: InvestmentsResponseDto? = null,
     val errorMessage: String? = null,
@@ -37,15 +38,22 @@ class InvestmentsViewModel(
         loadInvestments()
     }
 
-    fun loadInvestments() {
+    fun loadInvestments(forceRefresh: Boolean = false) {
         viewModelScope.launch {
-            _uiState.update { it.copy(isLoading = it.data == null, isPrivacyMode = sessionManager.getPrivacyMode()) }
+            _uiState.update { 
+                it.copy(
+                    isLoading = if (forceRefresh) false else it.data == null,
+                    isRefreshing = forceRefresh,
+                    isPrivacyMode = sessionManager.getPrivacyMode(),
+                    errorMessage = null
+                ) 
+            }
             when (val res = repository.getInvestments()) {
                 is VeltisResult.Success -> {
-                    _uiState.update { it.copy(isLoading = false, data = res.data, errorMessage = null) }
+                    _uiState.update { it.copy(isLoading = false, isRefreshing = false, data = res.data, errorMessage = null) }
                 }
                 is VeltisResult.Failure -> {
-                    _uiState.update { it.copy(isLoading = false, errorMessage = res.error.userFriendlyMessage()) }
+                    _uiState.update { it.copy(isLoading = false, isRefreshing = false, errorMessage = res.error.userFriendlyMessage()) }
                 }
             }
         }

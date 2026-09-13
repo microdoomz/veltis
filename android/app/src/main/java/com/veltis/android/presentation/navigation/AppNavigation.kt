@@ -65,7 +65,19 @@ fun AppNavigation(
 ) {
     val rootNavController = rememberNavController()
     val isInitiallyLoggedIn = remember { app.sessionManager.isLoggedIn() }
+    val isLoggedIn by app.sessionManager.isLoggedInFlow.collectAsState()
     val startDest = if (isInitiallyLoggedIn) Screen.Main.route else Screen.Login.route
+
+    LaunchedEffect(isLoggedIn) {
+        if (isLoggedIn) {
+            val currentRoute = rootNavController.currentBackStackEntry?.destination?.route
+            if (currentRoute == Screen.Login.route || currentRoute == Screen.Signup.route || currentRoute == Screen.ForgotPassword.route || currentRoute == null) {
+                rootNavController.navigate(Screen.Main.route) {
+                    popUpTo(0) { inclusive = true }
+                }
+            }
+        }
+    }
 
     val authViewModel = remember {
         AuthViewModel(app.authRepository)
@@ -545,6 +557,7 @@ fun MainDashboardShell(
                 ) {
                     HomeScreen(
                         viewModel = homeViewModel,
+                        app = app,
                         onNavigateToTransactions = {
                             bottomNavController.navigate(BottomNavItem.Transactions.route) {
                                 popUpTo(bottomNavController.graph.findStartDestination().id) { saveState = true }

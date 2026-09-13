@@ -455,6 +455,30 @@ class VeltisAppRepositoryImpl(
         }
     }
 
+    override suspend fun getAnalytics(startDate: String, endDate: String): VeltisResult<Pair<AnalyticsOverviewDto, List<CategorySpendingDto>>> = withContext(Dispatchers.IO) {
+        val workspaceId = sessionManager.getWorkspaceId()
+        try {
+            val overviewRes = api.getAnalyticsOverview(workspaceId = workspaceId, startDate = startDate, endDate = endDate)
+            val spendingRes = api.getSpendingAnalytics(workspaceId = workspaceId, startDate = startDate, endDate = endDate)
+
+            val overview = if (overviewRes.isSuccessful && overviewRes.body() != null) {
+                overviewRes.body()!!
+            } else {
+                AnalyticsOverviewDto()
+            }
+
+            val spending = if (spendingRes.isSuccessful && spendingRes.body() != null) {
+                spendingRes.body()!!
+            } else {
+                emptyList()
+            }
+
+            VeltisResult.Success(Pair(overview, spending))
+        } catch (e: Exception) {
+            VeltisResult.Failure(VeltisError.Network(e.message ?: "Failed to fetch analytics."))
+        }
+    }
+
     private fun <T> parseError(response: Response<T>): VeltisError {
         val code = response.code()
         val rawBody = try { response.errorBody()?.string() } catch (_: Exception) { null }

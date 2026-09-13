@@ -5,18 +5,18 @@ import android.net.Uri
 import android.os.Bundle
 import android.widget.Toast
 import androidx.activity.compose.setContent
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.setValue
 import androidx.fragment.app.FragmentActivity
+import androidx.lifecycle.lifecycleScope
 import com.veltis.android.VeltisApplication
-import com.veltis.android.presentation.pwa.VeltisPwaScreen
+import com.veltis.android.data.repository.AuthRepositoryImpl
+import com.veltis.android.domain.model.VeltisResult
+import com.veltis.android.presentation.navigation.AppNavigation
 import com.veltis.android.presentation.theme.VeltisTheme
+import kotlinx.coroutines.launch
 
 class MainActivity : FragmentActivity() {
 
     private lateinit var app: VeltisApplication
-    private var pendingOAuthToken by mutableStateOf<String?>(null)
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -26,10 +26,7 @@ class MainActivity : FragmentActivity() {
 
         setContent {
             VeltisTheme {
-                VeltisPwaScreen(
-                    app = app,
-                    initialDeepLinkToken = pendingOAuthToken
-                )
+                AppNavigation(app = app)
             }
         }
     }
@@ -45,8 +42,26 @@ class MainActivity : FragmentActivity() {
         if (data != null && data.scheme == "veltis" && data.host == "auth") {
             val token = data.getQueryParameter("token")
             if (!token.isNullOrBlank()) {
-                pendingOAuthToken = token
-                Toast.makeText(this, "Signed in successfully!", Toast.LENGTH_SHORT).show()
+                val authRepo = AuthRepositoryImpl(app.networkClient, app.sessionManager)
+                lifecycleScope.launch {
+                    when (val res = authRepo.handleOAuthCallback(token)) {
+                        is VeltisResult.Success -> {
+                            Toast.makeText(
+                                this@MainActivity,
+                                "Welcome to Veltis, ${res.data.name ?: res.data.email}!",
+                                Toast.LENGTH_SHORT
+                            ).show()
+                            setContent {
+                                VeltisTheme {
+                                    AppNavigation(app = app)
+                                }
+                            }
+                        }
+                        is VeltisResult.Failure -> {
+                            Toast.makeText(this@MainActivity, res.error.userFriendlyMessage(), Toast.LENGTH_LONG).show()
+                        }
+                    }
+                }
             }
         }
     }

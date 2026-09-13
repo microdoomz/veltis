@@ -116,4 +116,18 @@ interface VeltisFullApiService {
 
     @POST("api/user/delete-account")
     suspend fun deleteAccountUser(): Response<Unit>
+
+    @GET("api/analytics/overview")
+    suspend fun getAnalyticsOverview(
+        @Query("workspaceId") workspaceId: String? = null,
+        @Query("startDate") startDate: String,
+        @Query("endDate") endDate: String
+    ): Response<AnalyticsOverviewDto>
+
+    @GET("api/analytics/spending")
+    suspend fun getSpendingAnalytics(
+        @Query("workspaceId") workspaceId: String? = null,
+        @Query("startDate") startDate: String,
+        @Query("endDate") endDate: String
+    ): Response<List<CategorySpendingDto>>
 }

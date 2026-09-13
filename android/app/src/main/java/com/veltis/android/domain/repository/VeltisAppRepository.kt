@@ -22,6 +22,7 @@ interface VeltisAppRepository {
     suspend fun getLiabilities(): VeltisResult<List<LiabilityDto>>
     suspend fun getRecurringItems(): VeltisResult<List<RecurringItemDto>>
     suspend fun getCategories(): VeltisResult<List<CategoryDto>>
+    suspend fun getAnalytics(startDate: String, endDate: String): VeltisResult<Pair<AnalyticsOverviewDto, List<CategorySpendingDto>>>
     suspend fun exportData(format: String): VeltisResult<String>
     suspend fun deleteUserAccount(): VeltisResult<Unit>
 }

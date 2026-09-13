@@ -106,12 +106,12 @@ fun LoginScreen(
     val isBiometricsAvailable = remember { BiometricHelper.isBiometricAvailable(context) }
     val hasSavedBiometricToken = remember { !sessionManager.getBiometricSessionToken().isNullOrBlank() }
 
-    val bgColor = Color(0xFF09090B)
-    val cardColor = Color(0xFF141418)
-    val primaryColor = Color(0xFF10B981) // Veltis Emerald
-    val textPrimary = Color(0xFFF8FAFC)
-    val textSecondary = Color(0xFF94A3B8)
-    val errorColor = Color(0xFFEF4444)
+    val bgColor = VeltisDarkBg
+    val cardColor = VeltisCardBg
+    val primaryColor = TealPrimary
+    val textPrimary = TextPrimary
+    val textSecondary = TextMuted
+    val errorColor = ExpenseRedSolid
 
     Box(
         modifier = Modifier
@@ -171,7 +171,7 @@ fun LoginScreen(
                 shape = RoundedCornerShape(20.dp),
                 colors = CardDefaults.cardColors(containerColor = cardColor),
                 border = CardDefaults.outlinedCardBorder().copy(
-                    brush = androidx.compose.ui.graphics.SolidColor(Color(0xFF27272A))
+                    brush = androidx.compose.ui.graphics.SolidColor(VeltisCardBorder)
                 )
             ) {
                 Column(

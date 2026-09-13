@@ -114,3 +114,20 @@ data class CategoryDto(
 data class TaxonomyResponseDto(
     val categories: List<CategoryDto> = emptyList()
 )
+
+@Serializable
+data class AnalyticsOverviewDto(
+    val totalSpending: String = "0",
+    val totalIncome: String = "0",
+    val netDifference: String = "0"
+)
+
+@Serializable
+data class CategorySpendingDto(
+    val categoryId: String? = null,
+    val categoryName: String = "Uncategorized",
+    val color: String? = null,
+    val totalAmountMinor: String = "0",
+    val count: Int = 0
+)
+

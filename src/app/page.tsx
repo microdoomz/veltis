@@ -26,9 +26,7 @@ export const metadata = {
 
 export default async function RootPage() {
   const session = await getUser();
-  if (session?.user) {
-    redirect('/home');
-  }
+  const user = session?.user;
 
   return (
     <div className="min-h-screen bg-background text-foreground flex flex-col selection:bg-primary/20 selection:text-primary">
@@ -55,12 +53,23 @@ export default async function RootPage() {
                 <span>Android App</span>
               </Button>
             </a>
-            <Link href="/login">
-              <Button variant="ghost" size="sm">Sign In</Button>
-            </Link>
-            <Link href="/register">
-              <Button size="sm">Get Started</Button>
-            </Link>
+            {user ? (
+              <Link href="/home">
+                <Button size="sm" className="gap-2 bg-emerald-600 hover:bg-emerald-700 text-white font-medium">
+                  <span>Dashboard</span>
+                  <ArrowRight className="h-4 w-4" />
+                </Button>
+              </Link>
+            ) : (
+              <>
+                <Link href="/login">
+                  <Button variant="ghost" size="sm">Sign In</Button>
+                </Link>
+                <Link href="/register">
+                  <Button size="sm">Get Started</Button>
+                </Link>
+              </>
+            )}
           </div>
         </div>
       </header>
@@ -252,8 +261,14 @@ export default async function RootPage() {
             <span>• The Authoritative Financial Ledger</span>
           </div>
           <div className="flex items-center gap-6">
-            <Link href="/login" className="hover:text-foreground transition-colors">Sign In</Link>
-            <Link href="/register" className="hover:text-foreground transition-colors">Register</Link>
+            {user ? (
+              <Link href="/home" className="hover:text-foreground transition-colors font-medium text-emerald-500">Dashboard</Link>
+            ) : (
+              <>
+                <Link href="/login" className="hover:text-foreground transition-colors">Sign In</Link>
+                <Link href="/register" className="hover:text-foreground transition-colors">Register</Link>
+              </>
+            )}
             <a href="#features" className="hover:text-foreground transition-colors">Features</a>
             <a href="/api/downloads/android" download="veltis.apk" className="hover:text-emerald-500 transition-colors flex items-center gap-1.5 text-emerald-600 dark:text-emerald-400 font-medium">
               <Download className="h-3.5 w-3.5" />

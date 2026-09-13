@@ -6,21 +6,21 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.Color
 
 private val DarkColorScheme = darkColorScheme(
-    primary = TealLight,
-    onPrimary = Color.Black,
+    primary = TealPrimary,
+    onPrimary = Color(0xFF020617),
     primaryContainer = TealDark,
-    onPrimaryContainer = TealContainer,
+    onPrimaryContainer = TextPrimary,
     secondary = VeltisCyan,
     background = VeltisDarkBg,
     surface = VeltisCardBg,
-    onBackground = Color.White,
-    onSurface = Color.White,
+    onBackground = TextPrimary,
+    onSurface = TextPrimary,
     outline = VeltisCardBorder
 )
 
 @Composable
 fun VeltisTheme(
-    darkTheme: Boolean = true, // Default to dark theme matching Veltis web app
+    darkTheme: Boolean = true, // Default to dark theme matching Veltis PWA
     content: @Composable () -> Unit
 ) {
     MaterialTheme(

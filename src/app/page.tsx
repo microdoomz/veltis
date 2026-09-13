@@ -94,12 +94,21 @@ export default async function RootPage() {
           </p>
 
           <div className="flex flex-col sm:flex-row items-center justify-center gap-3 pt-4">
-            <Link href="/login">
-              <Button size="lg" className="h-12 px-8 text-base shadow-md group">
-                Open Your Ledger
-                <ArrowRight className="ml-2 h-4 w-4 transition-transform group-hover:translate-x-1" />
-              </Button>
-            </Link>
+            {user ? (
+              <Link href="/home">
+                <Button size="lg" className="h-12 px-8 text-base shadow-md group bg-emerald-600 hover:bg-emerald-700 text-white font-medium">
+                  Go to Dashboard
+                  <ArrowRight className="ml-2 h-4 w-4 transition-transform group-hover:translate-x-1" />
+                </Button>
+              </Link>
+            ) : (
+              <Link href="/login">
+                <Button size="lg" className="h-12 px-8 text-base shadow-md group">
+                  Open Your Ledger
+                  <ArrowRight className="ml-2 h-4 w-4 transition-transform group-hover:translate-x-1" />
+                </Button>
+              </Link>
+            )}
             <a href="/downloads/veltis.apk" download="veltis.apk">
               <Button variant="outline" size="lg" className="h-12 px-6 text-base gap-2 border-emerald-500/30 hover:border-emerald-500/60 bg-card/60 backdrop-blur-sm text-foreground">
                 <Download className="h-5 w-5 text-emerald-500" />

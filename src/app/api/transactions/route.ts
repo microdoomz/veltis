@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { revalidatePath } from 'next/cache';
 import { requireWorkspaceAccess, requireStrictWorkspaceAccess } from '@/lib/auth/guards';
 import { getRecentTransactions, TransactionFilters } from '@/lib/ledger/queries';
 import { createExpense, createIncome, createTransfer } from '@/lib/services/transaction';
@@ -173,6 +174,16 @@ export async function POST(req: Request) {
     };
 
     await recordIdempotency(workspaceId, 'transaction_create', idempotencyKey, responsePayload, 'transaction', createdTxn.id);
+
+    try {
+      revalidatePath('/(app)', 'layout');
+      revalidatePath('/home');
+      revalidatePath('/transactions');
+      revalidatePath('/accounts');
+      revalidatePath('/analytics');
+    } catch (e) {
+      console.warn('Cache revalidation error in create transaction:', e);
+    }
 
     return NextResponse.json(responsePayload, { status: 201, headers: corsHeaders });
   } catch (error: unknown) {

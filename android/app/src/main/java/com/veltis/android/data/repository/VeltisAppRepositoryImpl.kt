@@ -127,7 +127,9 @@ class VeltisAppRepositoryImpl(
             )
             val response = api.createAccount(body)
             if (response.isSuccessful && response.body() != null) {
-                VeltisResult.Success(response.body()!!)
+                val newAcc = response.body()!!
+                dbHelper.deleteCaches("home_dashboard", "accounts_list")
+                VeltisResult.Success(newAcc)
             } else {
                 VeltisResult.Failure(parseError(response))
             }
@@ -141,7 +143,12 @@ class VeltisAppRepositoryImpl(
     override suspend fun deleteAccount(id: String): VeltisResult<Unit> = withContext(Dispatchers.IO) {
         try {
             val response = api.deleteAccount(id)
-            if (response.isSuccessful) VeltisResult.Success(Unit) else VeltisResult.Failure(parseError(response))
+            if (response.isSuccessful) {
+                dbHelper.deleteCaches("home_dashboard", "accounts_list")
+                VeltisResult.Success(Unit)
+            } else {
+                VeltisResult.Failure(parseError(response))
+            }
         } catch (e: IOException) {
             VeltisResult.Failure(VeltisError.Network())
         } catch (e: Exception) {
@@ -153,7 +160,12 @@ class VeltisAppRepositoryImpl(
         try {
             val body = mapOf("actualBalance" to actualBalance.toString())
             val response = api.reconcileAccount(id, body)
-            if (response.isSuccessful) VeltisResult.Success(Unit) else VeltisResult.Failure(parseError(response))
+            if (response.isSuccessful) {
+                dbHelper.deleteCaches("home_dashboard", "accounts_list")
+                VeltisResult.Success(Unit)
+            } else {
+                VeltisResult.Failure(parseError(response))
+            }
         } catch (e: IOException) {
             VeltisResult.Failure(VeltisError.Network())
         } catch (e: Exception) {
@@ -220,7 +232,20 @@ class VeltisAppRepositoryImpl(
         try {
             val response = api.createTransaction(request)
             if (response.isSuccessful && response.body()?.transaction != null) {
-                return@withContext VeltisResult.Success(response.body()!!.transaction!!)
+                val created = response.body()!!.transaction!!
+                // Immediately invalidate cached data so fresh balances reflect across the app
+                dbHelper.deleteCaches("home_dashboard", "accounts_list", "transactions_list")
+                try {
+                    val freshDash = api.getHomeDashboard()
+                    if (freshDash.isSuccessful && freshDash.body() != null) {
+                        dbHelper.saveCache("home_dashboard", networkClient.json.encodeToString(HomeDashboardDto.serializer(), freshDash.body()!!))
+                    }
+                    val freshAccounts = api.getAccounts()
+                    if (freshAccounts.isSuccessful && freshAccounts.body() != null) {
+                        dbHelper.saveCache("accounts_list", networkClient.json.encodeToString(ListSerializer(AccountDetailDto.serializer()), freshAccounts.body()!!))
+                    }
+                } catch (_: Exception) {}
+                return@withContext VeltisResult.Success(created)
             } else {
                 return@withContext VeltisResult.Failure(parseError(response))
             }
@@ -239,6 +264,7 @@ class VeltisAppRepositoryImpl(
                 syncStatus = "pending"
             )
             dbHelper.insertOfflineTransaction(offlineEntity)
+            dbHelper.deleteCaches("home_dashboard", "accounts_list", "transactions_list")
 
             val optimistic = TransactionSummaryDto(
                 id = idempotencyKey,
@@ -259,7 +285,12 @@ class VeltisAppRepositoryImpl(
     override suspend fun deleteTransaction(id: String): VeltisResult<Unit> = withContext(Dispatchers.IO) {
         try {
             val response = api.deleteTransaction(id)
-            if (response.isSuccessful) VeltisResult.Success(Unit) else VeltisResult.Failure(parseError(response))
+            if (response.isSuccessful) {
+                dbHelper.deleteCaches("home_dashboard", "accounts_list", "transactions_list")
+                VeltisResult.Success(Unit)
+            } else {
+                VeltisResult.Failure(parseError(response))
+            }
         } catch (e: IOException) {
             VeltisResult.Failure(VeltisError.Network())
         } catch (e: Exception) {

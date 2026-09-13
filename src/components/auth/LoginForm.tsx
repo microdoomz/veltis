@@ -125,6 +125,9 @@ export function LoginForm() {
       await authClient.signIn.social({
         provider: 'google',
         callbackURL: '/home',
+        additionalParams: {
+          prompt: 'select_account',
+        },
       });
     } catch {
       setError('Failed to initiate Google login');

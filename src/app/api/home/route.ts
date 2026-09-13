@@ -7,12 +7,20 @@ import { getWorkspaceById } from '@/lib/services/workspace';
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Methods': 'GET, OPTIONS',
-  'Access-Control-Allow-Headers': 'Content-Type, Authorization, Cookie',
+  'Access-Control-Allow-Headers': 'Content-Type, Authorization, Cookie, x-session-token',
   'Access-Control-Max-Age': '86400',
 };
 
 export async function OPTIONS() {
   return new NextResponse(null, { status: 204, headers: corsHeaders });
+}
+
+function safeSerialize<T>(data: T): T {
+  return JSON.parse(
+    JSON.stringify(data, (_, value) =>
+      typeof value === 'bigint' ? Number(value) : value
+    )
+  );
 }
 
 export async function GET(req: Request) {
@@ -25,7 +33,7 @@ export async function GET(req: Request) {
     const [netWealth, liquidSummary, recentTxns, accounts, currentWorkspace] = await Promise.all([
       getNetWealth(workspaceId),
       getLiquidSummary(workspaceId),
-      getRecentTransactions(workspaceId, 15),
+      getRecentTransactions(workspaceId, 25),
       getAccountSummary(workspaceId),
       getWorkspaceById(workspaceId),
     ]);
@@ -47,36 +55,67 @@ export async function GET(req: Request) {
     });
 
     const serializedAccounts = sortedAccounts.map((a) => ({
-      ...a,
-      balanceMinor: Number(a.balanceMinor),
-      openingBalanceMinor: Number(a.openingBalanceMinor),
+      id: a.id,
+      name: a.name,
+      accountType: a.accountType,
+      currency: a.currency || 'USD',
+      institutionName: a.institutionName || null,
+      balanceMinor: Number(a.balanceMinor ?? 0),
+      color: a.color || null,
+      iconKey: a.iconKey || null,
+      displayOrder: a.displayOrder ?? 0,
+      status: a.status || 'active',
     }));
 
-    const serializedTxns = recentTxns.map((t) => ({
-      ...t,
-      amountMinor: Number(t.amountMinor),
-      transactionDate: t.transactionDate.toString(),
-    }));
+    const serializedTxns = recentTxns.map((t) => {
+      const firstLeg = t.legs?.[0];
+      const dateStr = t.transactionDate
+        ? typeof t.transactionDate === 'string'
+          ? t.transactionDate
+          : (t.transactionDate as Date).toISOString().split('T')[0]
+        : new Date().toISOString().split('T')[0];
 
-    return NextResponse.json({
+      return {
+        id: t.id,
+        transactionType: t.transactionType,
+        amountMinor: Number(t.amountMinor ?? 0),
+        currency: t.currency || 'USD',
+        transactionDate: dateStr,
+        description: t.description || undefined,
+        merchantName: t.merchantName || undefined,
+        categoryId: t.categoryId || undefined,
+        categoryName: t.category?.name || undefined,
+        categoryColor: undefined,
+        accountId: firstLeg?.accountId || undefined,
+        accountName: firstLeg?.account?.name || undefined,
+        source: t.source || 'manual',
+      };
+    });
+
+    const responsePayload = {
       workspace: {
         id: currentWorkspace?.id || workspaceId,
         name: currentWorkspace?.name || 'My Workspace',
         baseCurrency: currentWorkspace?.baseCurrency || 'USD',
         accountTypeOrder: typeOrder,
       },
-      netWealth: Number(netWealth),
+      netWealth: Number(netWealth ?? 0),
       liquidSummary: {
-        totalLiquid: Number(liquidSummary.totalLiquid),
-        freeToSpend: Number(liquidSummary.freeToSpend),
-        freeToSpendOnline: Number(liquidSummary.freeToSpendOnline),
-        freeToSpendCash: Number(liquidSummary.freeToSpendCash),
-        totalAllocated: Number(liquidSummary.totalAllocated),
+        totalLiquid: Number(liquidSummary?.totalLiquid ?? 0),
+        freeToSpend: Number(liquidSummary?.freeToSpend ?? 0),
+        freeToSpendOnline: Number(liquidSummary?.freeToSpendOnline ?? 0),
+        freeToSpendCash: Number(liquidSummary?.freeToSpendCash ?? 0),
+        totalAllocated: Number(liquidSummary?.totalAllocated ?? 0),
       },
       accounts: serializedAccounts,
       recentTransactions: serializedTxns,
-    }, {
-      headers: corsHeaders,
+    };
+
+    return NextResponse.json(safeSerialize(responsePayload), {
+      headers: {
+        ...corsHeaders,
+        'Cache-Control': 'no-store, no-cache, must-revalidate',
+      },
     });
   } catch (error: unknown) {
     const err = error as Error;
@@ -84,6 +123,9 @@ export async function GET(req: Request) {
       return NextResponse.json({ error: err.message }, { status: 401, headers: corsHeaders });
     }
     console.error('Failed to load home dashboard API:', error);
-    return NextResponse.json({ error: 'Internal Server Error' }, { status: 500, headers: corsHeaders });
+    return NextResponse.json(
+      { error: err.message || 'Internal Server Error' },
+      { status: 500, headers: corsHeaders }
+    );
   }
 }

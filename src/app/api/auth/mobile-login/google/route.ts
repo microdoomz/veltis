@@ -90,7 +90,10 @@ export async function GET(request: NextRequest) {
               },
               body: JSON.stringify({
                 provider: 'google',
-                callbackURL: callback
+                callbackURL: callback,
+                additionalParams: {
+                  prompt: 'select_account'
+                }
               }),
               credentials: 'include'
             })

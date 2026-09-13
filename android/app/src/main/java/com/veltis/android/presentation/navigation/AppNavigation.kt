@@ -167,6 +167,18 @@ fun MainDashboardShell(
 
     val privacyMode by app.sessionManager.privacyMode.collectAsState()
 
+    LaunchedEffect(currentRoute) {
+        when (currentRoute) {
+            BottomNavItem.Home.route -> homeViewModel.loadDashboard(forceRefresh = true)
+            BottomNavItem.Accounts.route -> accountsViewModel.loadAccounts(forceRefresh = true)
+            BottomNavItem.Transactions.route -> {
+                transactionsViewModel.loadTransactions()
+                transactionsViewModel.loadData()
+            }
+            BottomNavItem.Analytics.route -> analyticsViewModel.loadAnalytics()
+        }
+    }
+
     val drawerNavItems = listOf(
         DrawerItem("bottom_home", "Dashboard", Icons.Default.Home),
         DrawerItem("bottom_accounts", "Accounts", Icons.Default.AccountBalance),
@@ -566,7 +578,10 @@ fun MainDashboardShell(
                 ) {
                     AccountsScreen(
                         viewModel = accountsViewModel,
-                        isPrivacyMode = privacyMode
+                        isPrivacyMode = privacyMode,
+                        onAccountChanged = {
+                            homeViewModel.loadDashboard(forceRefresh = true)
+                        }
                     )
                 }
 
@@ -580,7 +595,11 @@ fun MainDashboardShell(
                         viewModel = transactionsViewModel,
                         isPrivacyMode = privacyMode,
                         initialQuickAddType = quickAddTypeForTxn,
-                        onResetQuickAddType = { quickAddTypeForTxn = null }
+                        onResetQuickAddType = { quickAddTypeForTxn = null },
+                        onTransactionRecorded = {
+                            homeViewModel.loadDashboard(forceRefresh = true)
+                            accountsViewModel.loadAccounts(forceRefresh = true)
+                        }
                     )
                 }
 

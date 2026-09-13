@@ -37,6 +37,7 @@ fun TransactionsScreen(
     isPrivacyMode: Boolean = false,
     initialQuickAddType: String? = null,
     onResetQuickAddType: () -> Unit = {},
+    onTransactionRecorded: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     val state by viewModel.uiState.collectAsState()
@@ -45,6 +46,10 @@ fun TransactionsScreen(
     var showCreateDialog by remember { mutableStateOf(initialQuickAddType != null) }
     var preselectedType by remember { mutableStateOf(initialQuickAddType ?: "expense") }
     var txnToDelete by remember { mutableStateOf<TransactionSummaryDto?>(null) }
+
+    LaunchedEffect(Unit) {
+        viewModel.loadData()
+    }
 
     LaunchedEffect(initialQuickAddType) {
         if (initialQuickAddType != null) {
@@ -236,6 +241,7 @@ fun TransactionsScreen(
                         date = date
                     ) {
                         showCreateDialog = false
+                        onTransactionRecorded()
                     }
                 }
             )
@@ -257,6 +263,7 @@ fun TransactionsScreen(
                         onClick = {
                             viewModel.deleteTransaction(txn.id)
                             txnToDelete = null
+                            onTransactionRecorded()
                         },
                         colors = ButtonDefaults.buttonColors(containerColor = ExpenseRed)
                     ) {

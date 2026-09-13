@@ -32,6 +32,7 @@ import java.util.Locale
 fun AccountsScreen(
     viewModel: AccountsViewModel,
     isPrivacyMode: Boolean = false,
+    onAccountChanged: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     val state by viewModel.uiState.collectAsState()
@@ -40,6 +41,10 @@ fun AccountsScreen(
     var showCreateDialog by remember { mutableStateOf(false) }
     var accountToReconcile by remember { mutableStateOf<AccountDetailDto?>(null) }
     var accountToDelete by remember { mutableStateOf<AccountDetailDto?>(null) }
+
+    LaunchedEffect(Unit) {
+        viewModel.loadAccounts(forceRefresh = true)
+    }
 
     LaunchedEffect(state.errorMessage) {
         state.errorMessage?.let {
@@ -210,6 +215,7 @@ fun AccountsScreen(
                 onCreate = { name, type, currency, balance ->
                     viewModel.createAccount(name, type, currency, balance) {
                         showCreateDialog = false
+                        onAccountChanged()
                     }
                 }
             )
@@ -224,6 +230,7 @@ fun AccountsScreen(
                 onConfirm = { actualBalance ->
                     viewModel.reconcileAccount(acc.id, actualBalance) {
                         accountToReconcile = null
+                        onAccountChanged()
                     }
                 }
             )
@@ -245,6 +252,7 @@ fun AccountsScreen(
                         onClick = {
                             viewModel.deleteAccount(acc.id) {
                                 accountToDelete = null
+                                onAccountChanged()
                             }
                         },
                         colors = ButtonDefaults.buttonColors(containerColor = ExpenseRed)

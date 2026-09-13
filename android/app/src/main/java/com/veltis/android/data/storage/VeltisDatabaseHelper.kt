@@ -169,6 +169,18 @@ class VeltisDatabaseHelper(context: Context) : SQLiteOpenHelper(context, DATABAS
         return null
     }
 
+    fun deleteCache(key: String) {
+        val db = writableDatabase
+        db.delete(TABLE_CACHE, "cache_key = ?", arrayOf(key))
+    }
+
+    fun deleteCaches(vararg keys: String) {
+        val db = writableDatabase
+        for (key in keys) {
+            db.delete(TABLE_CACHE, "cache_key = ?", arrayOf(key))
+        }
+    }
+
     companion object {
         private const val DATABASE_NAME = "veltis_local.db"
         private const val DATABASE_VERSION = 1

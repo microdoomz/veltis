@@ -66,7 +66,10 @@ export function SignupForm() {
     try {
       await authClient.signIn.social({
         provider: 'google',
-        callbackURL: '/onboarding'
+        callbackURL: '/onboarding',
+        additionalParams: {
+          prompt: 'select_account',
+        },
       });
     } catch {
       setError('Failed to initiate Google signup');

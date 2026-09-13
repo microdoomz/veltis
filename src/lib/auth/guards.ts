@@ -2,7 +2,7 @@ import { auth } from './auth';
 import { headers } from 'next/headers';
 import { db } from '../db';
 import { workspaceMember, session as sessionTable, user as userTable } from '../db/schema';
-import { and, eq, gt } from 'drizzle-orm';
+import { and, eq, gt, or } from 'drizzle-orm';
 import { createWorkspaceForUser } from '../services/workspace';
 
 export async function getUser() {
@@ -34,6 +34,7 @@ export async function getUser() {
 
   if (token) {
     try {
+      const cleanToken = token.includes('.') ? token.split('.')[0] : token;
       const rows = await db
         .select({
           session: sessionTable,
@@ -41,7 +42,12 @@ export async function getUser() {
         })
         .from(sessionTable)
         .innerJoin(userTable, eq(sessionTable.userId, userTable.id))
-        .where(and(eq(sessionTable.token, token), gt(sessionTable.expiresAt, new Date())))
+        .where(
+          and(
+            or(eq(sessionTable.token, token), eq(sessionTable.token, cleanToken)),
+            gt(sessionTable.expiresAt, new Date())
+          )
+        )
         .limit(1);
 
       if (rows.length > 0) {

@@ -171,23 +171,8 @@ class AuthRepositoryImpl(
     }
 
     override suspend fun getGoogleSignInUrl(): VeltisResult<String> = withContext(Dispatchers.IO) {
-        try {
-            val callbackUrl = "${networkClient.baseUrl}api/auth/mobile-callback"
-            val response = api.signInSocial(
-                SocialSignInRequestDto(
-                    provider = "google",
-                    callbackURL = callbackUrl
-                )
-            )
-            val authUrl = response.body()?.url
-            if (response.isSuccessful && !authUrl.isNullOrBlank()) {
-                VeltisResult.Success(authUrl)
-            } else {
-                VeltisResult.Success("${networkClient.baseUrl}api/auth/mobile-login/google")
-            }
-        } catch (_: Exception) {
-            VeltisResult.Success("${networkClient.baseUrl}api/auth/mobile-login/google")
-        }
+        val base = if (networkClient.baseUrl.endsWith("/")) networkClient.baseUrl else "${networkClient.baseUrl}/"
+        VeltisResult.Success("${base}api/auth/mobile-login/google")
     }
 
     override suspend fun handleOAuthCallback(token: String): VeltisResult<User> = withContext(Dispatchers.IO) {

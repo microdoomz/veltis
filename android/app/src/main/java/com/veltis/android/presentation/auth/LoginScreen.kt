@@ -38,55 +38,11 @@ import com.veltis.android.util.BiometricHelper
 
 @Composable
 fun GoogleBrandIcon(modifier: Modifier = Modifier) {
-    Box(
-        modifier = modifier.size(20.dp),
-        contentAlignment = Alignment.Center
-    ) {
-        Canvas(modifier = Modifier.fillMaxSize()) {
-            val stroke = size.width * 0.18f
-            val radius = (size.width - stroke) / 2f
-            val center = androidx.compose.ui.geometry.Offset(size.width / 2f, size.height / 2f)
-
-            // Blue
-            drawArc(
-                color = Color(0xFF4285F4),
-                startAngle = 0f,
-                sweepAngle = -90f,
-                useCenter = false,
-                style = androidx.compose.ui.graphics.drawscope.Stroke(width = stroke)
-            )
-            // Green
-            drawArc(
-                color = Color(0xFF34A853),
-                startAngle = 0f,
-                sweepAngle = 90f,
-                useCenter = false,
-                style = androidx.compose.ui.graphics.drawscope.Stroke(width = stroke)
-            )
-            // Yellow
-            drawArc(
-                color = Color(0xFFFBBC05),
-                startAngle = 90f,
-                sweepAngle = 90f,
-                useCenter = false,
-                style = androidx.compose.ui.graphics.drawscope.Stroke(width = stroke)
-            )
-            // Red
-            drawArc(
-                color = Color(0xFFEA4335),
-                startAngle = 180f,
-                sweepAngle = 90f,
-                useCenter = false,
-                style = androidx.compose.ui.graphics.drawscope.Stroke(width = stroke)
-            )
-            // Horizontal bar for G
-            drawRect(
-                color = Color(0xFF4285F4),
-                topLeft = androidx.compose.ui.geometry.Offset(center.x, center.y - stroke / 2),
-                size = androidx.compose.ui.geometry.Size(radius, stroke)
-            )
-        }
-    }
+    androidx.compose.foundation.Image(
+        painter = androidx.compose.ui.res.painterResource(id = com.veltis.android.R.drawable.ic_google_logo),
+        contentDescription = "Google Logo",
+        modifier = modifier.size(20.dp)
+    )
 }
 
 @OptIn(ExperimentalMaterial3Api::class)

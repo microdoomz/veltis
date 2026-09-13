@@ -33,6 +33,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.fragment.app.FragmentActivity
 import com.veltis.android.data.storage.SessionManager
+import com.veltis.android.presentation.theme.*
 import com.veltis.android.util.BiometricHelper
 
 @Composable

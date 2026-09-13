@@ -58,22 +58,27 @@ export async function GET(req: Request) {
 
     const accounts = await getAccountSummary(authContext.workspaceId);
 
-    const serialized = accounts.map((acc) => ({
-      id: acc.id,
-      name: acc.name,
-      accountType: acc.accountType,
-      currency: acc.currency || 'USD',
-      institutionName: acc.institutionName || null,
-      balanceMinor: Number(acc.balanceMinor ?? acc.openingBalanceMinor ?? 0),
-      openingBalanceMinor: Number(acc.openingBalanceMinor ?? 0),
-      color: acc.color || null,
-      iconKey: acc.iconKey || null,
-      displayOrder: acc.displayOrder ?? 0,
-      status: acc.status || 'active',
-      investedAmountMinor: acc.investedAmountMinor ? Number(acc.investedAmountMinor) : undefined,
-      unrealizedGainLossMinor: acc.unrealizedGainLossMinor ? Number(acc.unrealizedGainLossMinor) : undefined,
-      unrealizedGainLossPct: acc.unrealizedGainLossPct,
-    }));
+    const serialized = accounts.map((acc) => {
+      const balMinor = Number(acc.balanceMinor ?? acc.openingBalanceMinor ?? 0);
+      return {
+        id: acc.id,
+        name: acc.name,
+        accountType: acc.accountType,
+        currency: acc.currency || 'USD',
+        institutionName: acc.institutionName || null,
+        balanceMinor: balMinor,
+        balance: balMinor / 100,
+        currentBalance: balMinor / 100,
+        openingBalanceMinor: Number(acc.openingBalanceMinor ?? 0),
+        color: acc.color || null,
+        iconKey: acc.iconKey || null,
+        displayOrder: acc.displayOrder ?? 0,
+        status: acc.status || 'active',
+        investedAmountMinor: acc.investedAmountMinor ? Number(acc.investedAmountMinor) : undefined,
+        unrealizedGainLossMinor: acc.unrealizedGainLossMinor ? Number(acc.unrealizedGainLossMinor) : undefined,
+        unrealizedGainLossPct: acc.unrealizedGainLossPct,
+      };
+    });
 
     return safeJsonResponse(serialized, {
       headers: {

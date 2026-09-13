@@ -26,8 +26,11 @@ data class AnalyticsUiState(
     val isLoading: Boolean = false,
     val isRefreshing: Boolean = false,
     val timeRange: AnalyticsTimeRange = AnalyticsTimeRange.THIS_MONTH,
+    val selectedTab: String = "overview", // "overview", "investments", "budgets"
     val overview: AnalyticsOverviewDto = AnalyticsOverviewDto(),
     val spendingCategories: List<CategorySpendingDto> = emptyList(),
+    val budgets: List<com.veltis.android.data.model.BudgetDto> = emptyList(),
+    val investments: com.veltis.android.data.model.InvestmentsResponseDto? = null,
     val baseCurrency: String = "USD",
     val errorMessage: String? = null
 )
@@ -46,6 +49,10 @@ class AnalyticsViewModel(
         loadAnalytics()
     }
 
+    fun setTab(tab: String) {
+        _uiState.update { it.copy(selectedTab = tab) }
+    }
+
     fun setTimeRange(range: AnalyticsTimeRange) {
         _uiState.update { it.copy(timeRange = range) }
         loadAnalytics()
@@ -56,29 +63,37 @@ class AnalyticsViewModel(
             _uiState.update { it.copy(isLoading = !forceRefresh, isRefreshing = forceRefresh) }
 
             val (start, end) = computeDateRange(_uiState.value.timeRange)
-            when (val result = repository.getAnalytics(start, end)) {
-                is VeltisResult.Success -> {
-                    _uiState.update {
-                        it.copy(
-                            isLoading = false,
-                            isRefreshing = false,
-                            overview = result.data.first,
-                            spendingCategories = result.data.second,
-                            baseCurrency = sessionManager.getBaseCurrency(),
-                            errorMessage = null
-                        )
+            launch {
+                when (val result = repository.getAnalytics(start, end)) {
+                    is VeltisResult.Success -> {
+                        _uiState.update {
+                            it.copy(
+                                overview = result.data.first,
+                                spendingCategories = result.data.second,
+                                baseCurrency = sessionManager.getBaseCurrency()
+                            )
+                        }
                     }
-                }
-                is VeltisResult.Failure -> {
-                    _uiState.update {
-                        it.copy(
-                            isLoading = false,
-                            isRefreshing = false,
-                            errorMessage = result.error.userFriendlyMessage()
-                        )
-                    }
+                    is VeltisResult.Failure -> {}
                 }
             }
+            launch {
+                when (val result = repository.getBudgets()) {
+                    is VeltisResult.Success -> {
+                        _uiState.update { it.copy(budgets = result.data) }
+                    }
+                    is VeltisResult.Failure -> {}
+                }
+            }
+            launch {
+                when (val result = repository.getInvestments()) {
+                    is VeltisResult.Success -> {
+                        _uiState.update { it.copy(investments = result.data) }
+                    }
+                    is VeltisResult.Failure -> {}
+                }
+            }
+            _uiState.update { it.copy(isLoading = false, isRefreshing = false) }
         }
     }
 

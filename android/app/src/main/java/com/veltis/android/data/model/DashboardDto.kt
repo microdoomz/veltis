@@ -44,11 +44,14 @@ data class AccountDetailDto(
     val currency: String = "USD",
     val institutionName: String? = null,
     val balanceMinor: Double = 0.0,
+    val currentBalance: Double? = null,
+    val balanceValue: Double? = null,
     val color: String? = null,
     val iconKey: String? = null,
     val displayOrder: Int = 0
 ) {
-    val balance: Double get() = balanceMinor / 100.0
+    val balance: Double get() = if (balanceMinor != 0.0) balanceMinor / 100.0 else (currentBalance ?: balanceValue ?: 0.0)
+    val displayBalance: Double get() = balance
 }
 
 @Serializable

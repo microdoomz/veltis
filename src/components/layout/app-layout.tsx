@@ -373,8 +373,21 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
       <main className="flex-1 flex flex-col h-full min-w-0 overflow-y-auto overflow-x-hidden no-scrollbar-desktop md:[scrollbar-width:none] md:[-ms-overflow-style:none] md:[&::-webkit-scrollbar]:hidden pb-16 md:pb-0">
         {/* Desktop Top Bar */}
         <header className="hidden md:flex items-center justify-end h-12 px-8 border-b border-border/40 bg-card/30 backdrop-blur-sm sticky top-0 z-10">
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-3">
             <PrivacyToggle />
+            <button
+              onClick={() => setShowLogoutConfirm(true)}
+              disabled={isLoggingOut}
+              className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-semibold text-red-500 hover:text-red-400 hover:bg-red-500/10 border border-red-500/20 transition-colors cursor-pointer"
+              title="Log out"
+            >
+              {isLoggingOut ? (
+                <Loader2 className="h-3.5 w-3.5 animate-spin text-red-500" />
+              ) : (
+                <LogOut className="h-3.5 w-3.5 text-red-500" />
+              )}
+              <span>Log out</span>
+            </button>
           </div>
         </header>
 
@@ -389,6 +402,19 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
           <div className="flex items-center gap-2">
             <PrivacyToggle compact />
             <SyncStatus />
+            <button
+              onClick={() => setShowLogoutConfirm(true)}
+              disabled={isLoggingOut}
+              className="p-2 rounded-lg text-red-500 hover:text-red-400 hover:bg-red-500/10 transition-colors"
+              title="Log out"
+              aria-label="Log out"
+            >
+              {isLoggingOut ? (
+                <Loader2 className="h-4 w-4 animate-spin text-red-500" />
+              ) : (
+                <LogOut className="h-4 w-4 text-red-500" />
+              )}
+            </button>
           </div>
         </header>
         

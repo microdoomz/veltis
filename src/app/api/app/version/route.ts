@@ -12,9 +12,9 @@ export async function OPTIONS() {
 
 export async function GET() {
   return NextResponse.json({
-    versionCode: 2,
-    versionName: '0.2.0',
+    versionCode: 3,
+    versionName: '1.1.0',
     apkUrl: 'https://veltismoney.vercel.app/downloads/veltis.apk',
-    changelog: 'Enhanced Google login flow, real database sync, no default account auto-creation, and in-app update capability.',
+    changelog: 'Veltis v1.1.0: Standalone pages for Budgets, Receivables, Liabilities, Recurring, Imports, and Exports. Multi-tab Analytics (Overview, Investments, Budgets). Account balance and transaction fixes. Red logout confirmation popup across Web & PWA.',
   }, { headers: corsHeaders });
 }

@@ -30,6 +30,7 @@ import com.veltis.android.presentation.theme.*
 @Composable
 fun InvestmentsScreen(
     viewModel: InvestmentsViewModel,
+    onMenuClick: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     val state by viewModel.uiState.collectAsState()
@@ -64,6 +65,11 @@ fun InvestmentsScreen(
                         color = Color.White,
                         fontSize = 20.sp
                     )
+                },
+                navigationIcon = {
+                    IconButton(onClick = onMenuClick) {
+                        Icon(imageVector = Icons.Default.Menu, contentDescription = "Menu", tint = Color.White)
+                    }
                 },
                 actions = {
                     IconButton(

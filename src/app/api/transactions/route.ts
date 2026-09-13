@@ -42,13 +42,51 @@ export async function GET(req: Request) {
 
     const txns = await getRecentTransactions(workspaceId, limit, filters);
 
-    const serialized = txns.map((t) => ({
-      ...t,
-      amountMinor: Number(t.amountMinor),
-      transactionDate: t.transactionDate.toString(),
-    }));
+    const serialized = txns.map((t) => {
+      const firstLeg = t.legs?.[0];
+      const dateStr = t.transactionDate
+        ? typeof t.transactionDate === 'string'
+          ? t.transactionDate
+          : (t.transactionDate as Date).toISOString().split('T')[0]
+        : new Date().toISOString().split('T')[0];
 
-    return NextResponse.json({ transactions: serialized }, { headers: corsHeaders });
+      return {
+        id: t.id,
+        transactionType: t.transactionType,
+        amountMinor: Number(t.amountMinor ?? 0),
+        currency: t.currency || 'USD',
+        transactionDate: dateStr,
+        description: t.description || '',
+        merchantName: t.merchantName || null,
+        categoryId: t.categoryId || null,
+        categoryName: t.category?.name || null,
+        categoryColor: null,
+        accountId: firstLeg?.accountId || null,
+        accountName: firstLeg?.account?.name || null,
+        source: t.source || 'manual',
+        status: t.status,
+        legs: t.legs?.map((l) => ({
+          id: l.id,
+          accountId: l.accountId,
+          amountMinor: Number(l.amountMinor),
+          direction: l.direction,
+          legRole: l.legRole,
+          account: l.account ? {
+            id: l.account.id,
+            name: l.account.name,
+            accountType: l.account.accountType,
+            currency: l.account.currency,
+          } : undefined
+        }))
+      };
+    });
+
+    return safeJsonResponse({ transactions: serialized }, {
+      headers: {
+        ...corsHeaders,
+        'Cache-Control': 'no-store, no-cache, must-revalidate',
+      }
+    });
   } catch (error: unknown) {
     const err = error as Error;
     if (err.message === 'Unauthorized' || err.message.includes('Forbidden')) {

@@ -128,7 +128,7 @@ class MoreViewModel(
         currency: String,
         start: String,
         end: String,
-        onSuccess: () -> Unit
+        onSuccess: () -> Unit = {}
     ) {
         if (amount <= 0) {
             _uiState.update { it.copy(errorMessage = "Budget amount must be positive.") }

@@ -164,7 +164,8 @@ fun AccountsScreen(
             ) {
                 item { Spacer(modifier = Modifier.height(4.dp)) }
 
-                val totalNet = state.accounts.sumOf { it.balance }
+                val totalNet = state.accounts.sumOf { it.displayBalance }
+                val headerCurrency = state.accounts.firstOrNull()?.currency ?: "USD"
                 item {
                     Box(
                         modifier = Modifier
@@ -189,7 +190,7 @@ fun AccountsScreen(
                                 )
                                 Spacer(modifier = Modifier.height(4.dp))
                                 Text(
-                                    text = if (isPrivacyMode) "••••••••" else formatCurrency(totalNet, "USD"),
+                                    text = if (isPrivacyMode) "••••••••" else formatCurrency(totalNet, headerCurrency),
                                     fontSize = 22.sp,
                                     fontWeight = FontWeight.Bold,
                                     color = Color.White
@@ -303,12 +304,18 @@ fun AccountCard(
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Column {
+                Column(
+                    modifier = Modifier
+                        .weight(1f)
+                        .padding(end = 12.dp)
+                ) {
                     Text(
                         text = account.name,
                         fontSize = 16.sp,
                         fontWeight = FontWeight.Bold,
-                        color = Color.White
+                        color = Color.White,
+                        maxLines = 1,
+                        overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
                     )
                     Text(
                         text = account.accountType.replace("_", " ").uppercase(Locale.getDefault()),
@@ -319,10 +326,10 @@ fun AccountCard(
                 }
 
                 Text(
-                    text = if (isPrivacyMode) "••••••••" else formatCurrency(account.balance, account.currency),
+                    text = if (isPrivacyMode) "••••••••" else formatCurrency(account.displayBalance, account.currency),
                     fontSize = 18.sp,
                     fontWeight = FontWeight.ExtraBold,
-                    color = if (account.balance >= 0) Color.White else ExpenseRed
+                    color = if (account.displayBalance >= 0) Color.White else ExpenseRed
                 )
             }
 

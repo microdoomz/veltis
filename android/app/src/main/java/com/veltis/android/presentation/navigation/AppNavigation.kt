@@ -35,6 +35,13 @@ import com.veltis.android.presentation.home.HomeScreen
 import com.veltis.android.presentation.home.HomeViewModel
 import com.veltis.android.presentation.investments.InvestmentsScreen
 import com.veltis.android.presentation.investments.InvestmentsViewModel
+import com.veltis.android.presentation.budgets.BudgetsScreen
+import com.veltis.android.presentation.receivables.ReceivablesScreen
+import com.veltis.android.presentation.liabilities.LiabilitiesScreen
+import com.veltis.android.presentation.recurring.RecurringScreen
+import com.veltis.android.presentation.imports.ImportsScreen
+import com.veltis.android.presentation.exports.ExportsScreen
+import com.veltis.android.presentation.settings.AppSettingsScreen
 import com.veltis.android.presentation.more.MoreScreen
 import com.veltis.android.presentation.more.MoreViewModel
 import com.veltis.android.presentation.theme.*
@@ -201,6 +208,8 @@ fun MainDashboardShell(
         DrawerItem("bottom_analytics", "Analytics", Icons.Default.QueryStats),
         DrawerItem("drawer_budgets", "Budgets", Icons.Default.AttachMoney),
         DrawerItem("drawer_recurring", "Recurring", Icons.Default.Repeat),
+        DrawerItem("drawer_imports", "Imports", Icons.Default.FileUpload),
+        DrawerItem("drawer_exports", "Exports", Icons.Default.Download),
         DrawerItem("drawer_settings", "Settings", Icons.Default.Settings)
     )
 
@@ -623,7 +632,8 @@ fun MainDashboardShell(
                     exitTransition = { fadeOut(animationSpec = tween(200)) }
                 ) {
                     AnalyticsScreen(
-                        viewModel = analyticsViewModel
+                        viewModel = analyticsViewModel,
+                        onMenuClick = { coroutineScope.launch { drawerState.open() } }
                     )
                 }
 
@@ -634,7 +644,8 @@ fun MainDashboardShell(
                     exitTransition = { fadeOut(animationSpec = tween(200)) }
                 ) {
                     InvestmentsScreen(
-                        viewModel = investmentsViewModel
+                        viewModel = investmentsViewModel,
+                        onMenuClick = { coroutineScope.launch { drawerState.open() } }
                     )
                 }
 
@@ -644,10 +655,9 @@ fun MainDashboardShell(
                     enterTransition = { fadeIn(animationSpec = tween(200)) },
                     exitTransition = { fadeOut(animationSpec = tween(200)) }
                 ) {
-                    MoreScreen(
+                    BudgetsScreen(
                         viewModel = moreViewModel,
-                        sessionManager = app.sessionManager,
-                        onLogout = onSignOut
+                        onMenuClick = { coroutineScope.launch { drawerState.open() } }
                     )
                 }
 
@@ -657,10 +667,9 @@ fun MainDashboardShell(
                     enterTransition = { fadeIn(animationSpec = tween(200)) },
                     exitTransition = { fadeOut(animationSpec = tween(200)) }
                 ) {
-                    MoreScreen(
+                    ReceivablesScreen(
                         viewModel = moreViewModel,
-                        sessionManager = app.sessionManager,
-                        onLogout = onSignOut
+                        onMenuClick = { coroutineScope.launch { drawerState.open() } }
                     )
                 }
 
@@ -670,10 +679,9 @@ fun MainDashboardShell(
                     enterTransition = { fadeIn(animationSpec = tween(200)) },
                     exitTransition = { fadeOut(animationSpec = tween(200)) }
                 ) {
-                    MoreScreen(
+                    LiabilitiesScreen(
                         viewModel = moreViewModel,
-                        sessionManager = app.sessionManager,
-                        onLogout = onSignOut
+                        onMenuClick = { coroutineScope.launch { drawerState.open() } }
                     )
                 }
 
@@ -683,10 +691,32 @@ fun MainDashboardShell(
                     enterTransition = { fadeIn(animationSpec = tween(200)) },
                     exitTransition = { fadeOut(animationSpec = tween(200)) }
                 ) {
-                    MoreScreen(
+                    RecurringScreen(
                         viewModel = moreViewModel,
-                        sessionManager = app.sessionManager,
-                        onLogout = onSignOut
+                        onMenuClick = { coroutineScope.launch { drawerState.open() } }
+                    )
+                }
+
+                // Imports (Drawer)
+                composable(
+                    route = "drawer_imports",
+                    enterTransition = { fadeIn(animationSpec = tween(200)) },
+                    exitTransition = { fadeOut(animationSpec = tween(200)) }
+                ) {
+                    ImportsScreen(
+                        onMenuClick = { coroutineScope.launch { drawerState.open() } }
+                    )
+                }
+
+                // Exports (Drawer)
+                composable(
+                    route = "drawer_exports",
+                    enterTransition = { fadeIn(animationSpec = tween(200)) },
+                    exitTransition = { fadeOut(animationSpec = tween(200)) }
+                ) {
+                    ExportsScreen(
+                        viewModel = moreViewModel,
+                        onMenuClick = { coroutineScope.launch { drawerState.open() } }
                     )
                 }
 
@@ -696,10 +726,11 @@ fun MainDashboardShell(
                     enterTransition = { fadeIn(animationSpec = tween(200)) },
                     exitTransition = { fadeOut(animationSpec = tween(200)) }
                 ) {
-                    MoreScreen(
+                    AppSettingsScreen(
                         viewModel = moreViewModel,
                         sessionManager = app.sessionManager,
-                        onLogout = onSignOut
+                        onLogout = onSignOut,
+                        onMenuClick = { coroutineScope.launch { drawerState.open() } }
                     )
                 }
             }

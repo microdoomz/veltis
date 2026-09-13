@@ -2,13 +2,13 @@ import { NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import { eq, inArray, desc, and } from 'drizzle-orm';
 import {
+  financialAccount,
   investmentPosition,
   investmentPriceSnapshot,
   investmentTransaction
 } from '@/lib/db/schema';
-import { requireWorkspaceAccess, requireStrictWorkspaceAccess } from '@/lib/auth/guards';
+import { requireWorkspaceAccess } from '@/lib/auth/guards';
 import { safeJsonResponse } from '@/lib/utils/serialization';
-import { z } from 'zod';
 import {
   recordContribution,
   recordWithdrawal,
@@ -21,6 +21,7 @@ const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
   'Access-Control-Allow-Headers': 'Content-Type, Authorization, Cookie, x-session-token',
+  'Access-Control-Max-Age': '86400',
 };
 
 export async function OPTIONS() {
@@ -74,18 +75,47 @@ export async function GET(req: Request) {
       });
     }
 
-    // Attach current price to positions
-    const enrichedPositions = positions.map(pos => {
-      const snapshot = latestSnapshots.find(s => s.positionId === pos.id);
+    let totalInvestedMinor = 0n;
+    let totalCurrentValueMinor = 0n;
+
+    // Attach current price and computed valuation to positions
+    const enrichedPositions = positions.map((pos) => {
+      const snapshot = latestSnapshots.find((s) => s.positionId === pos.id);
+      const currentPriceMinor = snapshot ? snapshot.priceMinor : (pos.averageCostMinor || 0n);
+      const unitsNum = Number(pos.units || 0);
+      const avgCostNum = Number(pos.averageCostMinor || 0) / 100;
+      const curPriceNum = Number(currentPriceMinor || 0) / 100;
+      const posInvested = unitsNum * avgCostNum;
+      const posValuation = unitsNum * curPriceNum;
+      const posGainLoss = posValuation - posInvested;
+      const posGainLossPct = posInvested > 0 ? (posGainLoss / posInvested) * 100 : 0;
+
+      if (unitsNum > 0) {
+        totalInvestedMinor += BigInt(Math.round(posInvested * 100));
+        totalCurrentValueMinor += BigInt(Math.round(posValuation * 100));
+      }
+
       return {
         ...pos,
-        currentPriceMinor: snapshot ? snapshot.priceMinor : pos.averageCostMinor,
+        symbol: pos.symbol || pos.name || '',
+        name: pos.name,
+        units: unitsNum,
+        averageBuyPrice: avgCostNum,
+        currentPrice: curPriceNum,
+        currentValuation: posValuation,
+        totalInvested: posInvested,
+        unrealizedGainLoss: posGainLoss,
+        unrealizedGainLossPercent: posGainLossPct,
+        currentPriceMinor: currentPriceMinor.toString(),
         isEstimated: !!snapshot,
       };
     });
 
-    // Fetch contribution history (investment_contribution transactions)
-    // Actually, maybe we just fetch the investmentTransactions for history
+    const totalInvested = Number(totalInvestedMinor) / 100;
+    const currentValuation = Number(totalCurrentValueMinor) / 100;
+    const totalGainLoss = currentValuation - totalInvested;
+
+    // Fetch contribution/trade history
     const history = await db.query.investmentTransaction.findMany({
       where: eq(investmentTransaction.workspaceId, workspaceId),
       orderBy: [desc(investmentTransaction.transactionDate)],
@@ -95,113 +125,196 @@ export async function GET(req: Request) {
       }
     });
 
-    const serialized = JSON.parse(JSON.stringify({
+    return safeJsonResponse({
       accounts,
       positions: enrichedPositions,
       history,
-    }, (key, value) => typeof value === 'bigint' ? value.toString() : value));
-
-    return NextResponse.json(serialized);
+      totalInvested,
+      currentValuation,
+      totalGainLoss,
+    }, {
+      headers: {
+        ...corsHeaders,
+        'Cache-Control': 'no-store, no-cache, must-revalidate',
+      }
+    });
   } catch (error: unknown) {
     console.error('Failed to fetch investments:', error);
-    return NextResponse.json({ error: (error as Error).message }, { status: 500 });
+    return NextResponse.json({ error: (error as Error).message }, { status: 500, headers: corsHeaders });
   }
 }
-
-const transactionSchema = z.object({
-  workspaceId: z.string().uuid(),
-  type: z.enum(['contribution', 'withdrawal', 'buy', 'sell', 'topup']),
-  investmentAccountId: z.string().uuid().optional(),
-  sourceAccountId: z.string().uuid().optional(), // For contribution or topup
-  destinationAccountId: z.string().uuid().optional(), // For withdrawal
-  positionId: z.string().uuid().optional(), // For buy/sell/topup
-  amountMinor: z.number().int().positive().optional(), // For contribution/withdrawal/topup
-  units: z.string().optional(), // For buy/sell
-  priceMinor: z.number().int().positive().optional(), // For buy/sell
-  currency: z.string().length(3),
-  transactionDate: z.string(),
-});
 
 export async function POST(req: Request) {
   try {
     const body = await req.json();
-    const data = transactionSchema.parse(body);
-    const { session } = await requireStrictWorkspaceAccess(data.workspaceId);
-    const user = session;
+    const url = new URL(req.url);
+    const requestedWorkspaceId = body.workspaceId || url.searchParams.get('workspaceId') || undefined;
+    const authContext = await requireWorkspaceAccess(requestedWorkspaceId);
+    const workspaceId = authContext.workspaceId;
+    const userId = authContext.session.user.id;
 
-    const date = new Date(data.transactionDate);
+    const action = body.action || body.type; // 'buy' | 'sell' | 'contribution' | 'withdrawal' | 'topup' | 'top_up'
+    const normalizedAction = action === 'top_up' ? 'topup' : action;
+    const date = body.transactionDate && !isNaN(new Date(body.transactionDate).getTime())
+      ? new Date(body.transactionDate)
+      : new Date();
+    const currency = (body.currency || 'USD').toUpperCase();
+    const units = body.units ? String(body.units) : '0';
+    const priceMinor = body.priceMinor
+      ? BigInt(body.priceMinor)
+      : body.price
+      ? BigInt(Math.round(body.price * 100))
+      : 0n;
+    const amountMinor = body.amountMinor
+      ? BigInt(body.amountMinor)
+      : body.amount
+      ? BigInt(Math.round(body.amount * 100))
+      : 0n;
 
-    let txId = '';
-    switch (data.type) {
-      case 'contribution':
-        if (!data.sourceAccountId || !data.amountMinor || !data.investmentAccountId) throw new Error('Missing fields for contribution');
-        txId = await recordContribution(
-          data.workspaceId,
-          data.sourceAccountId,
-          data.investmentAccountId,
-          BigInt(data.amountMinor),
-          data.currency,
-          date,
-          user.user.id
-        );
-        break;
-      case 'withdrawal':
-        if (!data.destinationAccountId || !data.amountMinor || !data.investmentAccountId) throw new Error('Missing fields for withdrawal');
-        txId = await recordWithdrawal(
-          data.workspaceId,
-          data.investmentAccountId,
-          data.destinationAccountId,
-          BigInt(data.amountMinor),
-          data.currency,
-          date,
-          user.user.id
-        );
-        break;
-      case 'buy':
-        if (!data.positionId || !data.units || !data.priceMinor || !data.investmentAccountId) throw new Error('Missing fields for buy');
-        txId = await buyPosition(
-          data.workspaceId,
-          data.investmentAccountId,
-          data.positionId,
-          data.units,
-          BigInt(data.priceMinor),
-          data.currency,
-          date,
-          user.user.id
-        );
-        break;
-      case 'sell':
-        if (!data.positionId || !data.units || !data.priceMinor) throw new Error('Missing fields for sell');
-        if (!data.investmentAccountId) throw new Error('Missing investment account ID');
-        txId = await sellPosition(
-          data.workspaceId,
-          data.investmentAccountId,
-          data.positionId,
-          data.units,
-          BigInt(data.priceMinor),
-          data.currency,
-          date,
-          user.user.id
-        );
-        break;
-      case 'topup':
-        if (!data.positionId || !data.amountMinor) throw new Error('Missing positionId or amount for top-up');
-        txId = await topUpPosition(
-          data.workspaceId,
-          data.positionId,
-          BigInt(data.amountMinor),
-          BigInt(data.priceMinor || 1000),
-          data.currency,
-          date,
-          user.user.id,
-          data.sourceAccountId
-        );
-        break;
+    // Resolve investment account
+    let investmentAccountId = body.investmentAccountId || body.accountId;
+    if (!investmentAccountId && body.positionId) {
+      const pos = await db.query.investmentPosition.findFirst({
+        where: eq(investmentPosition.id, body.positionId),
+      });
+      if (pos) investmentAccountId = pos.financialAccountId;
     }
 
-    return NextResponse.json({ success: true, transactionId: txId });
+    if (!investmentAccountId) {
+      const firstInvAccount = await db.query.financialAccount.findFirst({
+        where: and(
+          eq(financialAccount.workspaceId, workspaceId),
+          eq(financialAccount.accountType, 'investment'),
+          eq(financialAccount.status, 'active')
+        ),
+      });
+      investmentAccountId = firstInvAccount?.id;
+    }
+
+    if (!investmentAccountId && normalizedAction !== 'withdrawal') {
+      // Create a default investment account if none exists
+      const [newInvAccount] = await db.insert(financialAccount).values({
+        workspaceId,
+        name: 'Investment Portfolio',
+        accountType: 'investment',
+        currency,
+        openingBalanceMinor: 0n,
+        openingBalanceDate: date.toISOString().split('T')[0],
+        status: 'active',
+      }).returning();
+      investmentAccountId = newInvAccount.id;
+    }
+
+    let positionId = body.positionId;
+    if (!positionId && (normalizedAction === 'buy' || normalizedAction === 'sell' || normalizedAction === 'topup')) {
+      // Find or create position by symbol/name
+      const symbolOrName = body.symbol || body.name || 'ASSET';
+      let pos = await db.query.investmentPosition.findFirst({
+        where: and(
+          eq(investmentPosition.workspaceId, workspaceId),
+          eq(investmentPosition.symbol, symbolOrName)
+        )
+      });
+
+      if (!pos) {
+        const [createdPos] = await db.insert(investmentPosition).values({
+          workspaceId,
+          financialAccountId: investmentAccountId!,
+          name: body.name || symbolOrName,
+          symbol: symbolOrName,
+          assetType: 'equity',
+          units: '0',
+          averageCostMinor: priceMinor > 0n ? priceMinor : 1000n,
+          currency,
+        }).returning();
+        pos = createdPos;
+      }
+      positionId = pos.id;
+    }
+
+    let txId = '';
+    switch (normalizedAction) {
+      case 'contribution': {
+        const sourceAccountId = body.sourceAccountId || body.accountId;
+        if (!sourceAccountId || !amountMinor || !investmentAccountId) {
+          throw new Error('Missing fields for contribution (sourceAccountId, amount, investmentAccountId)');
+        }
+        txId = await recordContribution(
+          workspaceId,
+          sourceAccountId,
+          investmentAccountId,
+          amountMinor,
+          currency,
+          date,
+          userId
+        );
+        break;
+      }
+      case 'withdrawal': {
+        const destinationAccountId = body.destinationAccountId || body.accountId;
+        if (!destinationAccountId || !amountMinor || !investmentAccountId) {
+          throw new Error('Missing fields for withdrawal (destinationAccountId, amount, investmentAccountId)');
+        }
+        txId = await recordWithdrawal(
+          workspaceId,
+          investmentAccountId,
+          destinationAccountId,
+          amountMinor,
+          currency,
+          date,
+          userId
+        );
+        break;
+      }
+      case 'buy': {
+        if (!positionId || !investmentAccountId) throw new Error('Missing position or investment account for buy');
+        txId = await buyPosition(
+          workspaceId,
+          investmentAccountId,
+          positionId,
+          units,
+          priceMinor > 0n ? priceMinor : 1000n,
+          currency,
+          date,
+          userId
+        );
+        break;
+      }
+      case 'sell': {
+        if (!positionId || !investmentAccountId) throw new Error('Missing position or investment account for sell');
+        txId = await sellPosition(
+          workspaceId,
+          investmentAccountId,
+          positionId,
+          units,
+          priceMinor > 0n ? priceMinor : 1000n,
+          currency,
+          date,
+          userId
+        );
+        break;
+      }
+      case 'topup': {
+        if (!positionId) throw new Error('Missing positionId for top-up');
+        txId = await topUpPosition(
+          workspaceId,
+          positionId,
+          amountMinor > 0n ? amountMinor : 10000n,
+          priceMinor > 0n ? priceMinor : 1000n,
+          currency,
+          date,
+          userId,
+          body.sourceAccountId
+        );
+        break;
+      }
+      default:
+        throw new Error(`Unsupported investment action: ${action}`);
+    }
+
+    return safeJsonResponse({ success: true, transactionId: txId }, { headers: corsHeaders });
   } catch (error: unknown) {
-    console.error('Failed to process investment transaction:', error);
-    return NextResponse.json({ error: (error as Error).message }, { status: 400 });
+    console.error('Failed to process investment action:', error);
+    return NextResponse.json({ error: (error as Error).message }, { status: 400, headers: corsHeaders });
   }
 }

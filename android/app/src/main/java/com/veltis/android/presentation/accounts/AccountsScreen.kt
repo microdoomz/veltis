@@ -351,16 +351,16 @@ fun CreateAccountDialog(
     onCreate: (name: String, type: String, currency: String, balance: Double) -> Unit
 ) {
     var name by remember { mutableStateOf("") }
-    var selectedType by remember { mutableStateOf("depository_checking") }
+    var selectedType by remember { mutableStateOf("bank") }
     var currency by remember { mutableStateOf("USD") }
     var balanceText by remember { mutableStateOf("0") }
 
     val accountTypes = listOf(
-        "depository_checking" to "Checking",
-        "depository_savings" to "Savings",
-        "credit_card" to "Credit Card",
+        "bank" to "Bank",
+        "digital_wallet" to "Wallet",
         "cash_wallet" to "Cash",
-        "investment_brokerage" to "Investment"
+        "investment" to "Investment",
+        "credit_card" to "Credit Card"
     )
 
     Dialog(onDismissRequest = onDismiss) {
@@ -384,7 +384,7 @@ fun CreateAccountDialog(
                     value = name,
                     onValueChange = { name = it },
                     label = { Text("Account Name", color = TextMuted) },
-                    placeholder = { Text("e.g. Chase Checking", color = TextMuted) },
+                    placeholder = { Text("e.g. Chase Checking, PayPal, Robinhood", color = TextMuted) },
                     modifier = Modifier.fillMaxWidth(),
                     singleLine = true,
                     colors = OutlinedTextFieldDefaults.colors(
@@ -396,9 +396,10 @@ fun CreateAccountDialog(
                 )
 
                 Text(
-                    text = "Account Type",
+                    text = "Account Type (Required)",
                     fontSize = 12.sp,
-                    color = TextMuted
+                    fontWeight = FontWeight.SemiBold,
+                    color = TealLight
                 )
 
                 Row(
@@ -498,7 +499,7 @@ fun CreateAccountDialog(
                             val bal = balanceText.toDoubleOrNull() ?: 0.0
                             onCreate(name, selectedType, currency, bal)
                         },
-                        enabled = !isSubmitting && name.isNotBlank(),
+                        enabled = !isSubmitting && name.isNotBlank() && selectedType.isNotBlank(),
                         colors = ButtonDefaults.buttonColors(containerColor = TealLight)
                     ) {
                         if (isSubmitting) {

@@ -7,8 +7,13 @@ export async function GET(request: NextRequest) {
       headers: request.headers,
     });
 
-    // Check session cookie from request cookies
-    const sessionToken = request.cookies.get('better-auth.session_token')?.value || session?.session?.token || '';
+    // Check session token from query params, cookies (standard or secure), or session object
+    const sessionToken = 
+      request.nextUrl.searchParams.get('token') ||
+      request.cookies.get('__Secure-better-auth.session_token')?.value ||
+      request.cookies.get('better-auth.session_token')?.value || 
+      session?.session?.token || 
+      '';
 
     if (sessionToken) {
       // Redirect to native app deep link
@@ -38,8 +43,8 @@ export async function GET(request: NextRequest) {
           </div>
           <script>
             // Check cookie in document
-            var match = document.cookie.match(new RegExp('(^| )better-auth.session_token=([^;]+)'));
-            var token = match ? match[2] : "${sessionToken}";
+            var match = document.cookie.match(new RegExp('(?:^|; )(?:__Secure-)?better-auth\\\\.session_token=([^;]+)'));
+            var token = match ? match[1] : "${sessionToken}";
             if (token) {
               var target = "veltis://auth/callback?token=" + encodeURIComponent(token);
               document.getElementById("openBtn").href = target;

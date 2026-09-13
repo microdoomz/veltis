@@ -8,13 +8,13 @@ import { eq } from 'drizzle-orm';
 import { z } from 'zod';
 
 const postAccountSchema = z.object({
-  workspaceId: z.string().uuid().optional(),
+  workspaceId: z.string().nullish().transform(v => (!v || v.trim() === '' ? undefined : v.trim())),
   name: z.string().min(1, 'Account name is required'),
   type: z.string().optional(),
-  accountType: z.enum(['bank', 'cash_wallet', 'digital_wallet', 'investment', 'credit_card']).optional(),
+  accountType: z.string().optional(),
   institutionName: z.string().optional().nullable(),
-  currency: z.string().length(3).default('USD'),
-  balance: z.coerce.number().optional(),
+  currency: z.string().nullish().transform(v => (!v || v.trim().length !== 3 ? 'USD' : v.trim().toUpperCase())),
+  balance: z.union([z.number(), z.string()]).nullish().transform(v => (v !== null && v !== undefined && v !== '' ? Number(v) : undefined)),
   openingBalanceMinor: z.union([z.bigint(), z.string(), z.number()]).optional(),
   color: z.string().optional().nullable(),
   iconKey: z.string().optional().nullable(),
@@ -30,11 +30,11 @@ const postAccountSchema = z.object({
 function normalizeAccountType(rawType?: string): 'bank' | 'cash_wallet' | 'digital_wallet' | 'investment' | 'credit_card' {
   if (!rawType) return 'bank';
   const lower = rawType.toLowerCase();
-  if (['bank', 'checking', 'savings', 'current'].includes(lower)) return 'bank';
+  if (['bank', 'checking', 'savings', 'current', 'depository_checking', 'depository_savings'].includes(lower) || lower.includes('depository') || lower.includes('check') || lower.includes('sav')) return 'bank';
   if (['credit', 'credit_card', 'card'].includes(lower)) return 'credit_card';
   if (['digital_wallet', 'wallet', 'paypal', 'venmo'].includes(lower)) return 'digital_wallet';
   if (['cash', 'cash_wallet'].includes(lower)) return 'cash_wallet';
-  if (['investment', 'brokerage', 'stocks'].includes(lower)) return 'investment';
+  if (['investment', 'brokerage', 'stocks', 'investment_brokerage'].includes(lower) || lower.includes('invest') || lower.includes('broker')) return 'investment';
   return 'bank';
 }
 
@@ -73,7 +73,7 @@ export async function POST(req: Request) {
     const authContext = await requireWorkspaceAccess(parsed.data.workspaceId);
     const workspaceId = authContext.workspaceId;
 
-    const accountType = parsed.data.accountType || normalizeAccountType(parsed.data.type);
+    const accountType = normalizeAccountType(parsed.data.accountType || parsed.data.type);
 
     let openingBalanceMinor = 0n;
     if (parsed.data.openingBalanceMinor !== undefined) {

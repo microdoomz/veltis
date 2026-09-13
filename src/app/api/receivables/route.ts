@@ -8,8 +8,8 @@ import { eq } from 'drizzle-orm';
 export async function GET(req: Request) {
   try {
     const url = new URL(req.url);
-    const workspaceId = url.searchParams.get('workspaceId');
-    const authContext = await requireStrictWorkspaceAccess(workspaceId!);
+    const workspaceId = url.searchParams.get('workspaceId') || undefined;
+    const authContext = await requireStrictWorkspaceAccess(workspaceId);
     
     const records = await db.query.receivable.findMany({
       where: eq(receivable.workspaceId, authContext.workspaceId),

@@ -176,19 +176,17 @@ class AuthRepositoryImpl(
             val response = api.signInSocial(
                 SocialSignInRequestDto(
                     provider = "google",
-                    callbackURL = callbackUrl,
-                    disableRedirect = true
+                    callbackURL = callbackUrl
                 )
             )
             val authUrl = response.body()?.url
             if (response.isSuccessful && !authUrl.isNullOrBlank()) {
                 VeltisResult.Success(authUrl)
             } else {
-                VeltisResult.Success("${networkClient.baseUrl}api/auth/sign-in/social?provider=google&callbackURL=${callbackUrl}")
+                VeltisResult.Success("${networkClient.baseUrl}api/auth/mobile-login/google")
             }
         } catch (_: Exception) {
-            val callbackUrl = "${networkClient.baseUrl}api/auth/mobile-callback"
-            VeltisResult.Success("${networkClient.baseUrl}api/auth/sign-in/social?provider=google&callbackURL=${callbackUrl}")
+            VeltisResult.Success("${networkClient.baseUrl}api/auth/mobile-login/google")
         }
     }
 
@@ -213,8 +211,9 @@ class AuthRepositoryImpl(
     private fun <T> extractTokenFromHeaders(response: Response<T>): String? {
         val cookies = response.headers().values("Set-Cookie")
         for (cookie in cookies) {
-            if (cookie.startsWith("better-auth.session_token=")) {
-                return cookie.substringAfter("better-auth.session_token=").substringBefore(";")
+            val cleanCookie = cookie.trim()
+            if (cleanCookie.contains("better-auth.session_token=")) {
+                return cleanCookie.substringAfter("better-auth.session_token=").substringBefore(";")
             }
         }
         return null

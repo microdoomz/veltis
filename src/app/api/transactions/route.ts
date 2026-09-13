@@ -58,7 +58,7 @@ export async function GET(req: Request) {
 }
 
 const createTxnSchema = z.object({
-  workspaceId: z.string().uuid().optional(),
+  workspaceId: z.string().nullish().transform(v => (!v || v.trim() === '' ? undefined : v.trim())),
   type: z.enum(['expense', 'income', 'transfer']).default('expense'),
   amount: z.coerce.number().positive('Amount must be positive'),
   accountId: z.string().optional(),
@@ -66,9 +66,9 @@ const createTxnSchema = z.object({
   destAccountId: z.string().optional(),
   description: z.string().nullish().transform(v => v?.trim() || ''),
   merchantName: z.string().nullish().transform(v => v?.trim() || undefined),
-  categoryId: z.string().uuid().nullish(),
+  categoryId: z.string().nullish().transform(v => (!v || v.trim() === '' ? undefined : v.trim())),
   date: z.string().nullish(),
-  currency: z.string().length(3).nullish(),
+  currency: z.string().nullish().transform(v => (!v || v.trim().length !== 3 ? undefined : v.trim().toUpperCase())),
   idempotencyKey: z.string().optional(),
 });
 

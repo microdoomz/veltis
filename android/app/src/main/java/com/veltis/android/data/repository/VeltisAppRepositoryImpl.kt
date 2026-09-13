@@ -111,10 +111,18 @@ class VeltisAppRepositoryImpl(
         balance: Double
     ): VeltisResult<AccountDetailDto> = withContext(Dispatchers.IO) {
         try {
+            val normalizedType = when {
+                type.contains("credit", ignoreCase = true) -> "credit_card"
+                type.contains("cash", ignoreCase = true) -> "cash_wallet"
+                type.contains("wallet", ignoreCase = true) -> "digital_wallet"
+                type.contains("invest", ignoreCase = true) -> "investment"
+                else -> "bank"
+            }
             val body = mapOf(
                 "name" to name.trim(),
-                "accountType" to type,
-                "currency" to currency.uppercase(),
+                "accountType" to normalizedType,
+                "type" to type,
+                "currency" to currency.trim().uppercase(),
                 "balance" to balance.toString()
             )
             val response = api.createAccount(body)

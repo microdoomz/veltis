@@ -25,7 +25,8 @@ class AuthInterceptor(
                 "Bearer $sessionToken"
             }
             requestBuilder.header("Authorization", authValue)
-            requestBuilder.header("Cookie", "better-auth.session_token=$sessionToken")
+            requestBuilder.header("x-session-token", sessionToken)
+            requestBuilder.header("Cookie", "better-auth.session_token=$sessionToken; __Secure-better-auth.session_token=$sessionToken")
         } else if (!shortcutToken.isNullOrBlank()) {
             val authValue = if (shortcutToken.startsWith("Bearer ", ignoreCase = true)) {
                 shortcutToken
@@ -33,15 +34,9 @@ class AuthInterceptor(
                 "Bearer $shortcutToken"
             }
             requestBuilder.header("Authorization", authValue)
+            requestBuilder.header("x-session-token", shortcutToken)
         }
 
-        val response = chain.proceed(requestBuilder.build())
-
-        if (response.code == 401 && !sessionToken.isNullOrBlank()) {
-            // Session expired
-            sessionManager?.clearSession()
-        }
-
-        return response
+        return chain.proceed(requestBuilder.build())
     }
 }

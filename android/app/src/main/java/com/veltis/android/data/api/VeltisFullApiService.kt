@@ -70,6 +70,22 @@ interface VeltisFullApiService {
         @Body body: InvestmentActionRequestDto
     ): Response<Unit>
 
+    @POST("api/investments/snapshots")
+    suspend fun syncInvestmentPrices(
+        @Body body: Map<String, String> = emptyMap()
+    ): Response<SyncPricesResponseDto>
+
+    @DELETE("api/investments/transactions/{id}")
+    suspend fun deleteInvestmentTransaction(
+        @Path("id") id: String
+    ): Response<Unit>
+
+    @PATCH("api/accounts/{id}")
+    suspend fun updateAccountDetails(
+        @Path("id") id: String,
+        @Body body: EditAccountPatchRequestDto
+    ): Response<Unit>
+
     @GET("api/budgets")
     suspend fun getBudgets(
         @Query("workspaceId") workspaceId: String? = null
@@ -99,6 +115,29 @@ interface VeltisFullApiService {
     suspend fun getRecurringItems(
         @Query("workspaceId") workspaceId: String? = null
     ): Response<List<RecurringItemDto>>
+
+    @POST("api/recurring")
+    suspend fun createRecurringItem(
+        @Body body: CreateRecurringRequestDto
+    ): Response<Unit>
+
+    @DELETE("api/recurring/{id}")
+    suspend fun deleteRecurringItem(
+        @Path("id") id: String,
+        @Query("workspaceId") workspaceId: String? = null
+    ): Response<Unit>
+
+    @POST("api/recurring/{id}/confirm")
+    suspend fun confirmRecurringOccurrence(
+        @Path("id") id: String,
+        @Body body: ConfirmOccurrenceRequestDto
+    ): Response<Unit>
+
+    @POST("api/recurring/{id}/skip")
+    suspend fun skipRecurringOccurrence(
+        @Path("id") id: String,
+        @Body body: Map<String, String> = emptyMap()
+    ): Response<Unit>
 
     @GET("api/taxonomy")
     suspend fun getTaxonomy(

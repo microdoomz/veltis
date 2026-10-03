@@ -32,8 +32,10 @@ data class CreateBudgetRequestDto(
 @Serializable
 data class InvestmentPositionDto(
     val id: String,
-    val symbol: String,
+    val symbol: String = "",
     val name: String? = null,
+    val financialAccountId: String? = null,
+    val assetType: String = "equity",
     val units: Double = 0.0,
     val averageBuyPrice: Double = 0.0,
     val currentPrice: Double = 0.0,
@@ -41,27 +43,75 @@ data class InvestmentPositionDto(
     val totalInvested: Double = 0.0,
     val unrealizedGainLoss: Double = 0.0,
     val unrealizedGainLossPercent: Double = 0.0,
-    val currency: String = "USD"
+    val currency: String = "USD",
+    val isEstimated: Boolean = false
+)
+
+@Serializable
+data class InvestmentTransactionDto(
+    val id: String,
+    val transactionId: String? = null,
+    val positionId: String = "",
+    val positionName: String = "Investment Asset",
+    val positionSymbol: String = "",
+    val transactionType: String = "buy", // 'buy' | 'sell'
+    val units: Double = 0.0,
+    val price: Double = 0.0,
+    val amount: Double = 0.0,
+    val amountMinor: String? = null,
+    val currency: String = "USD",
+    val transactionDate: String = "",
+    val description: String? = null
 )
 
 @Serializable
 data class InvestmentsResponseDto(
     val positions: List<InvestmentPositionDto> = emptyList(),
+    val accounts: List<AccountDetailDto> = emptyList(),
+    val history: List<InvestmentTransactionDto> = emptyList(),
     val totalInvested: Double = 0.0,
     val currentValuation: Double = 0.0,
-    val totalGainLoss: Double = 0.0
+    val totalGainLoss: Double = 0.0,
+    val totalGainLossPercent: Double = 0.0
 )
 
 @Serializable
 data class InvestmentActionRequestDto(
-    val action: String, // 'buy', 'sell', 'contribution', 'withdrawal', 'top_up'
+    val action: String? = null, // 'buy', 'sell', 'contribution', 'withdrawal', 'topup', 'top_up'
+    val type: String? = null,
     val positionId: String? = null,
     val accountId: String? = null,
+    val investmentAccountId: String? = null,
+    val sourceAccountId: String? = null,
+    val destinationAccountId: String? = null,
     val units: Double? = null,
     val price: Double? = null,
+    val priceMinor: Long? = null,
     val amount: Double? = null,
+    val amountMinor: Long? = null,
+    val currency: String? = null,
     val symbol: String? = null,
+    val name: String? = null,
+    val transactionDate: String? = null,
     val notes: String? = null
+)
+
+@Serializable
+data class EditAccountPatchRequestDto(
+    val name: String? = null,
+    val symbol: String? = null,
+    val units: Double? = null,
+    val currentPrice: Double? = null,
+    val investedAmount: Double? = null
+)
+
+@Serializable
+data class SyncPricesResponseDto(
+    val success: Boolean = true,
+    val syncedCount: Int? = null,
+    val failedCount: Int? = null,
+    val message: String? = null,
+    val error: String? = null
 )
 
 @Serializable
@@ -90,15 +140,55 @@ data class LiabilityDto(
 )
 
 @Serializable
+data class RecurringOccurrenceDto(
+    val id: String,
+    val expectedDate: String,
+    val status: String,
+    val actualDate: String? = null,
+    val actualAmountMinor: Double? = null
+)
+
+@Serializable
 data class RecurringItemDto(
     val id: String,
     val name: String,
-    val type: String, // 'expense', 'income', 'sip'
+    val type: String = "expense", // 'expense', 'income', 'transfer', 'investment' (or 'sip')
+    val expectedAmountMinor: Double = 0.0,
     val amountMinor: Double = 0.0,
     val currency: String = "USD",
+    val frequency: String = "monthly",
     val cadence: String = "monthly",
-    val nextOccurrence: String? = null,
-    val status: String = "active"
+    val customDay: Int? = 1,
+    val defaultAccountId: String? = null,
+    val destinationAccountId: String? = null,
+    val categoryId: String? = null,
+    val status: String = "active",
+    val pendingOccurrences: List<RecurringOccurrenceDto> = emptyList()
+) {
+    // Convenience helper to get effective amount
+    val displayAmountMinor: Double get() = if (expectedAmountMinor > 0.0) expectedAmountMinor else amountMinor
+}
+
+@Serializable
+data class CreateRecurringRequestDto(
+    val type: String,
+    val name: String,
+    val expectedAmountMinor: Long,
+    val currency: String,
+    val customDay: Int = 1,
+    val frequency: String = "monthly",
+    val dayRule: String = "custom_day",
+    val categoryId: String? = null,
+    val defaultAccountId: String? = null,
+    val destinationAccountId: String? = null
+)
+
+@Serializable
+data class ConfirmOccurrenceRequestDto(
+    val accountId: String,
+    val actualDateStr: String? = null,
+    val actualAmountMinor: Long? = null,
+    val destinationAccountId: String? = null
 )
 
 @Serializable
@@ -138,5 +228,6 @@ data class AppVersionDto(
     val apkUrl: String = "",
     val changelog: String = ""
 )
+
 
 

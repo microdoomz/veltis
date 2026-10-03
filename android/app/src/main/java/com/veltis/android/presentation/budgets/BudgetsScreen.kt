@@ -223,6 +223,7 @@ fun BudgetsScreen(
     if (showCreateBudgetDialog) {
         CreateBudgetDialogDirect(
             categories = state.categories,
+            baseCurrency = state.baseCurrency,
             isSubmitting = state.isSubmitting,
             onDismiss = { showCreateBudgetDialog = false },
             onCreate = { catId, amount, curr, start, end ->
@@ -236,13 +237,14 @@ fun BudgetsScreen(
 @Composable
 fun CreateBudgetDialogDirect(
     categories: List<CategoryDto>,
+    baseCurrency: String = "USD",
     isSubmitting: Boolean,
     onDismiss: () -> Unit,
     onCreate: (catId: String, amount: Double, currency: String, start: String, end: String) -> Unit
 ) {
     var selectedCatId by remember { mutableStateOf(categories.firstOrNull()?.id ?: "") }
     var amountText by remember { mutableStateOf("") }
-    val currency = "USD"
+    val currency = baseCurrency
 
     Dialog(onDismissRequest = onDismiss) {
         Box(

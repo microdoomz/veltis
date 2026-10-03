@@ -16,6 +16,7 @@ import kotlinx.coroutines.launch
 data class MoreUiState(
     val isLoading: Boolean = false,
     val isSubmitting: Boolean = false,
+    val accounts: List<AccountDetailDto> = emptyList(),
     val budgets: List<BudgetDto> = emptyList(),
     val receivables: List<ReceivableDto> = emptyList(),
     val liabilities: List<LiabilityDto> = emptyList(),
@@ -56,8 +57,14 @@ class MoreViewModel(
 
     fun loadAllData() {
         viewModelScope.launch {
-            _uiState.update { it.copy(isLoading = true, errorMessage = null) }
+            _uiState.update { it.copy(isLoading = true, errorMessage = null, baseCurrency = sessionManager.getBaseCurrency()) }
 
+            launch {
+                when (val res = repository.getAccounts()) {
+                    is VeltisResult.Success -> _uiState.update { it.copy(accounts = res.data) }
+                    is VeltisResult.Failure -> {}
+                }
+            }
             launch {
                 when (val res = repository.getBudgets()) {
                     is VeltisResult.Success -> _uiState.update { it.copy(budgets = res.data) }
@@ -113,6 +120,120 @@ class MoreViewModel(
             }
 
             _uiState.update { it.copy(isLoading = false) }
+        }
+    }
+
+    fun createRecurringItem(
+        type: String,
+        name: String,
+        amount: Double,
+        currency: String,
+        customDay: Int,
+        categoryId: String?,
+        defaultAccountId: String?,
+        destinationAccountId: String?,
+        onSuccess: () -> Unit = {}
+    ) {
+        if (amount <= 0) {
+            _uiState.update { it.copy(errorMessage = "Amount must be positive.") }
+            return
+        }
+
+        viewModelScope.launch {
+            _uiState.update { it.copy(isSubmitting = true, errorMessage = null) }
+            when (val res = repository.createRecurringItem(
+                type = type,
+                name = name,
+                amount = amount,
+                currency = currency,
+                customDay = customDay,
+                categoryId = categoryId,
+                defaultAccountId = defaultAccountId,
+                destinationAccountId = destinationAccountId
+            )) {
+                is VeltisResult.Success -> {
+                    _uiState.update { it.copy(isSubmitting = false, successMessage = "Recurring item created!") }
+                    when (val rRes = repository.getRecurringItems()) {
+                        is VeltisResult.Success -> _uiState.update { it.copy(recurringItems = rRes.data) }
+                        is VeltisResult.Failure -> {}
+                    }
+                    onSuccess()
+                }
+                is VeltisResult.Failure -> {
+                    _uiState.update { it.copy(isSubmitting = false, errorMessage = res.error.userFriendlyMessage()) }
+                }
+            }
+        }
+    }
+
+    fun deleteRecurringItem(id: String) {
+        viewModelScope.launch {
+            _uiState.update { it.copy(isSubmitting = true, errorMessage = null) }
+            when (val res = repository.deleteRecurringItem(id)) {
+                is VeltisResult.Success -> {
+                    _uiState.update {
+                        it.copy(
+                            isSubmitting = false,
+                            recurringItems = it.recurringItems.filter { r -> r.id != id },
+                            successMessage = "Recurring schedule deleted."
+                        )
+                    }
+                }
+                is VeltisResult.Failure -> {
+                    _uiState.update { it.copy(isSubmitting = false, errorMessage = res.error.userFriendlyMessage()) }
+                }
+            }
+        }
+    }
+
+    fun confirmRecurringOccurrence(
+        occurrenceId: String,
+        accountId: String,
+        actualDateStr: String? = null,
+        actualAmount: Double? = null,
+        destinationAccountId: String? = null,
+        onSuccess: () -> Unit = {}
+    ) {
+        viewModelScope.launch {
+            _uiState.update { it.copy(isSubmitting = true, errorMessage = null) }
+            when (val res = repository.confirmRecurringOccurrence(
+                occurrenceId = occurrenceId,
+                accountId = accountId,
+                actualDateStr = actualDateStr,
+                actualAmount = actualAmount,
+                destinationAccountId = destinationAccountId
+            )) {
+                is VeltisResult.Success -> {
+                    _uiState.update { it.copy(isSubmitting = false, successMessage = "Occurrence confirmed & applied!") }
+                    when (val rRes = repository.getRecurringItems()) {
+                        is VeltisResult.Success -> _uiState.update { it.copy(recurringItems = rRes.data) }
+                        is VeltisResult.Failure -> {}
+                    }
+                    onSuccess()
+                }
+                is VeltisResult.Failure -> {
+                    _uiState.update { it.copy(isSubmitting = false, errorMessage = res.error.userFriendlyMessage()) }
+                }
+            }
+        }
+    }
+
+    fun skipRecurringOccurrence(occurrenceId: String, onSuccess: () -> Unit = {}) {
+        viewModelScope.launch {
+            _uiState.update { it.copy(isSubmitting = true, errorMessage = null) }
+            when (val res = repository.skipRecurringOccurrence(occurrenceId)) {
+                is VeltisResult.Success -> {
+                    _uiState.update { it.copy(isSubmitting = false, successMessage = "Occurrence skipped for this month.") }
+                    when (val rRes = repository.getRecurringItems()) {
+                        is VeltisResult.Success -> _uiState.update { it.copy(recurringItems = rRes.data) }
+                        is VeltisResult.Failure -> {}
+                    }
+                    onSuccess()
+                }
+                is VeltisResult.Failure -> {
+                    _uiState.update { it.copy(isSubmitting = false, errorMessage = res.error.userFriendlyMessage()) }
+                }
+            }
         }
     }
 

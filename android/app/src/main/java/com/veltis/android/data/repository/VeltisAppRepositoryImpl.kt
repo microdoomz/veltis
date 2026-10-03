@@ -450,6 +450,145 @@ class VeltisAppRepositoryImpl(
         }
     }
 
+    override suspend fun createRecurringItem(
+        type: String,
+        name: String,
+        amount: Double,
+        currency: String,
+        customDay: Int,
+        categoryId: String?,
+        defaultAccountId: String?,
+        destinationAccountId: String?
+    ): VeltisResult<Unit> = withContext(Dispatchers.IO) {
+        try {
+            val req = CreateRecurringRequestDto(
+                type = type,
+                name = name,
+                expectedAmountMinor = Math.round(amount * 100),
+                currency = currency,
+                customDay = customDay,
+                categoryId = categoryId,
+                defaultAccountId = defaultAccountId,
+                destinationAccountId = destinationAccountId
+            )
+            val response = api.createRecurringItem(req)
+            if (response.isSuccessful) VeltisResult.Success(Unit)
+            else VeltisResult.Failure(parseError(response))
+        } catch (e: IOException) {
+            VeltisResult.Failure(VeltisError.Network())
+        } catch (e: Exception) {
+            VeltisResult.Failure(VeltisError.Unknown(e.message ?: "Failed to create recurring item."))
+        }
+    }
+
+    override suspend fun deleteRecurringItem(id: String): VeltisResult<Unit> = withContext(Dispatchers.IO) {
+        try {
+            val workspaceId = sessionManager.getWorkspaceId()
+            val response = api.deleteRecurringItem(id, workspaceId)
+            if (response.isSuccessful) VeltisResult.Success(Unit)
+            else VeltisResult.Failure(parseError(response))
+        } catch (e: IOException) {
+            VeltisResult.Failure(VeltisError.Network())
+        } catch (e: Exception) {
+            VeltisResult.Failure(VeltisError.Unknown(e.message ?: "Failed to delete recurring item."))
+        }
+    }
+
+    override suspend fun confirmRecurringOccurrence(
+        occurrenceId: String,
+        accountId: String,
+        actualDateStr: String?,
+        actualAmount: Double?,
+        destinationAccountId: String?
+    ): VeltisResult<Unit> = withContext(Dispatchers.IO) {
+        try {
+            val req = ConfirmOccurrenceRequestDto(
+                accountId = accountId,
+                actualDateStr = actualDateStr,
+                actualAmountMinor = actualAmount?.let { Math.round(it * 100) },
+                destinationAccountId = destinationAccountId
+            )
+            val response = api.confirmRecurringOccurrence(occurrenceId, req)
+            if (response.isSuccessful) VeltisResult.Success(Unit)
+            else VeltisResult.Failure(parseError(response))
+        } catch (e: IOException) {
+            VeltisResult.Failure(VeltisError.Network())
+        } catch (e: Exception) {
+            VeltisResult.Failure(VeltisError.Unknown(e.message ?: "Failed to confirm occurrence."))
+        }
+    }
+
+    override suspend fun skipRecurringOccurrence(occurrenceId: String): VeltisResult<Unit> = withContext(Dispatchers.IO) {
+        try {
+            val workspaceId = sessionManager.getWorkspaceId() ?: ""
+            val response = api.skipRecurringOccurrence(occurrenceId, mapOf("workspaceId" to workspaceId))
+            if (response.isSuccessful) VeltisResult.Success(Unit)
+            else VeltisResult.Failure(parseError(response))
+        } catch (e: IOException) {
+            VeltisResult.Failure(VeltisError.Network())
+        } catch (e: Exception) {
+            VeltisResult.Failure(VeltisError.Unknown(e.message ?: "Failed to skip occurrence."))
+        }
+    }
+
+    override suspend fun syncInvestmentPrices(): VeltisResult<SyncPricesResponseDto> = withContext(Dispatchers.IO) {
+        try {
+            val workspaceId = sessionManager.getWorkspaceId() ?: ""
+            val response = api.syncInvestmentPrices(mapOf("workspaceId" to workspaceId))
+            if (response.isSuccessful && response.body() != null) {
+                VeltisResult.Success(response.body()!!)
+            } else {
+                VeltisResult.Failure(parseError(response))
+            }
+        } catch (e: IOException) {
+            VeltisResult.Failure(VeltisError.Network())
+        } catch (e: Exception) {
+            VeltisResult.Failure(VeltisError.Unknown(e.message ?: "Failed to sync investment prices."))
+        }
+    }
+
+    override suspend fun deleteInvestmentTransaction(id: String, transactionId: String?): VeltisResult<Unit> = withContext(Dispatchers.IO) {
+        try {
+            val response = if (!transactionId.isNullOrBlank()) {
+                api.deleteTransaction(transactionId)
+            } else {
+                api.deleteInvestmentTransaction(id)
+            }
+            if (response.isSuccessful) VeltisResult.Success(Unit)
+            else VeltisResult.Failure(parseError(response))
+        } catch (e: IOException) {
+            VeltisResult.Failure(VeltisError.Network())
+        } catch (e: Exception) {
+            VeltisResult.Failure(VeltisError.Unknown(e.message ?: "Failed to delete investment transaction."))
+        }
+    }
+
+    override suspend fun updateInvestmentPosition(
+        financialAccountId: String,
+        name: String?,
+        symbol: String?,
+        units: Double?,
+        currentPrice: Double?,
+        investedAmount: Double?
+    ): VeltisResult<Unit> = withContext(Dispatchers.IO) {
+        try {
+            val req = EditAccountPatchRequestDto(
+                name = name,
+                symbol = symbol,
+                units = units,
+                currentPrice = currentPrice,
+                investedAmount = investedAmount
+            )
+            val response = api.updateAccountDetails(financialAccountId, req)
+            if (response.isSuccessful) VeltisResult.Success(Unit)
+            else VeltisResult.Failure(parseError(response))
+        } catch (e: IOException) {
+            VeltisResult.Failure(VeltisError.Network())
+        } catch (e: Exception) {
+            VeltisResult.Failure(VeltisError.Unknown(e.message ?: "Failed to update investment details."))
+        }
+    }
+
     override suspend fun getCategories(): VeltisResult<List<CategoryDto>> = withContext(Dispatchers.IO) {
         try {
             val response = api.getTaxonomy()

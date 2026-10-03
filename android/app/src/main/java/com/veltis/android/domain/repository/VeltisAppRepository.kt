@@ -21,6 +21,35 @@ interface VeltisAppRepository {
     suspend fun getReceivables(): VeltisResult<List<ReceivableDto>>
     suspend fun getLiabilities(): VeltisResult<List<LiabilityDto>>
     suspend fun getRecurringItems(): VeltisResult<List<RecurringItemDto>>
+    suspend fun createRecurringItem(
+        type: String,
+        name: String,
+        amount: Double,
+        currency: String,
+        customDay: Int,
+        categoryId: String? = null,
+        defaultAccountId: String? = null,
+        destinationAccountId: String? = null
+    ): VeltisResult<Unit>
+    suspend fun deleteRecurringItem(id: String): VeltisResult<Unit>
+    suspend fun confirmRecurringOccurrence(
+        occurrenceId: String,
+        accountId: String,
+        actualDateStr: String? = null,
+        actualAmount: Double? = null,
+        destinationAccountId: String? = null
+    ): VeltisResult<Unit>
+    suspend fun skipRecurringOccurrence(occurrenceId: String): VeltisResult<Unit>
+    suspend fun syncInvestmentPrices(): VeltisResult<SyncPricesResponseDto>
+    suspend fun deleteInvestmentTransaction(id: String, transactionId: String? = null): VeltisResult<Unit>
+    suspend fun updateInvestmentPosition(
+        financialAccountId: String,
+        name: String? = null,
+        symbol: String? = null,
+        units: Double? = null,
+        currentPrice: Double? = null,
+        investedAmount: Double? = null
+    ): VeltisResult<Unit>
     suspend fun getCategories(): VeltisResult<List<CategoryDto>>
     suspend fun getAnalytics(startDate: String, endDate: String): VeltisResult<Pair<AnalyticsOverviewDto, List<CategorySpendingDto>>>
     suspend fun exportData(format: String): VeltisResult<String>

@@ -702,11 +702,15 @@ fun EmptyStateCard(
 }
 
 fun formatCurrency(amount: Double, currency: String = "USD"): String {
-    return try {
-        val format = NumberFormat.getCurrencyInstance(Locale.US)
-        format.currency = java.util.Currency.getInstance(currency.uppercase())
-        format.format(amount)
-    } catch (_: Exception) {
-        String.format(Locale.US, "%s %.2f", currency, amount)
+    val symbol = when (currency.trim().uppercase()) {
+        "INR" -> "₹"
+        "EUR" -> "€"
+        "GBP" -> "£"
+        "JPY" -> "¥"
+        "CAD" -> "CA$"
+        "AUD" -> "AU$"
+        else -> "$"
     }
+    return "$symbol${String.format(Locale.US, "%,.2f", amount)}"
 }
+

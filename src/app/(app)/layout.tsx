@@ -8,6 +8,8 @@ import { redirect } from "next/navigation"
 
 import { RefreshProvider } from "@/components/ui/refresh-context"
 
+export const dynamic = 'force-dynamic';
+
 export default async function AppRouteLayout({
   children,
 }: {

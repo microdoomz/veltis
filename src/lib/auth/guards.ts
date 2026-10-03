@@ -6,27 +6,18 @@ import { and, eq, gt, or } from 'drizzle-orm';
 import { createWorkspaceForUser } from '../services/workspace';
 
 export async function getUser(customHeaders?: Headers | null) {
-  let reqHeaders: Headers | null = customHeaders || null;
-  if (!reqHeaders) {
-    try {
-      reqHeaders = await headers();
-    } catch {
-      reqHeaders = null;
-    }
-  }
+  const reqHeaders = customHeaders || (await headers());
 
-  if (reqHeaders) {
-    try {
-      const session = await auth.api.getSession({
-        headers: reqHeaders,
-      });
+  try {
+    const session = await auth.api.getSession({
+      headers: reqHeaders,
+    });
 
-      if (session?.user) {
-        return session;
-      }
-    } catch {
-      // Continue to token fallbacks
+    if (session?.user) {
+      return session;
     }
+  } catch {
+    // Continue to token fallbacks
   }
 
   // Fallback 1: Bearer token or custom session header

@@ -1,6 +1,8 @@
 package com.veltis.android.data.api
 
 import com.veltis.android.data.model.*
+import okhttp3.MultipartBody
+import okhttp3.RequestBody
 import okhttp3.ResponseBody
 import retrofit2.Response
 import retrofit2.http.*
@@ -253,4 +255,66 @@ interface VeltisFullApiService {
 
     @GET("api/app/version")
     suspend fun getAppVersion(): Response<AppVersionDto>
+
+    // Statement Imports
+    @GET("api/imports")
+    suspend fun getStatementImports(): Response<ImportsResponseDto>
+
+    @DELETE("api/imports")
+    suspend fun deleteStatementImport(
+        @Query("importId") importId: String
+    ): Response<Unit>
+
+    @GET("api/imports/{id}")
+    suspend fun getStatementImportDetails(
+        @Path("id") id: String
+    ): Response<ImportDetailResponseDto>
+
+    @POST("api/imports/{id}/commit")
+    suspend fun commitImportRows(
+        @Path("id") id: String,
+        @Body request: CommitImportRowsRequestDto
+    ): Response<Unit>
+
+    @Multipart
+    @POST("api/imports/upload")
+    suspend fun uploadStatement(
+        @Part("workspaceId") workspaceId: RequestBody,
+        @Part("accountId") accountId: RequestBody,
+        @Part file: MultipartBody.Part,
+        @Part("isReferenceOnly") isReferenceOnly: RequestBody
+    ): Response<Map<String, String>>
+
+    // Export with format and time filters
+    @Streaming
+    @GET("api/exports")
+    suspend fun getExportDataWithFilters(
+        @Query("format") format: String,
+        @Query("startDate") startDate: String? = null,
+        @Query("endDate") endDate: String? = null
+    ): Response<ResponseBody>
+
+    // Active Sessions (Better-Auth)
+    @GET("api/auth/list-sessions")
+    suspend fun getActiveSessions(): Response<List<ActiveSessionDto>>
+
+    @POST("api/auth/revoke-other-sessions")
+    suspend fun revokeOtherSessions(
+        @Body body: Map<String, String> = emptyMap()
+    ): Response<Unit>
+
+    // Shortcut / Webhook API Tokens
+    @GET("api/shortcuts/tokens")
+    suspend fun getShortcutTokens(): Response<ShortcutTokensResponseDto>
+
+    @POST("api/shortcuts/tokens")
+    suspend fun createShortcutToken(
+        @Body request: CreateShortcutTokenRequestDto
+    ): Response<CreateShortcutTokenResponseDto>
+
+    @DELETE("api/shortcuts/tokens")
+    suspend fun revokeShortcutToken(
+        @Query("tokenId") tokenId: String
+    ): Response<Unit>
 }
+

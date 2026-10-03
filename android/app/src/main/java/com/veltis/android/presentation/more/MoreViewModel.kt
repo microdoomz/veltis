@@ -12,6 +12,11 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import java.text.SimpleDateFormat
+import java.util.Calendar
+import java.util.Date
+import java.util.Locale
+import java.util.TimeZone
 
 data class MoreUiState(
     val isLoading: Boolean = false,
@@ -27,6 +32,15 @@ data class MoreUiState(
     val netCashflow: Double = 0.0,
     val categoryBreakdown: Map<String, Double> = emptyMap(),
     val exportedData: String? = null,
+    val exportFormat: String = "xlsx",
+    val exportDateRange: String = "all",
+    val statementImports: List<StatementImportDto> = emptyList(),
+    val selectedImportDetail: ImportDetailDto? = null,
+    val activeSessions: List<ActiveSessionDto> = emptyList(),
+    val shortcutTokens: List<ShortcutTokenDto> = emptyList(),
+    val newlyCreatedToken: CreatedShortcutTokenDto? = null,
+    val firstDayOfWeek: String = "sunday",
+    val dateFormat: String = "DD/MM/YYYY",
     val isPrivacyMode: Boolean = false,
     val baseCurrency: String = "USD",
     val userName: String? = null,
@@ -53,6 +67,15 @@ class MoreViewModel(
 
     init {
         loadAllData()
+    }
+
+    fun loadAccounts() {
+        viewModelScope.launch {
+            when (val res = repository.getAccounts()) {
+                is VeltisResult.Success -> _uiState.update { it.copy(accounts = res.data) }
+                is VeltisResult.Failure -> {}
+            }
+        }
     }
 
     fun loadAllData() {
@@ -115,6 +138,24 @@ class MoreViewModel(
                             )
                         }
                     }
+                    is VeltisResult.Failure -> {}
+                }
+            }
+            launch {
+                when (val res = repository.getStatementImports()) {
+                    is VeltisResult.Success -> _uiState.update { it.copy(statementImports = res.data) }
+                    is VeltisResult.Failure -> {}
+                }
+            }
+            launch {
+                when (val res = repository.getActiveSessions()) {
+                    is VeltisResult.Success -> _uiState.update { it.copy(activeSessions = res.data) }
+                    is VeltisResult.Failure -> {}
+                }
+            }
+            launch {
+                when (val res = repository.getShortcutTokens()) {
+                    is VeltisResult.Success -> _uiState.update { it.copy(shortcutTokens = res.data) }
                     is VeltisResult.Failure -> {}
                 }
             }
@@ -589,5 +630,288 @@ class MoreViewModel(
         }
     }
 
+    fun setExportFormat(format: String) {
+        _uiState.update { it.copy(exportFormat = format) }
+    }
+
+    fun setExportDateRange(range: String) {
+        _uiState.update { it.copy(exportDateRange = range) }
+    }
+
+    fun setFirstDayOfWeek(day: String) {
+        _uiState.update { it.copy(firstDayOfWeek = day) }
+    }
+
+    fun setDateFormat(format: String) {
+        _uiState.update { it.copy(dateFormat = format) }
+    }
+
+    fun exportDataWithFilters(format: String, dateRange: String, onDone: (String) -> Unit = {}) {
+        viewModelScope.launch {
+            _uiState.update { it.copy(isSubmitting = true, errorMessage = null) }
+
+            val cal = Calendar.getInstance()
+            val now = cal.time
+            val isoFormat = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'", Locale.US).apply {
+                timeZone = TimeZone.getTimeZone("UTC")
+            }
+
+            var startDateStr: String? = null
+            var endDateStr: String? = null
+
+            when (dateRange) {
+                "last30" -> {
+                    val past = Calendar.getInstance().apply { add(Calendar.DAY_OF_YEAR, -30) }
+                    startDateStr = isoFormat.format(past.time)
+                    endDateStr = isoFormat.format(now)
+                }
+                "this_month" -> {
+                    val start = Calendar.getInstance().apply { set(Calendar.DAY_OF_MONTH, 1); set(Calendar.HOUR_OF_DAY, 0); set(Calendar.MINUTE, 0) }
+                    startDateStr = isoFormat.format(start.time)
+                    endDateStr = isoFormat.format(now)
+                }
+                "last_month" -> {
+                    val start = Calendar.getInstance().apply {
+                        add(Calendar.MONTH, -1)
+                        set(Calendar.DAY_OF_MONTH, 1)
+                        set(Calendar.HOUR_OF_DAY, 0)
+                        set(Calendar.MINUTE, 0)
+                    }
+                    val end = Calendar.getInstance().apply {
+                        set(Calendar.DAY_OF_MONTH, 1)
+                        add(Calendar.DAY_OF_YEAR, -1)
+                        set(Calendar.HOUR_OF_DAY, 23)
+                        set(Calendar.MINUTE, 59)
+                    }
+                    startDateStr = isoFormat.format(start.time)
+                    endDateStr = isoFormat.format(end.time)
+                }
+                "thisYear" -> {
+                    val start = Calendar.getInstance().apply {
+                        set(Calendar.MONTH, Calendar.JANUARY)
+                        set(Calendar.DAY_OF_MONTH, 1)
+                        set(Calendar.HOUR_OF_DAY, 0)
+                        set(Calendar.MINUTE, 0)
+                    }
+                    startDateStr = isoFormat.format(start.time)
+                    endDateStr = isoFormat.format(now)
+                }
+                "lastYear" -> {
+                    val start = Calendar.getInstance().apply {
+                        add(Calendar.YEAR, -1)
+                        set(Calendar.MONTH, Calendar.JANUARY)
+                        set(Calendar.DAY_OF_MONTH, 1)
+                    }
+                    val end = Calendar.getInstance().apply {
+                        add(Calendar.YEAR, -1)
+                        set(Calendar.MONTH, Calendar.DECEMBER)
+                        set(Calendar.DAY_OF_MONTH, 31)
+                    }
+                    startDateStr = isoFormat.format(start.time)
+                    endDateStr = isoFormat.format(end.time)
+                }
+            }
+
+            when (val res = repository.exportDataWithFilters(format, startDateStr, endDateStr)) {
+                is VeltisResult.Success -> {
+                    _uiState.update {
+                        it.copy(
+                            isSubmitting = false,
+                            successMessage = "Export generated successfully (${format.uppercase()})!",
+                            exportedData = res.data
+                        )
+                    }
+                    onDone(res.data)
+                }
+                is VeltisResult.Failure -> {
+                    _uiState.update {
+                        it.copy(isSubmitting = false, errorMessage = res.error.userFriendlyMessage())
+                    }
+                }
+            }
+        }
+    }
+
+    fun loadStatementImports() {
+        viewModelScope.launch {
+            when (val res = repository.getStatementImports()) {
+                is VeltisResult.Success -> _uiState.update { it.copy(statementImports = res.data) }
+                is VeltisResult.Failure -> {}
+            }
+        }
+    }
+
+    fun deleteStatementImport(id: String, onSuccess: () -> Unit = {}) {
+        viewModelScope.launch {
+            _uiState.update { it.copy(isSubmitting = true) }
+            when (val res = repository.deleteStatementImport(id)) {
+                is VeltisResult.Success -> {
+                    _uiState.update {
+                        it.copy(
+                            isSubmitting = false,
+                            statementImports = it.statementImports.filter { imp -> imp.id != id },
+                            successMessage = "Statement batch deleted."
+                        )
+                    }
+                    onSuccess()
+                }
+                is VeltisResult.Failure -> {
+                    _uiState.update { it.copy(isSubmitting = false, errorMessage = res.error.userFriendlyMessage()) }
+                }
+            }
+        }
+    }
+
+    fun loadStatementImportDetails(id: String, onLoaded: (ImportDetailDto) -> Unit = {}) {
+        viewModelScope.launch {
+            _uiState.update { it.copy(isSubmitting = true) }
+            when (val res = repository.getStatementImportDetails(id)) {
+                is VeltisResult.Success -> {
+                    _uiState.update { it.copy(isSubmitting = false, selectedImportDetail = res.data) }
+                    onLoaded(res.data)
+                }
+                is VeltisResult.Failure -> {
+                    _uiState.update { it.copy(isSubmitting = false, errorMessage = res.error.userFriendlyMessage()) }
+                }
+            }
+        }
+    }
+
+    fun commitImportRows(
+        id: String,
+        action: String = "accept",
+        rowIds: List<String>? = null,
+        onSuccess: () -> Unit = {}
+    ) {
+        viewModelScope.launch {
+            _uiState.update { it.copy(isSubmitting = true) }
+            when (val res = repository.commitImportRows(id, action, rowIds)) {
+                is VeltisResult.Success -> {
+                    _uiState.update {
+                        it.copy(
+                            isSubmitting = false,
+                            successMessage = if (action == "accept") "Import rows committed to ledger!" else "Import rows rejected."
+                        )
+                    }
+                    loadStatementImports()
+                    onSuccess()
+                }
+                is VeltisResult.Failure -> {
+                    _uiState.update { it.copy(isSubmitting = false, errorMessage = res.error.userFriendlyMessage()) }
+                }
+            }
+        }
+    }
+
+    fun uploadStatement(
+        accountId: String,
+        fileBytes: ByteArray,
+        filename: String,
+        isReferenceOnly: Boolean = false,
+        onSuccess: (String) -> Unit = {}
+    ) {
+        viewModelScope.launch {
+            _uiState.update { it.copy(isSubmitting = true, errorMessage = null) }
+            when (val res = repository.uploadStatement(accountId, fileBytes, filename, isReferenceOnly)) {
+                is VeltisResult.Success -> {
+                    _uiState.update {
+                        it.copy(
+                            isSubmitting = false,
+                            successMessage = "Statement uploaded and parsed successfully!"
+                        )
+                    }
+                    loadStatementImports()
+                    onSuccess(res.data)
+                }
+                is VeltisResult.Failure -> {
+                    _uiState.update { it.copy(isSubmitting = false, errorMessage = res.error.userFriendlyMessage()) }
+                }
+            }
+        }
+    }
+
+    fun loadActiveSessions() {
+        viewModelScope.launch {
+            when (val res = repository.getActiveSessions()) {
+                is VeltisResult.Success -> _uiState.update { it.copy(activeSessions = res.data) }
+                is VeltisResult.Failure -> {}
+            }
+        }
+    }
+
+    fun revokeOtherSessions(onSuccess: () -> Unit = {}) {
+        viewModelScope.launch {
+            _uiState.update { it.copy(isSubmitting = true) }
+            when (val res = repository.revokeOtherSessions()) {
+                is VeltisResult.Success -> {
+                    _uiState.update {
+                        it.copy(
+                            isSubmitting = false,
+                            successMessage = "Other active device sessions revoked."
+                        )
+                    }
+                    loadActiveSessions()
+                    onSuccess()
+                }
+                is VeltisResult.Failure -> {
+                    _uiState.update { it.copy(isSubmitting = false, errorMessage = res.error.userFriendlyMessage()) }
+                }
+            }
+        }
+    }
+
+    fun loadShortcutTokens() {
+        viewModelScope.launch {
+            when (val res = repository.getShortcutTokens()) {
+                is VeltisResult.Success -> _uiState.update { it.copy(shortcutTokens = res.data) }
+                is VeltisResult.Failure -> {}
+            }
+        }
+    }
+
+    fun createShortcutToken(name: String, onSuccess: (CreatedShortcutTokenDto) -> Unit = {}) {
+        viewModelScope.launch {
+            _uiState.update { it.copy(isSubmitting = true) }
+            when (val res = repository.createShortcutToken(name)) {
+                is VeltisResult.Success -> {
+                    _uiState.update {
+                        it.copy(
+                            isSubmitting = false,
+                            newlyCreatedToken = res.data,
+                            successMessage = "Shortcut webhook token created!"
+                        )
+                    }
+                    loadShortcutTokens()
+                    onSuccess(res.data)
+                }
+                is VeltisResult.Failure -> {
+                    _uiState.update { it.copy(isSubmitting = false, errorMessage = res.error.userFriendlyMessage()) }
+                }
+            }
+        }
+    }
+
+    fun revokeShortcutToken(tokenId: String, onSuccess: () -> Unit = {}) {
+        viewModelScope.launch {
+            _uiState.update { it.copy(isSubmitting = true) }
+            when (val res = repository.revokeShortcutToken(tokenId)) {
+                is VeltisResult.Success -> {
+                    _uiState.update {
+                        it.copy(
+                            isSubmitting = false,
+                            shortcutTokens = it.shortcutTokens.filter { t -> t.id != tokenId },
+                            successMessage = "Shortcut token revoked."
+                        )
+                    }
+                    onSuccess()
+                }
+                is VeltisResult.Failure -> {
+                    _uiState.update { it.copy(isSubmitting = false, errorMessage = res.error.userFriendlyMessage()) }
+                }
+            }
+        }
+    }
+
     fun clearMessages() = _uiState.update { it.copy(errorMessage = null, successMessage = null) }
+
 }

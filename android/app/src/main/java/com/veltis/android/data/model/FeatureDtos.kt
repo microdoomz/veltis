@@ -363,5 +363,103 @@ data class ChangePasswordRequestDto(
     val revokeOtherSessions: Boolean = true
 )
 
+@Serializable
+data class StatementImportDto(
+    val id: String,
+    val originalFilename: String,
+    val status: String = "review",
+    val mimeType: String? = null,
+    val fileSize: Long = 0L,
+    val totalRows: Int = 0,
+    val acceptedRows: Int = 0,
+    val pendingRows: Int = 0,
+    val createdAt: String = ""
+)
+
+@Serializable
+data class ImportsResponseDto(
+    val imports: List<StatementImportDto> = emptyList()
+)
+
+@Serializable
+data class StatementImportRowDto(
+    val id: String,
+    val rowNumber: Int = 1,
+    val transactionDate: String = "",
+    val amountMinor: Long = 0L,
+    val amount: Double = 0.0,
+    val currency: String = "USD",
+    val description: String = "",
+    val direction: String = "debit",
+    val reviewStatus: String = "pending",
+    val duplicateStatus: String = "none",
+    val committedTransactionId: String? = null
+)
+
+@Serializable
+data class ImportDetailDto(
+    val id: String,
+    val originalFilename: String,
+    val status: String = "review",
+    val financialAccountId: String? = null,
+    val createdAt: String = "",
+    val rows: List<StatementImportRowDto> = emptyList()
+)
+
+@Serializable
+data class ImportDetailResponseDto(
+    val `import`: ImportDetailDto
+)
+
+@Serializable
+data class CommitImportRowsRequestDto(
+    val workspaceId: String,
+    val action: String = "accept",
+    val rowIds: List<String>? = null
+)
+
+@Serializable
+data class ActiveSessionDto(
+    val id: String? = null,
+    val token: String? = null,
+    val userAgent: String? = null,
+    val ipAddress: String? = null,
+    val createdAt: String? = null,
+    val expiresAt: String? = null
+)
+
+@Serializable
+data class ShortcutTokenDto(
+    val id: String,
+    val name: String,
+    val createdAt: String = "",
+    val lastUsedAt: String? = null
+)
+
+@Serializable
+data class ShortcutTokensResponseDto(
+    val tokens: List<ShortcutTokenDto> = emptyList()
+)
+
+@Serializable
+data class CreateShortcutTokenRequestDto(
+    val name: String
+)
+
+@Serializable
+data class CreatedShortcutTokenDto(
+    val id: String,
+    val name: String,
+    val rawToken: String,
+    val createdAt: String = ""
+)
+
+@Serializable
+data class CreateShortcutTokenResponseDto(
+    val success: Boolean = true,
+    val token: CreatedShortcutTokenDto? = null
+)
+
+
 
 

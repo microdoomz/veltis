@@ -96,5 +96,23 @@ interface VeltisAppRepository {
     suspend fun updateAccount(accountId: String, name: String? = null, color: String? = null, institutionName: String? = null, accountType: String? = null): VeltisResult<Unit>
     suspend fun updateTransaction(transactionId: String, description: String? = null, merchantName: String? = null, categoryId: String? = null, date: String? = null, amount: Double? = null, accountId: String? = null): VeltisResult<Unit>
     suspend fun exportData(format: String): VeltisResult<String>
+    suspend fun exportDataWithFilters(format: String, startDate: String? = null, endDate: String? = null): VeltisResult<String>
     suspend fun deleteUserAccount(): VeltisResult<Unit>
+
+    // Statement Imports
+    suspend fun getStatementImports(): VeltisResult<List<StatementImportDto>>
+    suspend fun deleteStatementImport(importId: String): VeltisResult<Unit>
+    suspend fun getStatementImportDetails(id: String): VeltisResult<ImportDetailDto>
+    suspend fun commitImportRows(id: String, action: String = "accept", rowIds: List<String>? = null): VeltisResult<Unit>
+    suspend fun uploadStatement(accountId: String, fileBytes: ByteArray, filename: String, isReferenceOnly: Boolean = false): VeltisResult<String>
+
+    // Active Sessions
+    suspend fun getActiveSessions(): VeltisResult<List<ActiveSessionDto>>
+    suspend fun revokeOtherSessions(): VeltisResult<Unit>
+
+    // Shortcut Tokens
+    suspend fun getShortcutTokens(): VeltisResult<List<ShortcutTokenDto>>
+    suspend fun createShortcutToken(name: String): VeltisResult<CreatedShortcutTokenDto>
+    suspend fun revokeShortcutToken(tokenId: String): VeltisResult<Unit>
 }
+

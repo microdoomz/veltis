@@ -41,6 +41,7 @@ import com.veltis.android.presentation.liabilities.LiabilitiesScreen
 import com.veltis.android.presentation.recurring.RecurringScreen
 import com.veltis.android.presentation.imports.ImportsScreen
 import com.veltis.android.presentation.exports.ExportsScreen
+import com.veltis.android.presentation.shortcuts.ShortcutsScreen
 import com.veltis.android.presentation.settings.AppSettingsScreen
 import com.veltis.android.presentation.more.MoreScreen
 import com.veltis.android.presentation.more.MoreViewModel
@@ -210,6 +211,7 @@ fun MainDashboardShell(
         DrawerItem("drawer_recurring", "Recurring", Icons.Default.Repeat),
         DrawerItem("drawer_imports", "Imports", Icons.Default.FileUpload),
         DrawerItem("drawer_exports", "Exports", Icons.Default.Download),
+        DrawerItem("drawer_shortcuts", "Shortcuts", Icons.Default.Bolt),
         DrawerItem("drawer_settings", "Settings", Icons.Default.Settings)
     )
 
@@ -704,6 +706,7 @@ fun MainDashboardShell(
                     exitTransition = { fadeOut(animationSpec = tween(200)) }
                 ) {
                     ImportsScreen(
+                        viewModel = moreViewModel,
                         onMenuClick = { coroutineScope.launch { drawerState.open() } }
                     )
                 }
@@ -715,6 +718,18 @@ fun MainDashboardShell(
                     exitTransition = { fadeOut(animationSpec = tween(200)) }
                 ) {
                     ExportsScreen(
+                        viewModel = moreViewModel,
+                        onMenuClick = { coroutineScope.launch { drawerState.open() } }
+                    )
+                }
+
+                // Shortcuts (Drawer)
+                composable(
+                    route = "drawer_shortcuts",
+                    enterTransition = { fadeIn(animationSpec = tween(200)) },
+                    exitTransition = { fadeOut(animationSpec = tween(200)) }
+                ) {
+                    ShortcutsScreen(
                         viewModel = moreViewModel,
                         onMenuClick = { coroutineScope.launch { drawerState.open() } }
                     )

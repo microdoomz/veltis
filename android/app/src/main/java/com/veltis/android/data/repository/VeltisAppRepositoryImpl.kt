@@ -13,6 +13,9 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.builtins.ListSerializer
 import kotlinx.serialization.json.*
+import okhttp3.MediaType.Companion.toMediaTypeOrNull
+import okhttp3.MultipartBody
+import okhttp3.RequestBody.Companion.toRequestBody
 import retrofit2.Response
 import java.io.IOException
 import java.text.SimpleDateFormat
@@ -1001,6 +1004,203 @@ class VeltisAppRepositoryImpl(
             VeltisResult.Failure(VeltisError.Network(e.message ?: "Failed to fetch wealth trend."))
         }
     }
+
+    override suspend fun exportDataWithFilters(
+        format: String,
+        startDate: String?,
+        endDate: String?
+    ): VeltisResult<String> = withContext(Dispatchers.IO) {
+        try {
+            val response = api.getExportDataWithFilters(format, startDate, endDate)
+            if (response.isSuccessful && response.body() != null) {
+                val content = response.body()!!.string()
+                VeltisResult.Success(content)
+            } else {
+                VeltisResult.Failure(parseError(response))
+            }
+        } catch (e: IOException) {
+            VeltisResult.Failure(VeltisError.Network())
+        } catch (e: Exception) {
+            VeltisResult.Failure(VeltisError.Unknown(e.message ?: "Failed to export data."))
+        }
+    }
+
+    override suspend fun getStatementImports(): VeltisResult<List<StatementImportDto>> = withContext(Dispatchers.IO) {
+        try {
+            val response = api.getStatementImports()
+            if (response.isSuccessful && response.body() != null) {
+                VeltisResult.Success(response.body()!!.imports)
+            } else {
+                VeltisResult.Failure(parseError(response))
+            }
+        } catch (e: IOException) {
+            VeltisResult.Failure(VeltisError.Network())
+        } catch (e: Exception) {
+            VeltisResult.Failure(VeltisError.Unknown(e.message ?: "Failed to load statement imports."))
+        }
+    }
+
+    override suspend fun deleteStatementImport(importId: String): VeltisResult<Unit> = withContext(Dispatchers.IO) {
+        try {
+            val response = api.deleteStatementImport(importId)
+            if (response.isSuccessful) {
+                VeltisResult.Success(Unit)
+            } else {
+                VeltisResult.Failure(parseError(response))
+            }
+        } catch (e: IOException) {
+            VeltisResult.Failure(VeltisError.Network())
+        } catch (e: Exception) {
+            VeltisResult.Failure(VeltisError.Unknown(e.message ?: "Failed to delete statement import."))
+        }
+    }
+
+    override suspend fun getStatementImportDetails(id: String): VeltisResult<ImportDetailDto> = withContext(Dispatchers.IO) {
+        try {
+            val response = api.getStatementImportDetails(id)
+            if (response.isSuccessful && response.body() != null) {
+                VeltisResult.Success(response.body()!!.`import`)
+            } else {
+                VeltisResult.Failure(parseError(response))
+            }
+        } catch (e: IOException) {
+            VeltisResult.Failure(VeltisError.Network())
+        } catch (e: Exception) {
+            VeltisResult.Failure(VeltisError.Unknown(e.message ?: "Failed to load statement details."))
+        }
+    }
+
+    override suspend fun commitImportRows(
+        id: String,
+        action: String,
+        rowIds: List<String>?
+    ): VeltisResult<Unit> = withContext(Dispatchers.IO) {
+        try {
+            val wsId = sessionManager.getWorkspaceId() ?: ""
+            val response = api.commitImportRows(
+                id = id,
+                request = CommitImportRowsRequestDto(
+                    workspaceId = wsId,
+                    action = action,
+                    rowIds = rowIds
+                )
+            )
+            if (response.isSuccessful) {
+                VeltisResult.Success(Unit)
+            } else {
+                VeltisResult.Failure(parseError(response))
+            }
+        } catch (e: IOException) {
+            VeltisResult.Failure(VeltisError.Network())
+        } catch (e: Exception) {
+            VeltisResult.Failure(VeltisError.Unknown(e.message ?: "Failed to commit statement rows."))
+        }
+    }
+
+    override suspend fun uploadStatement(
+        accountId: String,
+        fileBytes: ByteArray,
+        filename: String,
+        isReferenceOnly: Boolean
+    ): VeltisResult<String> = withContext(Dispatchers.IO) {
+        try {
+            val wsId = sessionManager.getWorkspaceId() ?: ""
+            val wsPart = wsId.toRequestBody("text/plain".toMediaTypeOrNull())
+            val accPart = accountId.toRequestBody("text/plain".toMediaTypeOrNull())
+            val refPart = (if (isReferenceOnly) "true" else "false").toRequestBody("text/plain".toMediaTypeOrNull())
+
+            val fileRequestBody = fileBytes.toRequestBody("application/octet-stream".toMediaTypeOrNull())
+            val filePart = MultipartBody.Part.createFormData("file", filename, fileRequestBody)
+
+            val response = api.uploadStatement(wsPart, accPart, filePart, refPart)
+            if (response.isSuccessful && response.body() != null) {
+                val importId = response.body()!!["importId"] ?: ""
+                VeltisResult.Success(importId)
+            } else {
+                VeltisResult.Failure(parseError(response))
+            }
+        } catch (e: IOException) {
+            VeltisResult.Failure(VeltisError.Network())
+        } catch (e: Exception) {
+            VeltisResult.Failure(VeltisError.Unknown(e.message ?: "Failed to upload statement file."))
+        }
+    }
+
+    override suspend fun getActiveSessions(): VeltisResult<List<ActiveSessionDto>> = withContext(Dispatchers.IO) {
+        try {
+            val response = api.getActiveSessions()
+            if (response.isSuccessful && response.body() != null) {
+                VeltisResult.Success(response.body()!!)
+            } else {
+                VeltisResult.Failure(parseError(response))
+            }
+        } catch (e: IOException) {
+            VeltisResult.Failure(VeltisError.Network())
+        } catch (e: Exception) {
+            VeltisResult.Failure(VeltisError.Unknown(e.message ?: "Failed to load active sessions."))
+        }
+    }
+
+    override suspend fun revokeOtherSessions(): VeltisResult<Unit> = withContext(Dispatchers.IO) {
+        try {
+            val response = api.revokeOtherSessions()
+            if (response.isSuccessful) {
+                VeltisResult.Success(Unit)
+            } else {
+                VeltisResult.Failure(parseError(response))
+            }
+        } catch (e: IOException) {
+            VeltisResult.Failure(VeltisError.Network())
+        } catch (e: Exception) {
+            VeltisResult.Failure(VeltisError.Unknown(e.message ?: "Failed to revoke other sessions."))
+        }
+    }
+
+    override suspend fun getShortcutTokens(): VeltisResult<List<ShortcutTokenDto>> = withContext(Dispatchers.IO) {
+        try {
+            val response = api.getShortcutTokens()
+            if (response.isSuccessful && response.body() != null) {
+                VeltisResult.Success(response.body()!!.tokens)
+            } else {
+                VeltisResult.Failure(parseError(response))
+            }
+        } catch (e: IOException) {
+            VeltisResult.Failure(VeltisError.Network())
+        } catch (e: Exception) {
+            VeltisResult.Failure(VeltisError.Unknown(e.message ?: "Failed to load shortcut tokens."))
+        }
+    }
+
+    override suspend fun createShortcutToken(name: String): VeltisResult<CreatedShortcutTokenDto> = withContext(Dispatchers.IO) {
+        try {
+            val response = api.createShortcutToken(CreateShortcutTokenRequestDto(name = name))
+            if (response.isSuccessful && response.body()?.token != null) {
+                VeltisResult.Success(response.body()!!.token!!)
+            } else {
+                VeltisResult.Failure(parseError(response))
+            }
+        } catch (e: IOException) {
+            VeltisResult.Failure(VeltisError.Network())
+        } catch (e: Exception) {
+            VeltisResult.Failure(VeltisError.Unknown(e.message ?: "Failed to create shortcut token."))
+        }
+    }
+
+    override suspend fun revokeShortcutToken(tokenId: String): VeltisResult<Unit> = withContext(Dispatchers.IO) {
+        try {
+            val response = api.revokeShortcutToken(tokenId)
+            if (response.isSuccessful) {
+                VeltisResult.Success(Unit)
+            } else {
+                VeltisResult.Failure(parseError(response))
+            }
+        } catch (e: IOException) {
+            VeltisResult.Failure(VeltisError.Network())
+        } catch (e: Exception) {
+            VeltisResult.Failure(VeltisError.Unknown(e.message ?: "Failed to revoke shortcut token."))
+        }
+    }
+
 
     private fun <T> parseError(response: Response<T>): VeltisError {
         val code = response.code()

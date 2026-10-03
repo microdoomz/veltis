@@ -18,7 +18,7 @@ import java.util.*
 enum class AnalyticsTimeRange(val label: String) {
     THIS_MONTH("This Month"),
     LAST_MONTH("Last Month"),
-    YTD("YTD"),
+    YTD("Year to Date"),
     ALL_TIME("All Time")
 }
 
@@ -26,9 +26,11 @@ data class AnalyticsUiState(
     val isLoading: Boolean = false,
     val isRefreshing: Boolean = false,
     val timeRange: AnalyticsTimeRange = AnalyticsTimeRange.THIS_MONTH,
-    val selectedTab: String = "overview", // "overview", "investments", "budgets"
+    val selectedTab: String = "overview", // "overview", "spending", "income", "wealth", "investments", "budgets"
     val overview: AnalyticsOverviewDto = AnalyticsOverviewDto(),
     val spendingCategories: List<CategorySpendingDto> = emptyList(),
+    val incomeCategories: List<CategorySpendingDto> = emptyList(),
+    val wealthTrend: List<com.veltis.android.data.model.WealthTrendPointDto> = emptyList(),
     val budgets: List<com.veltis.android.data.model.BudgetDto> = emptyList(),
     val investments: com.veltis.android.data.model.InvestmentsResponseDto? = null,
     val baseCurrency: String = "USD",
@@ -78,6 +80,22 @@ class AnalyticsViewModel(
                 }
             }
             launch {
+                when (val result = repository.getIncomeAnalytics(start, end)) {
+                    is VeltisResult.Success -> {
+                        _uiState.update { it.copy(incomeCategories = result.data) }
+                    }
+                    is VeltisResult.Failure -> {}
+                }
+            }
+            launch {
+                when (val result = repository.getWealthTrend(start, end)) {
+                    is VeltisResult.Success -> {
+                        _uiState.update { it.copy(wealthTrend = result.data) }
+                    }
+                    is VeltisResult.Failure -> {}
+                }
+            }
+            launch {
                 when (val result = repository.getBudgets()) {
                     is VeltisResult.Success -> {
                         _uiState.update { it.copy(budgets = result.data) }
@@ -103,7 +121,7 @@ class AnalyticsViewModel(
             timeZone = TimeZone.getTimeZone("UTC")
         }
 
-        val endDate = isoFormat.format(cal.time)
+        var endDate = isoFormat.format(cal.time)
 
         val startDate = when (range) {
             AnalyticsTimeRange.THIS_MONTH -> {
@@ -115,18 +133,30 @@ class AnalyticsViewModel(
                 isoFormat.format(cal.time)
             }
             AnalyticsTimeRange.LAST_MONTH -> {
-                cal.add(Calendar.MONTH, -1)
                 cal.set(Calendar.DAY_OF_MONTH, 1)
                 cal.set(Calendar.HOUR_OF_DAY, 0)
                 cal.set(Calendar.MINUTE, 0)
                 cal.set(Calendar.SECOND, 0)
-                isoFormat.format(cal.time)
+                cal.set(Calendar.MILLISECOND, 0)
+                cal.add(Calendar.MILLISECOND, -1)
+                endDate = isoFormat.format(cal.time)
+
+                val calStart = Calendar.getInstance().apply {
+                    add(Calendar.MONTH, -1)
+                    set(Calendar.DAY_OF_MONTH, 1)
+                    set(Calendar.HOUR_OF_DAY, 0)
+                    set(Calendar.MINUTE, 0)
+                    set(Calendar.SECOND, 0)
+                    set(Calendar.MILLISECOND, 0)
+                }
+                isoFormat.format(calStart.time)
             }
             AnalyticsTimeRange.YTD -> {
                 cal.set(Calendar.DAY_OF_YEAR, 1)
                 cal.set(Calendar.HOUR_OF_DAY, 0)
                 cal.set(Calendar.MINUTE, 0)
                 cal.set(Calendar.SECOND, 0)
+                cal.set(Calendar.MILLISECOND, 0)
                 isoFormat.format(cal.time)
             }
             AnalyticsTimeRange.ALL_TIME -> {

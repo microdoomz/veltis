@@ -292,6 +292,166 @@ class MoreViewModel(
         }
     }
 
+    fun createLiability(
+        counterpartyName: String,
+        liabilityType: String,
+        amount: Double,
+        currency: String,
+        createdDate: String?,
+        dueDate: String?,
+        destAccountId: String?,
+        note: String?,
+        onSuccess: () -> Unit = {}
+    ) {
+        if (counterpartyName.isBlank()) {
+            _uiState.update { it.copy(errorMessage = "Counterparty name is required.") }
+            return
+        }
+        if (amount <= 0) {
+            _uiState.update { it.copy(errorMessage = "Amount must be positive.") }
+            return
+        }
+
+        viewModelScope.launch {
+            _uiState.update { it.copy(isSubmitting = true, errorMessage = null) }
+            when (val res = repository.createLiability(
+                counterpartyName = counterpartyName,
+                liabilityType = liabilityType,
+                amount = amount,
+                currency = currency,
+                createdDate = createdDate,
+                dueDate = dueDate,
+                destAccountId = destAccountId,
+                note = note
+            )) {
+                is VeltisResult.Success -> {
+                    _uiState.update { it.copy(isSubmitting = false, successMessage = "Liability recorded successfully!") }
+                    when (val lRes = repository.getLiabilities()) {
+                        is VeltisResult.Success -> _uiState.update { it.copy(liabilities = lRes.data) }
+                        is VeltisResult.Failure -> {}
+                    }
+                    onSuccess()
+                }
+                is VeltisResult.Failure -> {
+                    _uiState.update { it.copy(isSubmitting = false, errorMessage = res.error.userFriendlyMessage()) }
+                }
+            }
+        }
+    }
+
+    fun payLiability(
+        id: String,
+        accountId: String,
+        amount: Double,
+        paidAt: String?,
+        onSuccess: () -> Unit = {}
+    ) {
+        if (amount <= 0) {
+            _uiState.update { it.copy(errorMessage = "Payment amount must be positive.") }
+            return
+        }
+        if (accountId.isBlank()) {
+            _uiState.update { it.copy(errorMessage = "Please select a payment account.") }
+            return
+        }
+
+        viewModelScope.launch {
+            _uiState.update { it.copy(isSubmitting = true, errorMessage = null) }
+            when (val res = repository.payLiability(id, accountId, amount, paidAt)) {
+                is VeltisResult.Success -> {
+                    _uiState.update { it.copy(isSubmitting = false, successMessage = "Payment recorded successfully!") }
+                    when (val lRes = repository.getLiabilities()) {
+                        is VeltisResult.Success -> _uiState.update { it.copy(liabilities = lRes.data) }
+                        is VeltisResult.Failure -> {}
+                    }
+                    onSuccess()
+                }
+                is VeltisResult.Failure -> {
+                    _uiState.update { it.copy(isSubmitting = false, errorMessage = res.error.userFriendlyMessage()) }
+                }
+            }
+        }
+    }
+
+    fun createReceivable(
+        counterpartyName: String,
+        amount: Double,
+        currency: String,
+        createdDate: String?,
+        expectedDate: String?,
+        sourceAccountId: String?,
+        note: String?,
+        onSuccess: () -> Unit = {}
+    ) {
+        if (counterpartyName.isBlank()) {
+            _uiState.update { it.copy(errorMessage = "Debtor / Counterparty name is required.") }
+            return
+        }
+        if (amount <= 0) {
+            _uiState.update { it.copy(errorMessage = "Amount must be positive.") }
+            return
+        }
+
+        viewModelScope.launch {
+            _uiState.update { it.copy(isSubmitting = true, errorMessage = null) }
+            when (val res = repository.createReceivable(
+                counterpartyName = counterpartyName,
+                amount = amount,
+                currency = currency,
+                createdDate = createdDate,
+                expectedDate = expectedDate,
+                sourceAccountId = sourceAccountId,
+                note = note
+            )) {
+                is VeltisResult.Success -> {
+                    _uiState.update { it.copy(isSubmitting = false, successMessage = "Receivable recorded successfully!") }
+                    when (val rRes = repository.getReceivables()) {
+                        is VeltisResult.Success -> _uiState.update { it.copy(receivables = rRes.data) }
+                        is VeltisResult.Failure -> {}
+                    }
+                    onSuccess()
+                }
+                is VeltisResult.Failure -> {
+                    _uiState.update { it.copy(isSubmitting = false, errorMessage = res.error.userFriendlyMessage()) }
+                }
+            }
+        }
+    }
+
+    fun settleReceivable(
+        id: String,
+        accountId: String,
+        amount: Double,
+        settledAt: String?,
+        onSuccess: () -> Unit = {}
+    ) {
+        if (amount <= 0) {
+            _uiState.update { it.copy(errorMessage = "Settlement amount must be positive.") }
+            return
+        }
+        if (accountId.isBlank()) {
+            _uiState.update { it.copy(errorMessage = "Please select a deposit account.") }
+            return
+        }
+
+        viewModelScope.launch {
+            _uiState.update { it.copy(isSubmitting = true, errorMessage = null) }
+            when (val res = repository.settleReceivable(id, accountId, amount, settledAt)) {
+                is VeltisResult.Success -> {
+                    _uiState.update { it.copy(isSubmitting = false, successMessage = "Settlement recorded successfully!") }
+                    when (val rRes = repository.getReceivables()) {
+                        is VeltisResult.Success -> _uiState.update { it.copy(receivables = rRes.data) }
+                        is VeltisResult.Failure -> {}
+                    }
+                    onSuccess()
+                }
+                is VeltisResult.Failure -> {
+                    _uiState.update { it.copy(isSubmitting = false, errorMessage = res.error.userFriendlyMessage()) }
+                }
+            }
+        }
+    }
+
     fun exportData(format: String, onDone: (String) -> Unit) {
         viewModelScope.launch {
             _uiState.update { it.copy(isSubmitting = true, errorMessage = null) }

@@ -167,26 +167,81 @@ data class SyncPricesResponseDto(
 @Serializable
 data class ReceivableDto(
     val id: String,
-    val counterpartyName: String,
+    val counterpartyName: String = "",
     val amountMinor: Double = 0.0,
     val settledAmountMinor: Double = 0.0,
     val outstandingAmountMinor: Double = 0.0,
     val currency: String = "USD",
+    val createdDate: String? = null,
+    val expectedDate: String? = null,
     val dueDate: String? = null,
     val status: String = "open",
+    val note: String? = null,
     val notes: String? = null
+) {
+    val amount: Double get() = amountMinor / 100.0
+    val displayAmount: Double get() = if (outstandingAmountMinor > 0.0) outstandingAmountMinor / 100.0 else amount
+}
+
+@Serializable
+data class CreateReceivableRequestDto(
+    val workspaceId: String? = null,
+    val counterpartyName: String,
+    val amountMinor: Long,
+    val currency: String = "USD",
+    val createdDate: String? = null,
+    val expectedDate: String? = null,
+    val sourceAccountId: String? = null,
+    val note: String? = null
+)
+
+@Serializable
+data class SettleReceivableRequestDto(
+    val workspaceId: String? = null,
+    val accountId: String,
+    val amountMinor: Long,
+    val settledAt: String? = null
 )
 
 @Serializable
 data class LiabilityDto(
     val id: String,
-    val lenderName: String,
-    val liabilityType: String = "loan",
+    val counterpartyName: String? = null,
+    val lenderName: String? = null,
+    val liabilityType: String = "person",
+    val amountMinor: Double = 0.0,
     val totalAmountMinor: Double = 0.0,
     val remainingAmountMinor: Double = 0.0,
     val currency: String = "USD",
+    val createdDate: String? = null,
     val dueDate: String? = null,
-    val status: String = "active"
+    val status: String = "open",
+    val note: String? = null
+) {
+    val displayName: String get() = counterpartyName?.takeIf { it.isNotBlank() } ?: lenderName ?: "Liability"
+    val amount: Double get() = (if (amountMinor > 0.0) amountMinor else if (remainingAmountMinor > 0.0) remainingAmountMinor else totalAmountMinor) / 100.0
+    val displayAmount: Double get() = amount
+}
+
+@Serializable
+data class CreateLiabilityRequestDto(
+    val workspaceId: String? = null,
+    val counterpartyName: String,
+    val liabilityType: String = "person",
+    val amountMinor: Long,
+    val currency: String = "USD",
+    val createdDate: String? = null,
+    val dueDate: String? = null,
+    val destAccountId: String? = null,
+    val note: String? = null
+)
+
+@Serializable
+data class PayLiabilityRequestDto(
+    val workspaceId: String? = null,
+    val accountId: String,
+    val amountMinor: Long,
+    val paidAt: String? = null
 )
 
 @Serializable
@@ -269,6 +324,14 @@ data class CategorySpendingDto(
     val color: String? = null,
     val totalAmountMinor: String = "0",
     val count: Int = 0
+)
+
+@Serializable
+data class WealthTrendPointDto(
+    val date: String = "",
+    val income: String = "0",
+    val expense: String = "0",
+    val net: String = "0"
 )
 
 @Serializable

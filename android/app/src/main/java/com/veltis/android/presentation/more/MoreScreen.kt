@@ -522,7 +522,7 @@ fun ReceivablesLiabilitiesSection(
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Column {
-                            Text(text = l.lenderName, fontSize = 14.sp, fontWeight = FontWeight.SemiBold, color = Color.White)
+                            Text(text = l.displayName, fontSize = 14.sp, fontWeight = FontWeight.SemiBold, color = Color.White)
                             Text(text = l.liabilityType.uppercase(), fontSize = 11.sp, color = TextMuted)
                         }
                         Text(

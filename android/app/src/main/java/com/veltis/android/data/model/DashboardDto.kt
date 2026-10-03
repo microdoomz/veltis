@@ -17,6 +17,7 @@ data class HomeDashboardDto(
     val liquidFreeToSpend: Double get() = liquidSummary.freeToSpend / 100.0
     val liquidBank: Double get() = liquidSummary.freeToSpendOnline / 100.0
     val liquidCash: Double get() = liquidSummary.freeToSpendCash / 100.0
+    val liquidAllocated: Double get() = liquidSummary.totalAllocated / 100.0
 }
 
 @Serializable

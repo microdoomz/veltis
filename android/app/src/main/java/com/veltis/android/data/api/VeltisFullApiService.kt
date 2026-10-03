@@ -135,10 +135,32 @@ interface VeltisFullApiService {
         @Query("workspaceId") workspaceId: String? = null
     ): Response<List<ReceivableDto>>
 
+    @POST("api/receivables")
+    suspend fun createReceivable(
+        @Body body: CreateReceivableRequestDto
+    ): Response<ReceivableDto>
+
+    @POST("api/receivables/{id}/settle")
+    suspend fun settleReceivable(
+        @Path("id") id: String,
+        @Body body: SettleReceivableRequestDto
+    ): Response<Unit>
+
     @GET("api/liabilities")
     suspend fun getLiabilities(
         @Query("workspaceId") workspaceId: String? = null
     ): Response<List<LiabilityDto>>
+
+    @POST("api/liabilities")
+    suspend fun createLiability(
+        @Body body: CreateLiabilityRequestDto
+    ): Response<LiabilityDto>
+
+    @POST("api/liabilities/{id}/pay")
+    suspend fun payLiability(
+        @Path("id") id: String,
+        @Body body: PayLiabilityRequestDto
+    ): Response<Unit>
 
     @GET("api/recurring")
     suspend fun getRecurringItems(
@@ -198,6 +220,20 @@ interface VeltisFullApiService {
         @Query("startDate") startDate: String,
         @Query("endDate") endDate: String
     ): Response<List<CategorySpendingDto>>
+
+    @GET("api/analytics/income")
+    suspend fun getIncomeAnalytics(
+        @Query("workspaceId") workspaceId: String? = null,
+        @Query("startDate") startDate: String,
+        @Query("endDate") endDate: String
+    ): Response<List<CategorySpendingDto>>
+
+    @GET("api/analytics/wealth")
+    suspend fun getWealthTrendAnalytics(
+        @Query("workspaceId") workspaceId: String? = null,
+        @Query("startDate") startDate: String,
+        @Query("endDate") endDate: String
+    ): Response<List<WealthTrendPointDto>>
 
     @GET("api/app/version")
     suspend fun getAppVersion(): Response<AppVersionDto>

@@ -438,6 +438,118 @@ class VeltisAppRepositoryImpl(
         }
     }
 
+    override suspend fun createReceivable(
+        counterpartyName: String,
+        amount: Double,
+        currency: String,
+        createdDate: String?,
+        expectedDate: String?,
+        sourceAccountId: String?,
+        note: String?
+    ): VeltisResult<Unit> = withContext(Dispatchers.IO) {
+        val workspaceId = sessionManager.getWorkspaceId()
+        try {
+            val req = CreateReceivableRequestDto(
+                workspaceId = workspaceId,
+                counterpartyName = counterpartyName,
+                amountMinor = Math.round(amount * 100),
+                currency = currency,
+                createdDate = createdDate,
+                expectedDate = expectedDate,
+                sourceAccountId = sourceAccountId,
+                note = note
+            )
+            val response = api.createReceivable(req)
+            if (response.isSuccessful) VeltisResult.Success(Unit)
+            else VeltisResult.Failure(parseError(response))
+        } catch (e: IOException) {
+            VeltisResult.Failure(VeltisError.Network())
+        } catch (e: Exception) {
+            VeltisResult.Failure(VeltisError.Unknown(e.message ?: "Failed to record receivable."))
+        }
+    }
+
+    override suspend fun settleReceivable(
+        id: String,
+        accountId: String,
+        amount: Double,
+        settledAt: String?
+    ): VeltisResult<Unit> = withContext(Dispatchers.IO) {
+        val workspaceId = sessionManager.getWorkspaceId()
+        try {
+            val req = SettleReceivableRequestDto(
+                workspaceId = workspaceId,
+                accountId = accountId,
+                amountMinor = Math.round(amount * 100),
+                settledAt = settledAt
+            )
+            val response = api.settleReceivable(id, req)
+            if (response.isSuccessful) VeltisResult.Success(Unit)
+            else VeltisResult.Failure(parseError(response))
+        } catch (e: IOException) {
+            VeltisResult.Failure(VeltisError.Network())
+        } catch (e: Exception) {
+            VeltisResult.Failure(VeltisError.Unknown(e.message ?: "Failed to settle receivable."))
+        }
+    }
+
+    override suspend fun createLiability(
+        counterpartyName: String,
+        liabilityType: String,
+        amount: Double,
+        currency: String,
+        createdDate: String?,
+        dueDate: String?,
+        destAccountId: String?,
+        note: String?
+    ): VeltisResult<Unit> = withContext(Dispatchers.IO) {
+        val workspaceId = sessionManager.getWorkspaceId()
+        try {
+            val req = CreateLiabilityRequestDto(
+                workspaceId = workspaceId,
+                counterpartyName = counterpartyName,
+                liabilityType = liabilityType,
+                amountMinor = Math.round(amount * 100),
+                currency = currency,
+                createdDate = createdDate,
+                dueDate = dueDate,
+                destAccountId = destAccountId,
+                note = note
+            )
+            val response = api.createLiability(req)
+            if (response.isSuccessful) VeltisResult.Success(Unit)
+            else VeltisResult.Failure(parseError(response))
+        } catch (e: IOException) {
+            VeltisResult.Failure(VeltisError.Network())
+        } catch (e: Exception) {
+            VeltisResult.Failure(VeltisError.Unknown(e.message ?: "Failed to record liability."))
+        }
+    }
+
+    override suspend fun payLiability(
+        id: String,
+        accountId: String,
+        amount: Double,
+        paidAt: String?
+    ): VeltisResult<Unit> = withContext(Dispatchers.IO) {
+        val workspaceId = sessionManager.getWorkspaceId()
+        try {
+            val req = PayLiabilityRequestDto(
+                workspaceId = workspaceId,
+                accountId = accountId,
+                amountMinor = Math.round(amount * 100),
+                paidAt = paidAt
+            )
+            val response = api.payLiability(id, req)
+            if (response.isSuccessful) VeltisResult.Success(Unit)
+            else VeltisResult.Failure(parseError(response))
+        } catch (e: IOException) {
+            VeltisResult.Failure(VeltisError.Network())
+        } catch (e: Exception) {
+            VeltisResult.Failure(VeltisError.Unknown(e.message ?: "Failed to pay liability."))
+        }
+    }
+
     override suspend fun getRecurringItems(): VeltisResult<List<RecurringItemDto>> = withContext(Dispatchers.IO) {
         try {
             val response = api.getRecurringItems()
@@ -775,6 +887,34 @@ class VeltisAppRepositoryImpl(
             VeltisResult.Success(Pair(overview, spending))
         } catch (e: Exception) {
             VeltisResult.Failure(VeltisError.Network(e.message ?: "Failed to fetch analytics."))
+        }
+    }
+
+    override suspend fun getIncomeAnalytics(startDate: String, endDate: String): VeltisResult<List<CategorySpendingDto>> = withContext(Dispatchers.IO) {
+        val workspaceId = sessionManager.getWorkspaceId()
+        try {
+            val incomeRes = api.getIncomeAnalytics(workspaceId = workspaceId, startDate = startDate, endDate = endDate)
+            if (incomeRes.isSuccessful && incomeRes.body() != null) {
+                VeltisResult.Success(incomeRes.body()!!)
+            } else {
+                VeltisResult.Success(emptyList())
+            }
+        } catch (e: Exception) {
+            VeltisResult.Failure(VeltisError.Network(e.message ?: "Failed to fetch income analytics."))
+        }
+    }
+
+    override suspend fun getWealthTrend(startDate: String, endDate: String): VeltisResult<List<com.veltis.android.data.model.WealthTrendPointDto>> = withContext(Dispatchers.IO) {
+        val workspaceId = sessionManager.getWorkspaceId()
+        try {
+            val wealthRes = api.getWealthTrendAnalytics(workspaceId = workspaceId, startDate = startDate, endDate = endDate)
+            if (wealthRes.isSuccessful && wealthRes.body() != null) {
+                VeltisResult.Success(wealthRes.body()!!)
+            } else {
+                VeltisResult.Success(emptyList())
+            }
+        } catch (e: Exception) {
+            VeltisResult.Failure(VeltisError.Network(e.message ?: "Failed to fetch wealth trend."))
         }
     }
 

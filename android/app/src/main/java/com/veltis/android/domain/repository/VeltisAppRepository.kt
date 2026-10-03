@@ -19,7 +19,38 @@ interface VeltisAppRepository {
     suspend fun createBudget(categoryId: String, amount: Double, currency: String, start: String, end: String): VeltisResult<Unit>
     suspend fun deleteBudget(id: String): VeltisResult<Unit>
     suspend fun getReceivables(): VeltisResult<List<ReceivableDto>>
+    suspend fun createReceivable(
+        counterpartyName: String,
+        amount: Double,
+        currency: String = "USD",
+        createdDate: String? = null,
+        expectedDate: String? = null,
+        sourceAccountId: String? = null,
+        note: String? = null
+    ): VeltisResult<Unit>
+    suspend fun settleReceivable(
+        id: String,
+        accountId: String,
+        amount: Double,
+        settledAt: String? = null
+    ): VeltisResult<Unit>
     suspend fun getLiabilities(): VeltisResult<List<LiabilityDto>>
+    suspend fun createLiability(
+        counterpartyName: String,
+        liabilityType: String = "person",
+        amount: Double,
+        currency: String = "USD",
+        createdDate: String? = null,
+        dueDate: String? = null,
+        destAccountId: String? = null,
+        note: String? = null
+    ): VeltisResult<Unit>
+    suspend fun payLiability(
+        id: String,
+        accountId: String,
+        amount: Double,
+        paidAt: String? = null
+    ): VeltisResult<Unit>
     suspend fun getRecurringItems(): VeltisResult<List<RecurringItemDto>>
     suspend fun createRecurringItem(
         type: String,
@@ -52,6 +83,8 @@ interface VeltisAppRepository {
     ): VeltisResult<Unit>
     suspend fun getCategories(): VeltisResult<List<CategoryDto>>
     suspend fun getAnalytics(startDate: String, endDate: String): VeltisResult<Pair<AnalyticsOverviewDto, List<CategorySpendingDto>>>
+    suspend fun getIncomeAnalytics(startDate: String, endDate: String): VeltisResult<List<CategorySpendingDto>>
+    suspend fun getWealthTrend(startDate: String, endDate: String): VeltisResult<List<com.veltis.android.data.model.WealthTrendPointDto>>
     suspend fun getAccountAllocations(accountId: String): VeltisResult<AllocationsResponseDto>
     suspend fun createAccountAllocation(accountId: String, name: String, amount: Double, description: String? = null, color: String? = null): VeltisResult<Unit>
     suspend fun updateAccountAllocation(accountId: String, allocationId: String, name: String? = null, amount: Double? = null, description: String? = null, color: String? = null): VeltisResult<Unit>

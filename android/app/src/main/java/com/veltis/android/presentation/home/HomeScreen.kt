@@ -92,6 +92,8 @@ fun HomeScreen(
             val liquidTotal = dash?.liquidFreeToSpend ?: 0.0
             val bankLiquid = dash?.liquidBank ?: 0.0
             val cashLiquid = dash?.liquidCash ?: 0.0
+            val allocatedLiquid = dash?.liquidAllocated ?: 0.0
+            val totalLiquidGross = (dash?.totalAssets ?: 0.0).coerceAtLeast(liquidTotal + allocatedLiquid)
             val accounts = dash?.accounts ?: emptyList()
             val recentTxns = dash?.recentTransactions ?: emptyList()
 
@@ -313,11 +315,34 @@ fun HomeScreen(
                                     }
 
                                     Text(
-                                        text = if (state.isPrivacyMode) "••••" else formatCurrency(0.0, currency),
+                                        text = if (state.isPrivacyMode) "••••" else formatCurrency(allocatedLiquid, currency),
                                         fontSize = 15.sp,
                                         fontWeight = FontWeight.Bold,
                                         color = WarningAmber
                                     )
+                                }
+                            }
+
+                            // Visual Allocation Proportion Progress Bar
+                            if (allocatedLiquid > 0) {
+                                val freeRatio = if (totalLiquidGross > 0) (liquidTotal / totalLiquidGross).toFloat().coerceIn(0f, 1f) else 1f
+                                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                                    LinearProgressIndicator(
+                                        progress = { freeRatio },
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .height(6.dp)
+                                            .clip(RoundedCornerShape(3.dp)),
+                                        color = IncomeGreen,
+                                        trackColor = WarningAmber
+                                    )
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        horizontalArrangement = Arrangement.SpaceBetween
+                                    ) {
+                                        Text(text = "Free to spend (${(freeRatio * 100).toInt()}%)", fontSize = 10.sp, color = IncomeGreen)
+                                        Text(text = "Set aside (${(100 - (freeRatio * 100)).toInt()}%)", fontSize = 10.sp, color = WarningAmber)
+                                    }
                                 }
                             }
                         }

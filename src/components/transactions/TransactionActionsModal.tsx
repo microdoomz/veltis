@@ -85,8 +85,10 @@ export function TransactionActionsModal({
     try {
       await deleteTransactionAction(workspaceId, txn.id);
       setIsDeleteOpen(false);
+      setDeleteConfirmed(false);
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : 'Failed to delete transaction');
+    } finally {
       setLoading(false);
     }
   };
@@ -116,6 +118,7 @@ export function TransactionActionsModal({
             setIsDeleteOpen(true);
             setError(null);
             setDeleteConfirmed(false);
+            setLoading(false);
           }}
           className="flex items-center gap-1.5"
         >
@@ -295,7 +298,11 @@ export function TransactionActionsModal({
                 type="button"
                 variant="outline"
                 size="sm"
-                onClick={() => setIsDeleteOpen(false)}
+                onClick={() => {
+                  setIsDeleteOpen(false);
+                  setDeleteConfirmed(false);
+                  setLoading(false);
+                }}
                 disabled={loading}
               >
                 Cancel

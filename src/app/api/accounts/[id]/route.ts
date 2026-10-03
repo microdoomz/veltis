@@ -3,7 +3,7 @@ import { requireWorkspaceAccess } from '@/lib/auth/guards';
 import { updateAccount, deleteAccount, updateAccountSchema, getAccountById } from '@/lib/services/account';
 
 import { db } from '@/lib/db';
-import { recurringItem, investmentPosition, investmentPriceSnapshot } from '@/lib/db/schema';
+import { recurringItem, investmentPosition, investmentPriceSnapshot, investmentTransaction } from '@/lib/db/schema';
 import { eq, and, desc } from 'drizzle-orm';
 
 export async function GET(
@@ -27,6 +27,7 @@ export async function GET(
     // Check for associated investment position
     let position = null;
     let latestSnapshot = null;
+    let investedAmount: number | null = null;
     if (account.accountType === 'investment') {
       position = await db.query.investmentPosition.findFirst({
         where: and(
@@ -40,6 +41,18 @@ export async function GET(
           where: eq(investmentPriceSnapshot.positionId, position.id),
           orderBy: [desc(investmentPriceSnapshot.observedAt)],
         });
+
+        const posTxns = await db.query.investmentTransaction.findMany({
+          where: eq(investmentTransaction.positionId, position.id),
+        });
+        const netTxnsMinor = posTxns.reduce(
+          (sum, tx) => sum + (tx.transactionType === 'buy' ? tx.amountMinor : -tx.amountMinor),
+          0n
+        );
+        const totalInvMinor = (account.openingBalanceMinor + netTxnsMinor) > 0n
+          ? (account.openingBalanceMinor + netTxnsMinor)
+          : BigInt(Math.round(Number(position.units || 0) * Number(position.averageCostMinor || 0)));
+        investedAmount = Number(totalInvMinor) / 100;
       }
     }
 
@@ -52,6 +65,7 @@ export async function GET(
       symbol: position?.symbol ?? null,
       currentPrice: latestSnapshot?.priceMinor ? (Number(latestSnapshot.priceMinor) / 100).toString() : null,
       averageCostMinor: position?.averageCostMinor ? position.averageCostMinor.toString() : null,
+      investedAmount,
     });
   } catch (error: unknown) {
     if (error instanceof Error && error.message.includes('not found')) {

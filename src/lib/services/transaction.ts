@@ -1,6 +1,6 @@
 import { db } from '../db';
-import { transaction, transactionLeg } from '../db/schema';
-import { eq, and } from 'drizzle-orm';
+import { transaction, transactionLeg, financialAccount, investmentPosition, investmentTransaction, investmentPriceSnapshot } from '../db/schema';
+import { eq, and, desc } from 'drizzle-orm';
 import { InvalidTransactionError } from './errors';
 
 type BaseTransactionParams = {
@@ -141,6 +141,108 @@ export async function createTransfer(
         legRole: 'transfer_destination'
       }
     ]);
+
+    // Check if transferring into an investment account
+    const destAccount = await tx.query.financialAccount.findFirst({
+      where: eq(financialAccount.id, params.destAccountId),
+    });
+
+    if (destAccount && destAccount.accountType === 'investment') {
+      const pos = await tx.query.investmentPosition.findFirst({
+        where: and(
+          eq(investmentPosition.financialAccountId, params.destAccountId),
+          eq(investmentPosition.workspaceId, params.workspaceId)
+        ),
+      });
+
+      if (pos) {
+        const latestSnapshot = await tx.query.investmentPriceSnapshot.findFirst({
+          where: eq(investmentPriceSnapshot.positionId, pos.id),
+          orderBy: [desc(investmentPriceSnapshot.observedAt)],
+        });
+
+        const priceMinor = latestSnapshot?.priceMinor && latestSnapshot.priceMinor > 0n
+          ? latestSnapshot.priceMinor
+          : (pos.averageCostMinor && pos.averageCostMinor > 0n ? pos.averageCostMinor : 1000n);
+
+        const unitsToAdd = Number(params.amountMinor) / Number(priceMinor);
+        const unitsStr = unitsToAdd.toFixed(4);
+        const currentUnits = Number(pos.units || '0');
+        const newUnits = (currentUnits + Number(unitsStr)).toFixed(4);
+
+        const currentTotalCostMinor = BigInt(Math.round(currentUnits * Number(pos.averageCostMinor || priceMinor)));
+        const newTotalCostMinor = currentTotalCostMinor + params.amountMinor;
+        const newUnitsNum = Number(newUnits);
+        const newAvgCostMinor = newUnitsNum > 0
+          ? BigInt(Math.round(Number(newTotalCostMinor) / newUnitsNum))
+          : priceMinor;
+
+        await tx.update(investmentPosition).set({
+          units: newUnits,
+          averageCostMinor: newAvgCostMinor,
+          updatedAt: new Date(),
+        }).where(eq(investmentPosition.id, pos.id));
+
+        await tx.insert(investmentTransaction).values({
+          workspaceId: params.workspaceId,
+          positionId: pos.id,
+          transactionId: newTx.id,
+          transactionType: 'buy',
+          units: unitsStr,
+          priceMinor,
+          amountMinor: params.amountMinor,
+          currency: params.currency,
+          transactionDate: formatTxnDate(params.transactionDate),
+        });
+      }
+    }
+
+    // Check if transferring out of an investment account
+    const sourceAccount = await tx.query.financialAccount.findFirst({
+      where: eq(financialAccount.id, params.sourceAccountId),
+    });
+
+    if (sourceAccount && sourceAccount.accountType === 'investment') {
+      const pos = await tx.query.investmentPosition.findFirst({
+        where: and(
+          eq(investmentPosition.financialAccountId, params.sourceAccountId),
+          eq(investmentPosition.workspaceId, params.workspaceId)
+        ),
+      });
+
+      if (pos) {
+        const latestSnapshot = await tx.query.investmentPriceSnapshot.findFirst({
+          where: eq(investmentPriceSnapshot.positionId, pos.id),
+          orderBy: [desc(investmentPriceSnapshot.observedAt)],
+        });
+
+        const priceMinor = latestSnapshot?.priceMinor && latestSnapshot.priceMinor > 0n
+          ? latestSnapshot.priceMinor
+          : (pos.averageCostMinor && pos.averageCostMinor > 0n ? pos.averageCostMinor : 1000n);
+
+        const unitsToRemove = Number(params.amountMinor) / Number(priceMinor);
+        const unitsStr = unitsToRemove.toFixed(4);
+        const currentUnits = Number(pos.units || '0');
+        const newUnits = Math.max(0, currentUnits - Number(unitsStr)).toFixed(4);
+
+        await tx.update(investmentPosition).set({
+          units: newUnits,
+          updatedAt: new Date(),
+        }).where(eq(investmentPosition.id, pos.id));
+
+        await tx.insert(investmentTransaction).values({
+          workspaceId: params.workspaceId,
+          positionId: pos.id,
+          transactionId: newTx.id,
+          transactionType: 'sell',
+          units: unitsStr,
+          priceMinor,
+          amountMinor: params.amountMinor,
+          currency: params.currency,
+          transactionDate: formatTxnDate(params.transactionDate),
+        });
+      }
+    }
 
     return newTx;
   });
@@ -373,6 +475,53 @@ export async function payLiabilityTransaction(
 
 export async function softDeleteTransaction(transactionId: string) {
   return await db.transaction(async (tx) => {
+    // 1. Revert and clean up any linked investment transactions
+    const invTxns = await tx.query.investmentTransaction.findMany({
+      where: eq(investmentTransaction.transactionId, transactionId),
+    });
+
+    for (const invTx of invTxns) {
+      const pos = await tx.query.investmentPosition.findFirst({
+        where: eq(investmentPosition.id, invTx.positionId),
+      });
+
+      if (pos) {
+        const currentUnits = Number(pos.units || '0');
+        const txUnits = Number(invTx.units || '0');
+
+        if (invTx.transactionType === 'buy') {
+          // Reversing a buy: subtract allocated units
+          const newUnits = Math.max(0, currentUnits - txUnits);
+          const currentTotalCost = currentUnits * Number(pos.averageCostMinor || 0n);
+          const newTotalCost = Math.max(0, currentTotalCost - Number(invTx.amountMinor));
+          const newAvgCostMinor = newUnits > 0
+            ? BigInt(Math.round(newTotalCost / newUnits))
+            : (pos.averageCostMinor || 0n);
+
+          await tx.update(investmentPosition)
+            .set({
+              units: newUnits.toFixed(4),
+              averageCostMinor: newAvgCostMinor,
+              updatedAt: new Date(),
+            })
+            .where(eq(investmentPosition.id, pos.id));
+        } else if (invTx.transactionType === 'sell') {
+          // Reversing a sell: restore deducted units
+          const newUnits = currentUnits + txUnits;
+          await tx.update(investmentPosition)
+            .set({
+              units: newUnits.toFixed(4),
+              updatedAt: new Date(),
+            })
+            .where(eq(investmentPosition.id, pos.id));
+        }
+      }
+
+      await tx.delete(investmentTransaction)
+        .where(eq(investmentTransaction.id, invTx.id));
+    }
+
+    // 2. Soft-delete the transaction
     const [updated] = await tx.update(transaction)
       .set({ 
         status: 'deleted',

@@ -85,6 +85,7 @@ export function TransactionList({
     setIsEditing(false)
     setIsDeleting(false)
     setDeleteConfirmed(false)
+    setLoading(false)
     setError(null)
 
     // Pre-populate edit form fields
@@ -136,12 +137,16 @@ export function TransactionList({
       await deleteTransactionAction(workspaceId, selectedTxn.id)
       setSelectedTxn(null)
       setIsDeleting(false)
+      setDeleteConfirmed(false)
     } catch (err: unknown) {
       if (err instanceof Error && err.message.includes("NEXT_REDIRECT")) {
         setSelectedTxn(null)
+        setIsDeleting(false)
+        setDeleteConfirmed(false)
         return
       }
       setError(err instanceof Error ? err.message : "Failed to delete transaction")
+    } finally {
       setLoading(false)
     }
   }
@@ -286,7 +291,12 @@ export function TransactionList({
               </div>
               <button
                 type="button"
-                onClick={() => setSelectedTxn(null)}
+                onClick={() => {
+                  setSelectedTxn(null)
+                  setIsDeleting(false)
+                  setDeleteConfirmed(false)
+                  setLoading(false)
+                }}
                 className="text-muted-foreground hover:text-foreground p-1 rounded-lg hover:bg-muted/50"
               >
                 <X className="w-4 h-4" />
@@ -336,7 +346,11 @@ export function TransactionList({
                     type="button"
                     variant="outline"
                     size="sm"
-                    onClick={() => setIsDeleting(false)}
+                    onClick={() => {
+                      setIsDeleting(false)
+                      setDeleteConfirmed(false)
+                      setLoading(false)
+                    }}
                     disabled={loading}
                     className="rounded-xl"
                   >
@@ -574,6 +588,8 @@ export function TransactionList({
                     onClick={() => {
                       setIsDeleting(true)
                       setDeleteConfirmed(false)
+                      setLoading(false)
+                      setError(null)
                     }}
                     className="rounded-xl text-xs h-9 px-3"
                   >
@@ -595,7 +611,12 @@ export function TransactionList({
                     <Button
                       type="button"
                       size="sm"
-                      onClick={() => setSelectedTxn(null)}
+                      onClick={() => {
+                        setSelectedTxn(null)
+                        setIsDeleting(false)
+                        setDeleteConfirmed(false)
+                        setLoading(false)
+                      }}
                       className="rounded-xl text-xs h-9 px-4"
                     >
                       Close

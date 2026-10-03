@@ -9,7 +9,7 @@ interface Position {
   id: string;
   name: string;
   symbol: string;
-  units: string;
+  units: string | number;
   averageCostMinor: string;
   currentPriceMinor: string;
   currency: string;
@@ -83,7 +83,7 @@ export function TopUpInvestmentModal({
   const navPrice = currentPos ? Number(currentPos.currentPriceMinor || currentPos.averageCostMinor || '1000') / 100 : 1;
   const amountNum = parseFloat(amount) || 0;
   const incrementalUnits = navPrice > 0 && amountNum > 0 ? (amountNum / navPrice).toFixed(4) : '0.0000';
-  const existingUnits = currentPos ? parseFloat(currentPos.units || '0') : 0;
+  const existingUnits = currentPos ? Number(currentPos.units || 0) : 0;
   const newTotalUnits = (existingUnits + parseFloat(incrementalUnits)).toFixed(4);
 
   const handleSubmit = async (e: React.FormEvent) => {

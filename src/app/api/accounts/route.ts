@@ -4,7 +4,7 @@ import { createAccount } from '@/lib/services/account';
 import { getAccountSummary } from '@/lib/ledger/queries';
 import { safeJsonResponse, safeSerialize } from '@/lib/utils/serialization';
 import { db } from '@/lib/db';
-import { workspace, investmentPosition, investmentPriceSnapshot, recurringItem } from '@/lib/db/schema';
+import { workspace, investmentPosition, investmentPriceSnapshot, recurringItem, transaction, transactionLeg, investmentTransaction } from '@/lib/db/schema';
 import { createRecurringItem } from '@/lib/services/recurring';
 import { eq } from 'drizzle-orm';
 import { z } from 'zod';
@@ -37,6 +37,7 @@ const postAccountSchema = z.object({
   currentPrice: z.coerce.number().optional().nullable(),
   sipMonthlyAmount: z.coerce.number().optional().nullable(),
   sipMonthlyDay: z.coerce.number().min(1).max(31).optional().nullable(),
+  sourceAccountId: z.string().optional().nullable(),
 });
 
 function normalizeAccountType(rawType?: string): 'bank' | 'cash_wallet' | 'digital_wallet' | 'investment' | 'credit_card' {
@@ -118,6 +119,9 @@ export async function POST(req: Request) {
 
     const currency = parsed.data.currency.toUpperCase();
 
+    const sourceAccountId = parsed.data.sourceAccountId || null;
+    const isFundedFromAccount = accountType === 'investment' && !!sourceAccountId && openingBalanceMinor > 0n;
+
     const newAccount = await createAccount({
       workspaceId,
       name: parsed.data.name,
@@ -126,7 +130,7 @@ export async function POST(req: Request) {
       currency,
       color: parsed.data.color,
       iconKey: parsed.data.iconKey,
-      openingBalanceMinor,
+      openingBalanceMinor: isFundedFromAccount ? 0n : openingBalanceMinor,
       openingBalanceDate: new Date(),
     });
 
@@ -143,17 +147,17 @@ export async function POST(req: Request) {
       const totalInvested = parsed.data.balance !== undefined ? parsed.data.balance : Number(openingBalanceMinor) / 100;
       
       let units = '1';
-      let avgCostMinor = openingBalanceMinor;
+      let avgCostMinor = openingBalanceMinor > 0n ? openingBalanceMinor : 1000n;
 
-      if (parsed.data.units) {
+      if (parsed.data.units && Number(parsed.data.units) > 0) {
         units = parsed.data.units.toString();
-        if (Number(units) > 0) {
+        if (totalInvested > 0) {
           avgCostMinor = BigInt(Math.round((totalInvested / Number(units)) * 100));
         }
       } else if (currentPrice && currentPrice > 0 && totalInvested > 0) {
         const computedUnits = (totalInvested / currentPrice).toFixed(4);
         units = computedUnits;
-        avgCostMinor = BigInt(Math.round(currentPrice * 100));
+        avgCostMinor = BigInt(Math.round((totalInvested / Number(computedUnits)) * 100));
       }
 
       const [position] = await db.insert(investmentPosition).values({
@@ -176,6 +180,54 @@ export async function POST(req: Request) {
           currency,
           observedAt: new Date(),
           isEstimated: true,
+        });
+      }
+
+      // If funded from a source bank account, record the contribution transaction deducting the source account
+      if (isFundedFromAccount && sourceAccountId) {
+        const [txRecord] = await db.insert(transaction).values({
+          workspaceId,
+          createdByUserId: authContext.session.user.id,
+          transactionType: 'investment_contribution',
+          status: 'active',
+          amountMinor: openingBalanceMinor,
+          currency,
+          transactionDate: new Date().toISOString().split('T')[0],
+          source: 'web',
+          description: `Initial Investment: ${parsed.data.name}`,
+        }).returning();
+
+        // Leg 1: Credit source account (reduces bank balance)
+        await db.insert(transactionLeg).values({
+          transactionId: txRecord.id,
+          accountId: sourceAccountId,
+          direction: 'credit',
+          amountMinor: openingBalanceMinor,
+          currency,
+          legRole: 'source',
+        });
+
+        // Leg 2: Debit new investment account (adds cash balance)
+        await db.insert(transactionLeg).values({
+          transactionId: txRecord.id,
+          accountId: newAccount.id,
+          direction: 'debit',
+          amountMinor: openingBalanceMinor,
+          currency,
+          legRole: 'destination',
+        });
+
+        // Record investment transaction
+        await db.insert(investmentTransaction).values({
+          workspaceId,
+          positionId: position.id,
+          transactionId: txRecord.id,
+          transactionType: 'buy',
+          units,
+          priceMinor: currentPrice && currentPrice > 0 ? BigInt(Math.round(currentPrice * 100)) : avgCostMinor,
+          amountMinor: openingBalanceMinor,
+          currency,
+          transactionDate: new Date().toISOString().split('T')[0],
         });
       }
 

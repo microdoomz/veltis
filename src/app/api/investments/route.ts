@@ -75,24 +75,48 @@ export async function GET(req: Request) {
       });
     }
 
+    // Fetch all active investment transactions to compute actual invested amounts and history
+    const allInvestmentTxns = await db.query.investmentTransaction.findMany({
+      where: eq(investmentTransaction.workspaceId, workspaceId),
+      orderBy: [desc(investmentTransaction.transactionDate), desc(investmentTransaction.id)],
+      with: {
+        transaction: true,
+      }
+    });
+
     let totalInvestedMinor = 0n;
     let totalCurrentValueMinor = 0n;
 
-    // Attach current price and computed valuation to positions
+    // Attach current price and accurately computed valuation to positions
     const enrichedPositions = positions.map((pos) => {
       const snapshot = latestSnapshots.find((s) => s.positionId === pos.id);
       const currentPriceMinor = snapshot ? snapshot.priceMinor : (pos.averageCostMinor || 0n);
       const unitsNum = Number(pos.units || 0);
-      const avgCostNum = Number(pos.averageCostMinor || 0) / 100;
       const curPriceNum = Number(currentPriceMinor || 0) / 100;
-      const posInvested = unitsNum * avgCostNum;
-      const posValuation = unitsNum * curPriceNum;
+      const avgCostNum = Number(pos.averageCostMinor || 0) / 100;
+
+      // Find linked account and calculate invested base
+      const account = accounts.find((a) => a.id === pos.financialAccountId);
+      const posTxns = allInvestmentTxns.filter((tx) => tx.positionId === pos.id && (!tx.transaction || tx.transaction.status !== 'deleted'));
+      const netTxnsMinor = posTxns.reduce(
+        (sum, tx) => sum + (tx.transactionType === 'buy' ? tx.amountMinor : -tx.amountMinor),
+        0n
+      );
+
+      const openingMinor = account ? BigInt(account.openingBalanceMinor ?? 0n) : 0n;
+      const posInvestedMinor = (openingMinor + netTxnsMinor) > 0n
+        ? (openingMinor + netTxnsMinor)
+        : BigInt(Math.round(unitsNum * avgCostNum * 100));
+
+      const posInvested = Number(posInvestedMinor) / 100;
+      const posValuationMinor = BigInt(Math.round(unitsNum * Number(currentPriceMinor)));
+      const posValuation = Number(posValuationMinor) / 100;
       const posGainLoss = posValuation - posInvested;
       const posGainLossPct = posInvested > 0 ? (posGainLoss / posInvested) * 100 : 0;
 
-      if (unitsNum > 0) {
-        totalInvestedMinor += BigInt(Math.round(posInvested * 100));
-        totalCurrentValueMinor += BigInt(Math.round(posValuation * 100));
+      if (unitsNum > 0 || posInvestedMinor > 0n) {
+        totalInvestedMinor += posInvestedMinor;
+        totalCurrentValueMinor += posValuationMinor;
       }
 
       return {
@@ -100,10 +124,12 @@ export async function GET(req: Request) {
         symbol: pos.symbol || pos.name || '',
         name: pos.name,
         units: unitsNum,
-        averageBuyPrice: avgCostNum,
+        averageBuyPrice: unitsNum > 0 ? posInvested / unitsNum : avgCostNum,
         currentPrice: curPriceNum,
         currentValuation: posValuation,
+        currentValuationMinor: posValuationMinor.toString(),
         totalInvested: posInvested,
+        totalInvestedMinor: posInvestedMinor.toString(),
         unrealizedGainLoss: posGainLoss,
         unrealizedGainLossPercent: posGainLossPct,
         currentPriceMinor: currentPriceMinor.toString(),
@@ -114,24 +140,39 @@ export async function GET(req: Request) {
     const totalInvested = Number(totalInvestedMinor) / 100;
     const currentValuation = Number(totalCurrentValueMinor) / 100;
     const totalGainLoss = currentValuation - totalInvested;
+    const totalGainLossPercent = totalInvested > 0 ? (totalGainLoss / totalInvested) * 100 : 0;
 
-    // Fetch contribution/trade history
-    const history = await db.query.investmentTransaction.findMany({
-      where: eq(investmentTransaction.workspaceId, workspaceId),
-      orderBy: [desc(investmentTransaction.transactionDate)],
-      limit: 50,
-      with: {
-        transaction: true
-      }
-    });
+    // Enrich contribution/trade history for frontend display
+    const enrichedHistory = allInvestmentTxns
+      .filter((h) => !h.transaction || h.transaction.status !== 'deleted')
+      .slice(0, 50)
+      .map((h) => {
+        const pos = positions.find((p) => p.id === h.positionId);
+        return {
+          id: h.id,
+          transactionId: h.transactionId,
+          positionId: h.positionId,
+          positionName: pos?.name || h.transaction?.description || 'Investment Asset',
+          positionSymbol: pos?.symbol || '',
+          transactionType: h.transactionType,
+          units: h.units ? Number(h.units) : 0,
+          price: h.priceMinor ? Number(h.priceMinor) / 100 : 0,
+          amount: Number(h.amountMinor) / 100,
+          amountMinor: h.amountMinor.toString(),
+          currency: h.currency,
+          transactionDate: h.transactionDate,
+          description: h.transaction?.description,
+        };
+      });
 
     return safeJsonResponse({
       accounts,
       positions: enrichedPositions,
-      history,
+      history: enrichedHistory,
       totalInvested,
       currentValuation,
       totalGainLoss,
+      totalGainLossPercent,
     }, {
       headers: {
         ...corsHeaders,

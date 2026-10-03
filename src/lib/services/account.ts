@@ -1,5 +1,5 @@
 import { db } from '../db';
-import { financialAccount, accountState, workspace, allocation, investmentPosition, recurringItem, investmentPriceSnapshot } from '../db/schema';
+import { financialAccount, accountState, workspace, allocation, investmentPosition, recurringItem, investmentPriceSnapshot, investmentTransaction } from '../db/schema';
 import { eq, and } from 'drizzle-orm';
 import { z } from 'zod';
 import { NotFoundError, ValidationError } from './errors';
@@ -105,6 +105,7 @@ export const updateAccountSchema = z.object({
   units: z.union([z.string(), z.number()]).optional().nullable(),
   symbol: z.string().optional().nullable(),
   currentPrice: z.union([z.string(), z.number()]).optional().nullable(),
+  investedAmount: z.union([z.string(), z.number()]).optional().nullable(),
 });
 
 export async function updateAccount(
@@ -136,8 +137,8 @@ export async function updateAccount(
     ))
     .returning();
 
-  // If position attributes (units, symbol, currentPrice) are specified for an investment account, update linked investment position
-  if (data.units !== undefined || data.symbol !== undefined || data.currentPrice !== undefined) {
+  // If position attributes (units, symbol, currentPrice, investedAmount) are specified for an investment account, update linked investment position
+  if (data.units !== undefined || data.symbol !== undefined || data.currentPrice !== undefined || data.investedAmount !== undefined) {
     const pos = await db.query.investmentPosition.findFirst({
       where: and(
         eq(investmentPosition.financialAccountId, accountId),
@@ -148,8 +149,50 @@ export async function updateAccount(
     if (pos) {
       const posUpdates: Record<string, unknown> = { updatedAt: new Date() };
       if (data.name) posUpdates.name = data.name.trim();
-      if (data.units !== undefined && data.units !== null) posUpdates.units = data.units.toString();
       if (data.symbol !== undefined) posUpdates.symbol = data.symbol?.trim() || null;
+
+      const currentUnits = Number(pos.units || '0');
+      const unitsNum = data.units !== undefined && data.units !== null
+        ? Number(data.units)
+        : currentUnits;
+
+      if (data.units !== undefined && data.units !== null) {
+        posUpdates.units = data.units.toString();
+      }
+
+      // Check transactions for this position
+      const posTxns = await db.query.investmentTransaction.findMany({
+        where: eq(investmentTransaction.positionId, pos.id),
+      });
+      const netTxnsMinor = posTxns.reduce(
+        (sum, tx) => sum + (tx.transactionType === 'buy' ? tx.amountMinor : -tx.amountMinor),
+        0n
+      );
+
+      if (data.investedAmount !== undefined && data.investedAmount !== null && !isNaN(Number(data.investedAmount))) {
+        const targetInvestedMinor = BigInt(Math.round(Number(data.investedAmount) * 100));
+        // Account opening balance is the remaining invested base after accounting for net transactions
+        const newOpeningBalanceMinor = targetInvestedMinor >= netTxnsMinor ? targetInvestedMinor - netTxnsMinor : 0n;
+        
+        await db.update(financialAccount)
+          .set({ openingBalanceMinor: newOpeningBalanceMinor, updatedAt: new Date() })
+          .where(eq(financialAccount.id, accountId));
+
+        if (unitsNum > 0) {
+          posUpdates.averageCostMinor = BigInt(Math.round(Number(targetInvestedMinor) / unitsNum));
+        }
+      } else if (data.units !== undefined && data.units !== null && unitsNum > 0) {
+        // If units were updated without explicit investedAmount:
+        // preserve the existing invested amount and adjust average cost per unit
+        const existingInvestedMinor = (existing.openingBalanceMinor || 0n) + netTxnsMinor;
+        const currentInvestedMinor = existingInvestedMinor > 0n
+          ? existingInvestedMinor
+          : BigInt(Math.round(currentUnits * Number(pos.averageCostMinor || 0n)));
+        
+        if (currentInvestedMinor > 0n) {
+          posUpdates.averageCostMinor = BigInt(Math.round(Number(currentInvestedMinor) / unitsNum));
+        }
+      }
 
       await db.update(investmentPosition)
         .set(posUpdates)

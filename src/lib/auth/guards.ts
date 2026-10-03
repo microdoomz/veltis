@@ -5,36 +5,56 @@ import { workspaceMember, session as sessionTable, user as userTable } from '../
 import { and, eq, gt, or } from 'drizzle-orm';
 import { createWorkspaceForUser } from '../services/workspace';
 
-export async function getUser() {
-  const reqHeaders = await headers();
-  let session = await auth.api.getSession({
-    headers: reqHeaders,
-  });
+export async function getUser(customHeaders?: Headers | null) {
+  let reqHeaders: Headers | null = customHeaders || null;
+  if (!reqHeaders) {
+    try {
+      reqHeaders = await headers();
+    } catch {
+      reqHeaders = null;
+    }
+  }
 
-  if (session?.user) {
-    return session;
+  if (reqHeaders) {
+    try {
+      const session = await auth.api.getSession({
+        headers: reqHeaders,
+      });
+
+      if (session?.user) {
+        return session;
+      }
+    } catch {
+      // Continue to token fallbacks
+    }
   }
 
   // Fallback 1: Bearer token or custom session header
-  const authHeader = reqHeaders.get('authorization') || reqHeaders.get('Authorization') || '';
+  const authHeader = reqHeaders?.get('authorization') || reqHeaders?.get('Authorization') || '';
   let token = '';
   if (authHeader.toLowerCase().startsWith('bearer ')) {
     token = authHeader.substring(7).trim();
   }
   if (!token) {
-    token = reqHeaders.get('x-session-token') || reqHeaders.get('x-auth-token') || '';
+    token = reqHeaders?.get('x-session-token') || reqHeaders?.get('x-auth-token') || '';
   }
   if (!token) {
-    const cookieHeader = reqHeaders.get('cookie') || '';
+    const cookieHeader = reqHeaders?.get('cookie') || '';
     const match = cookieHeader.match(/(?:^|;\s*)(?:__Secure-)?better-auth\.session_token=([^;]+)/);
     if (match) {
-      token = decodeURIComponent(match[1].trim());
+      token = match[1].trim();
     }
   }
 
   if (token) {
     try {
-      const cleanToken = token.includes('.') ? token.split('.')[0] : token;
+      let cleanToken = token;
+      try { cleanToken = decodeURIComponent(cleanToken); } catch {}
+      if (cleanToken.startsWith('s:')) cleanToken = cleanToken.substring(2);
+      if (cleanToken.startsWith('s%3A')) cleanToken = cleanToken.substring(4);
+      if (cleanToken.includes('.')) cleanToken = cleanToken.split('.')[0];
+      cleanToken = cleanToken.trim();
+
       const rows = await db
         .select({
           session: sessionTable,
@@ -44,7 +64,10 @@ export async function getUser() {
         .innerJoin(userTable, eq(sessionTable.userId, userTable.id))
         .where(
           and(
-            or(eq(sessionTable.token, token), eq(sessionTable.token, cleanToken)),
+            or(
+              eq(sessionTable.token, token),
+              eq(sessionTable.token, cleanToken)
+            ),
             gt(sessionTable.expiresAt, new Date())
           )
         )
@@ -85,8 +108,8 @@ export async function getUser() {
   return null;
 }
 
-export async function requireUser() {
-  const session = await getUser();
+export async function requireUser(customHeaders?: Headers | null) {
+  const session = await getUser(customHeaders);
 
   if (!session || !session.user) {
     throw new Error('Unauthorized');
@@ -95,8 +118,8 @@ export async function requireUser() {
   return session;
 }
 
-export async function requireWorkspaceAccess(workspaceId?: string) {
-  const session = await requireUser();
+export async function requireWorkspaceAccess(workspaceId?: string, customHeaders?: Headers | null) {
+  const session = await requireUser(customHeaders);
   const userId = session.user.id;
 
   let membership;
@@ -138,9 +161,9 @@ export async function requireWorkspaceAccess(workspaceId?: string) {
   return { session, membership, workspaceId: membership.workspaceId };
 }
 
-export async function requireStrictWorkspaceAccess(workspaceId?: string | null) {
+export async function requireStrictWorkspaceAccess(workspaceId?: string | null, customHeaders?: Headers | null) {
   if (workspaceId && workspaceId.trim() !== '') {
-    const session = await requireUser();
+    const session = await requireUser(customHeaders);
     const userId = session.user.id;
 
     const membership = await db.query.workspaceMember.findFirst({
@@ -157,5 +180,5 @@ export async function requireStrictWorkspaceAccess(workspaceId?: string | null) 
   }
 
   // Fallback to active workspace access if no explicit workspaceId or access mismatch
-  return await requireWorkspaceAccess(workspaceId || undefined);
+  return await requireWorkspaceAccess(workspaceId || undefined, customHeaders);
 }

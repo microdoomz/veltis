@@ -7,13 +7,23 @@ export async function GET(request: NextRequest) {
       headers: request.headers,
     });
 
-    // Check session token from query params, cookies (standard or secure), or session object
-    const sessionToken = 
-      request.nextUrl.searchParams.get('token') ||
-      request.cookies.get('__Secure-better-auth.session_token')?.value ||
-      request.cookies.get('better-auth.session_token')?.value || 
-      session?.session?.token || 
-      '';
+    // Prioritize clean session.session.token directly from Better-Auth
+    let sessionToken = session?.session?.token || '';
+    if (!sessionToken) {
+      const raw = 
+        request.nextUrl.searchParams.get('token') ||
+        request.cookies.get('__Secure-better-auth.session_token')?.value ||
+        request.cookies.get('better-auth.session_token')?.value || 
+        '';
+      if (raw) {
+        let tok = raw;
+        try { tok = decodeURIComponent(tok); } catch {}
+        if (tok.startsWith('s:')) tok = tok.substring(2);
+        if (tok.startsWith('s%3A')) tok = tok.substring(4);
+        if (tok.includes('.')) tok = tok.split('.')[0];
+        sessionToken = tok.trim();
+      }
+    }
 
     const intentUrl = `intent://auth/callback?token=${encodeURIComponent(sessionToken)}#Intent;scheme=veltis;package=com.veltis.android;end`;
     const customSchemeUrl = `veltis://auth/callback?token=${encodeURIComponent(sessionToken)}`;

@@ -176,6 +176,86 @@ describe('Total Wealth & SIP Unit Allocation (Latest Features)', () => {
     const newAvgCostMinor = BigInt(Math.round(newCostBasis / Number(newTotalUnits)));
     expect(newAvgCostMinor).toBe(6667n); // ₹66.67
   });
+
+  it('calculates investment transfer addition and transaction deletion reversal accurately', () => {
+    // Starting position: 10 units at ₹100 (avgCost = 10000 minor, cost basis = 100000 minor)
+    let units = 10;
+    let avgCostMinor = 10000n;
+    const currentNavMinor = 20000n; // ₹200 NAV
+
+    // Transfer ₹10,000 into investment account
+    const transferAmountMinor = 1000000n;
+    const unitsToAdd = Number(transferAmountMinor) / Number(currentNavMinor); // 1000000 / 20000 = 50 units
+    expect(unitsToAdd).toBe(50);
+
+    const prevCost = units * Number(avgCostMinor);
+    const newCost = prevCost + Number(transferAmountMinor);
+    units += unitsToAdd; // 60 units
+    avgCostMinor = BigInt(Math.round(newCost / units)); // (100000 + 1000000) / 60 = 18333 minor (~₹183.33)
+    expect(units).toBe(60);
+    expect(avgCostMinor).toBe(18333n);
+
+    // Now user deletes the transfer transaction: units and cost basis must be reversed
+    units = Math.max(0, units - unitsToAdd);
+    const costAfterReversal = Math.max(0, (60 * Number(avgCostMinor)) - Number(transferAmountMinor));
+    avgCostMinor = units > 0 ? BigInt(Math.round(costAfterReversal / units)) : 10000n;
+
+    expect(units).toBe(10);
+    // Within minor integer rounding precision (~2 paise out of ₹1,000)
+    expect(Number(avgCostMinor)).toBeCloseTo(10000, -1);
+
+    // Using exact invested minor tracking (openingBalanceMinor + netTransactions):
+    const openingBalanceMinor = 100000n;
+    let netTxnsMinor = transferAmountMinor;
+    let totalInvestedMinor = openingBalanceMinor + netTxnsMinor;
+    expect(totalInvestedMinor).toBe(1100000n);
+
+    // After soft-delete of transfer transaction:
+    netTxnsMinor = 0n;
+    totalInvestedMinor = openingBalanceMinor + netTxnsMinor;
+    expect(totalInvestedMinor).toBe(100000n); // Exactly ₹1,000.00!
+  });
+
+  it('accurately derives fund and portfolio returns using invested amount and estimated value', () => {
+    // Fund 1: Nippon Small Cap: Invested ₹50,000, 200 units @ ₹300 NAV -> Current Value ₹60,000 -> Gain +₹10,000 (+20%)
+    const fund1 = {
+      name: 'Nippon Small Cap',
+      invested: 50000,
+      units: 200,
+      currentNav: 300,
+    };
+    const fund1Value = fund1.units * fund1.currentNav; // 60,000
+    const fund1Gain = fund1Value - fund1.invested; // +10,000
+    const fund1GainPct = (fund1Gain / fund1.invested) * 100; // 20%
+    expect(fund1Value).toBe(60000);
+    expect(fund1Gain).toBe(10000);
+    expect(fund1GainPct).toBe(20);
+
+    // Fund 2: Parag Parikh Flexi Cap: Invested ₹30,000, 500 units @ ₹55 NAV -> Current Value ₹27,500 -> Loss -₹2,500 (-8.33%)
+    const fund2 = {
+      name: 'Parag Parikh Flexi Cap',
+      invested: 30000,
+      units: 500,
+      currentNav: 55,
+    };
+    const fund2Value = fund2.units * fund2.currentNav; // 27,500
+    const fund2Gain = fund2Value - fund2.invested; // -2,500
+    const fund2GainPct = (fund2Gain / fund2.invested) * 100; // -8.333%
+    expect(fund2Value).toBe(27500);
+    expect(fund2Gain).toBe(-2500);
+    expect(fund2GainPct).toBeCloseTo(-8.333, 2);
+
+    // Total Portfolio
+    const totalInvested = fund1.invested + fund2.invested; // ₹80,000
+    const totalEstimatedValue = fund1Value + fund2Value; // ₹87,500
+    const totalGain = totalEstimatedValue - totalInvested; // +₹7,500
+    const totalGainPct = (totalGain / totalInvested) * 100; // 9.375%
+
+    expect(totalInvested).toBe(80000);
+    expect(totalEstimatedValue).toBe(87500);
+    expect(totalGain).toBe(7500);
+    expect(totalGainPct).toBe(9.375);
+  });
 });
 
 

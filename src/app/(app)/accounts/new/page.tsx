@@ -57,6 +57,8 @@ export default function NewAccountPage() {
   const [sipMonthlyAmount, setSipMonthlyAmount] = useState('');
   const [sipMonthlyDay, setSipMonthlyDay] = useState('5');
   const [customUnits, setCustomUnits] = useState('');
+  const [sourceAccountId, setSourceAccountId] = useState('');
+  const [availableAccounts, setAvailableAccounts] = useState<Array<{ id: string; name: string; currency: string }>>([]);
   const [livePrice, setLivePrice] = useState<number | null>(null);
   const [liveSymbol, setLiveSymbol] = useState<string | null>(null);
   const [livePriceDate, setLivePriceDate] = useState<string | null>(null);
@@ -77,6 +79,25 @@ export default function NewAccountPage() {
       setCurrency(baseCurrency);
     }
   }, [baseCurrency]);
+
+  useEffect(() => {
+    async function loadAccounts() {
+      try {
+        const res = await fetch('/api/accounts');
+        if (res.ok) {
+          const data = await res.json();
+          const items = Array.isArray(data) ? data : data.accounts || [];
+          const liquid = items.filter((a: { accountType: string }) =>
+            ['bank', 'cash_wallet', 'digital_wallet'].includes(a.accountType)
+          );
+          setAvailableAccounts(liquid);
+        }
+      } catch (err) {
+        console.error('Failed to load accounts for investment deduction', err);
+      }
+    }
+    loadAccounts();
+  }, []);
 
   const handleFetchQuote = async (fundNameQuery?: string, schemeCode?: string) => {
     const q = fundNameQuery || name;
@@ -158,6 +179,9 @@ export default function NewAccountPage() {
         payload.symbol = liveSymbol || undefined;
         payload.currentPrice = currentNav > 0 ? currentNav : undefined;
         payload.units = effectiveUnits > 0 ? effectiveUnits.toFixed(4) : undefined;
+        if (sourceAccountId) {
+          payload.sourceAccountId = sourceAccountId;
+        }
         if (parseFloat(sipMonthlyAmount) > 0) {
           payload.sipMonthlyAmount = parseFloat(sipMonthlyAmount);
           payload.sipMonthlyDay = parseInt(sipMonthlyDay, 10) || 1;
@@ -427,6 +451,26 @@ export default function NewAccountPage() {
                     />
                     <p className="text-xs text-muted-foreground">Actual units currently owned (for older investments)</p>
                   </div>
+                </div>
+
+                {/* Deduct from Bank Account */}
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">Deduct From Account (Bank / Wallet)</label>
+                  <select
+                    value={sourceAccountId}
+                    onChange={(e) => setSourceAccountId(e.target.value)}
+                    className="flex h-10 w-full items-center justify-between rounded-md border border-border bg-background px-3 py-2 text-sm"
+                  >
+                    <option value="">Do not deduct (Already invested elsewhere / Opening balance)</option>
+                    {availableAccounts.map((a) => (
+                      <option key={a.id} value={a.id}>
+                        {a.name} ({a.currency})
+                      </option>
+                    ))}
+                  </select>
+                  <p className="text-xs text-muted-foreground">
+                    Optional: Select your bank or wallet account to immediately deduct this initial investment amount from that account.
+                  </p>
                 </div>
 
                 {/* Monthly SIP Amount & Day of Month */}

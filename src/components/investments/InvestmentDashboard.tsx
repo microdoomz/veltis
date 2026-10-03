@@ -2,7 +2,7 @@
 
 import React, { useCallback, useEffect, useState } from 'react';
 import { InvestmentActions } from './InvestmentActions';
-import { RefreshCw, TrendingUp, AlertTriangle, Plus, PlusCircle, CheckCircle2, XCircle, Edit, Search, Loader2, X, Check } from 'lucide-react';
+import { RefreshCw, TrendingUp, AlertTriangle, Plus, PlusCircle, CheckCircle2, XCircle, Edit, Search, Loader2, X, Check, Trash2, ArrowDownLeft, ArrowUpRight } from 'lucide-react';
 import { useCurrency } from '@/components/layout/CurrencyProvider';
 import { TopUpInvestmentModal } from './TopUpInvestmentModal';
 import Link from 'next/link';
@@ -20,21 +20,49 @@ interface Position {
   name: string;
   symbol: string;
   assetType: string;
-  units: string;
+  units: string | number;
   averageCostMinor: string;
   currentPriceMinor: string;
   currency: string;
   isEstimated: boolean;
+  totalInvested?: number;
+  totalInvestedMinor?: string;
+  currentValuation?: number;
+  currentValuationMinor?: string;
+  unrealizedGainLoss?: number;
+  unrealizedGainLossPercent?: number;
+  averageBuyPrice?: number;
+  currentPrice?: number;
+}
+
+interface InvestmentTransactionItem {
+  id: string;
+  transactionId: string;
+  positionId: string;
+  positionName: string;
+  positionSymbol: string;
+  transactionType: 'buy' | 'sell';
+  units: number;
+  price: number;
+  amount: number;
+  amountMinor: string;
+  currency: string;
+  transactionDate: string;
+  description?: string;
 }
 
 export function InvestmentDashboard({ workspaceId }: { workspaceId: string }) {
   const [accounts, setAccounts] = useState<InvestmentAccount[]>([]);
   const [positions, setPositions] = useState<Position[]>([]);
+  const [history, setHistory] = useState<InvestmentTransactionItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [syncingPrices, setSyncingPrices] = useState(false);
   const [syncStatus, setSyncStatus] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
   const [isTopUpOpen, setIsTopUpOpen] = useState(false);
   const [topUpPositionId, setTopUpPositionId] = useState<string | undefined>(undefined);
+  const [deletingTxId, setDeletingTxId] = useState<string | null>(null);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
+  const [deleteSuccess, setDeleteSuccess] = useState<string | null>(null);
 
   // Edit Position Modal State
   const [isEditOpen, setIsEditOpen] = useState(false);
@@ -45,6 +73,7 @@ export function InvestmentDashboard({ workspaceId }: { workspaceId: string }) {
     symbol: '',
     units: '',
     currentPrice: '',
+    investedAmount: '',
   });
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState<Array<{ schemeCode: number; schemeName: string }>>([]);
@@ -59,8 +88,9 @@ export function InvestmentDashboard({ workspaceId }: { workspaceId: string }) {
       const res = await fetch(`/api/investments?workspaceId=${workspaceId}`);
       if (res.ok) {
         const data = await res.json();
-        setAccounts(data.accounts);
-        setPositions(data.positions);
+        setAccounts(data.accounts || []);
+        setPositions(data.positions || []);
+        setHistory(data.history || []);
       }
     } catch (e) {
       console.error('Failed to fetch investments', e);
@@ -120,8 +150,9 @@ export function InvestmentDashboard({ workspaceId }: { workspaceId: string }) {
       positionId: pos.id,
       name: pos.name,
       symbol: pos.symbol || '',
-      units: pos.units || '',
+      units: pos.units !== undefined ? pos.units.toString() : '',
       currentPrice: pos.currentPriceMinor ? (Number(pos.currentPriceMinor) / 100).toString() : '',
+      investedAmount: pos.totalInvested !== undefined ? pos.totalInvested.toString() : '',
     });
     setIsEditOpen(true);
   };
@@ -198,6 +229,13 @@ export function InvestmentDashboard({ workspaceId }: { workspaceId: string }) {
         }
       }
 
+      if (editForm.investedAmount !== '') {
+        const parsedInvested = parseFloat(editForm.investedAmount);
+        if (!isNaN(parsedInvested) && parsedInvested >= 0) {
+          payload.investedAmount = parsedInvested;
+        }
+      }
+
       const res = await fetch(`/api/accounts/${editForm.financialAccountId}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
@@ -218,6 +256,37 @@ export function InvestmentDashboard({ workspaceId }: { workspaceId: string }) {
     }
   };
 
+  const handleDeleteInvestmentTx = async (txItem: InvestmentTransactionItem) => {
+    if (!txItem.transactionId) return;
+    const isConfirmed = window.confirm(
+      `Delete transaction of ${txItem.amount.toLocaleString(undefined, { minimumFractionDigits: 2 })} ${txItem.currency} on ${txItem.positionName}?\n\nThis will remove the transaction and reverse the allocated units and invested amount from your holdings.`
+    );
+    if (!isConfirmed) return;
+
+    setDeletingTxId(txItem.transactionId);
+    setDeleteError(null);
+    setDeleteSuccess(null);
+    try {
+      const res = await fetch(`/api/transactions/${txItem.transactionId}`, {
+        method: 'DELETE',
+      });
+      if (!res.ok) {
+        const d = await res.json().catch(() => ({}));
+        throw new Error(d.error || 'Failed to delete transaction');
+      }
+      setDeleteSuccess(`Transaction deleted and holding units/amount reversed successfully.`);
+      await fetchInvestments();
+    } catch (e: unknown) {
+      setDeleteError((e as Error).message || 'Failed to delete transaction');
+    } finally {
+      setDeletingTxId(null);
+      setTimeout(() => {
+        setDeleteSuccess(null);
+        setDeleteError(null);
+      }, 5000);
+    }
+  };
+
   if (loading) {
     return <div className="animate-pulse space-y-4">
       <div className="h-32 bg-slate-200 dark:bg-slate-800 rounded-xl"></div>
@@ -226,25 +295,26 @@ export function InvestmentDashboard({ workspaceId }: { workspaceId: string }) {
   }
 
   // Calculate totals
-  let totalInvestedMinor = 0n;
-  let totalCurrentValueMinor = 0n;
+  let totalInvested = 0;
+  let totalCurrentValue = 0;
 
   positions.forEach(pos => {
-    const units = Number(pos.units);
-    const avgCost = BigInt(pos.averageCostMinor || 0);
-    const currentPrice = BigInt(pos.currentPriceMinor || 0);
+    const units = Number(pos.units || 0);
+    const posInvested = pos.totalInvested !== undefined
+      ? pos.totalInvested
+      : (units * Number(pos.averageCostMinor || 0) / 100);
+    const posCurrentVal = pos.currentValuation !== undefined
+      ? pos.currentValuation
+      : (units * Number(pos.currentPriceMinor || 0) / 100);
 
-    const invested = BigInt(Math.round(units * Number(avgCost)));
-    const current = BigInt(Math.round(units * Number(currentPrice)));
-
-    totalInvestedMinor += invested;
-    totalCurrentValueMinor += current;
+    totalInvested += posInvested;
+    totalCurrentValue += posCurrentVal;
   });
 
-  const totalGainMinor = totalCurrentValueMinor - totalInvestedMinor;
-  const isPositive = totalGainMinor >= 0n;
-  const totalGainPct = totalInvestedMinor > 0n
-    ? (Number(totalGainMinor) / Number(totalInvestedMinor)) * 100
+  const totalGain = totalCurrentValue - totalInvested;
+  const isPositive = totalGain >= 0;
+  const totalGainPct = totalInvested > 0
+    ? (totalGain / totalInvested) * 100
     : 0;
 
   const { baseCurrency: workspaceCurrency } = useCurrency();
@@ -258,7 +328,7 @@ export function InvestmentDashboard({ workspaceId }: { workspaceId: string }) {
           <div>
             <p className="text-sm text-slate-500 dark:text-slate-400 font-medium">Total Invested</p>
             <p className="text-3xl font-semibold text-slate-900 dark:text-white mt-1">
-              {(Number(totalInvestedMinor) / 100).toLocaleString('en-US', { style: 'currency', currency: baseCurrency })}
+              {totalInvested.toLocaleString('en-US', { style: 'currency', currency: baseCurrency })}
             </p>
           </div>
           <div>
@@ -275,14 +345,14 @@ export function InvestmentDashboard({ workspaceId }: { workspaceId: string }) {
               </button>
             </div>
             <p className="text-3xl font-semibold text-slate-900 dark:text-white mt-1">
-              {(Number(totalCurrentValueMinor) / 100).toLocaleString('en-US', { style: 'currency', currency: baseCurrency })}
+              {totalCurrentValue.toLocaleString('en-US', { style: 'currency', currency: baseCurrency })}
             </p>
           </div>
           <div>
             <p className="text-sm text-slate-500 dark:text-slate-400 font-medium">Total Gain / Loss</p>
             <div className="flex items-baseline gap-2 mt-1">
               <p className={`text-3xl font-semibold ${isPositive ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400'}`}>
-                {isPositive ? '+' : ''}{(Number(totalGainMinor) / 100).toLocaleString('en-US', { style: 'currency', currency: baseCurrency })}
+                {isPositive ? '+' : ''}{totalGain.toLocaleString('en-US', { style: 'currency', currency: baseCurrency })}
               </p>
               <span className={`text-sm font-semibold ${isPositive ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400'}`}>
                 ({isPositive ? '+' : ''}{totalGainPct.toFixed(2)}%)
@@ -364,29 +434,39 @@ export function InvestmentDashboard({ workspaceId }: { workspaceId: string }) {
         </div>
       ) : (
         <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl overflow-x-auto shadow-xs">
-          <table className="w-full text-left text-sm min-w-[700px]">
+          <table className="w-full text-left text-sm min-w-[750px]">
             <thead className="bg-slate-50 dark:bg-slate-800/50 border-b border-slate-200 dark:border-slate-800 text-slate-500 dark:text-slate-400">
               <tr>
                 <th className="px-4 py-3 font-medium">Asset</th>
                 <th className="px-4 py-3 font-medium text-right">Units Held</th>
-                <th className="px-4 py-3 font-medium text-right">Avg Cost</th>
-                <th className="px-4 py-3 font-medium text-right">Current Price</th>
+                <th className="px-4 py-3 font-medium text-right">Invested Amount</th>
+                <th className="px-4 py-3 font-medium text-right">Avg NAV</th>
+                <th className="px-4 py-3 font-medium text-right">Current NAV</th>
                 <th className="px-4 py-3 font-medium text-right">Current Value</th>
-                <th className="px-4 py-3 font-medium text-right">Gain / Loss</th>
+                <th className="px-4 py-3 font-medium text-right">Total Returns</th>
                 <th className="px-4 py-3 font-medium text-right">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
               {positions.map(pos => {
-                const units = Number(pos.units);
-                const avgCost = BigInt(pos.averageCostMinor || 0);
-                const currentPrice = BigInt(pos.currentPriceMinor || 0);
-
-                const invested = BigInt(Math.round(units * Number(avgCost)));
-                const current = BigInt(Math.round(units * Number(currentPrice)));
-                const gain = current - invested;
-                const posPositive = gain >= 0n;
-                const gainPct = invested > 0n ? (Number(gain) / Number(invested)) * 100 : 0;
+                const units = Number(pos.units || 0);
+                const posInvested = pos.totalInvested !== undefined
+                  ? pos.totalInvested
+                  : (units * Number(pos.averageCostMinor || 0) / 100);
+                const currentValuation = pos.currentValuation !== undefined
+                  ? pos.currentValuation
+                  : (units * Number(pos.currentPriceMinor || 0) / 100);
+                const currentPrice = Number(pos.currentPriceMinor || 0) / 100;
+                const avgBuyPrice = pos.averageBuyPrice !== undefined
+                  ? pos.averageBuyPrice
+                  : (units > 0 ? posInvested / units : Number(pos.averageCostMinor || 0) / 100);
+                const gain = pos.unrealizedGainLoss !== undefined
+                  ? pos.unrealizedGainLoss
+                  : (currentValuation - posInvested);
+                const posPositive = gain >= 0;
+                const gainPct = pos.unrealizedGainLossPercent !== undefined
+                  ? pos.unrealizedGainLossPercent
+                  : (posInvested > 0 ? (gain / posInvested) * 100 : 0);
 
                 return (
                   <tr key={pos.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors">
@@ -397,16 +477,21 @@ export function InvestmentDashboard({ workspaceId }: { workspaceId: string }) {
                     <td className="px-4 py-4 text-right text-slate-900 dark:text-slate-300 font-medium">
                       {units.toLocaleString(undefined, { maximumFractionDigits: 4 })}
                     </td>
-                    <td className="px-4 py-4 text-right text-slate-500">{(Number(avgCost) / 100).toLocaleString('en-US', { style: 'currency', currency: pos.currency })}</td>
+                    <td className="px-4 py-4 text-right font-medium text-slate-900 dark:text-slate-200">
+                      {posInvested.toLocaleString('en-US', { style: 'currency', currency: pos.currency })}
+                    </td>
+                    <td className="px-4 py-4 text-right text-slate-500">
+                      {avgBuyPrice.toLocaleString('en-US', { style: 'currency', currency: pos.currency })}
+                    </td>
                     <td className="px-4 py-4 text-right text-slate-900 dark:text-slate-300">
-                      {(Number(currentPrice) / 100).toLocaleString('en-US', { style: 'currency', currency: pos.currency })}
-                      {pos.isEstimated && <span className="text-[10px] ml-1 text-teal-600 font-semibold" title="Estimated">LIVE</span>}
+                      {currentPrice.toLocaleString('en-US', { style: 'currency', currency: pos.currency })}
+                      {pos.isEstimated && <span className="text-[10px] ml-1 text-teal-600 font-semibold" title="Live Market Feed">LIVE</span>}
                     </td>
                     <td className="px-4 py-4 text-right font-medium text-slate-900 dark:text-white">
-                      {(Number(current) / 100).toLocaleString('en-US', { style: 'currency', currency: pos.currency })}
+                      {currentValuation.toLocaleString('en-US', { style: 'currency', currency: pos.currency })}
                     </td>
                     <td className={`px-4 py-4 text-right font-medium ${posPositive ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400'}`}>
-                      <div>{posPositive ? '+' : ''}{(Number(gain) / 100).toLocaleString('en-US', { style: 'currency', currency: pos.currency })}</div>
+                      <div>{posPositive ? '+' : ''}{gain.toLocaleString('en-US', { style: 'currency', currency: pos.currency })}</div>
                       <div className="text-[11px] font-semibold opacity-90">({posPositive ? '+' : ''}{gainPct.toFixed(2)}%)</div>
                     </td>
                     <td className="px-4 py-4 text-right">
@@ -414,7 +499,7 @@ export function InvestmentDashboard({ workspaceId }: { workspaceId: string }) {
                         <button
                           onClick={() => handleOpenEditPosition(pos)}
                           className="text-xs px-2.5 py-1 rounded-lg bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 font-medium inline-flex items-center gap-1 transition-colors"
-                          title="Edit scheme, NAV, or units"
+                          title="Edit scheme, NAV, units, or invested amount"
                         >
                           <Edit className="w-3 h-3" />
                           Edit
@@ -438,6 +523,117 @@ export function InvestmentDashboard({ workspaceId }: { workspaceId: string }) {
         </div>
       )}
 
+      {/* Investment Transactions History */}
+      <div className="mt-10">
+        <div className="flex items-center justify-between mb-4">
+          <div>
+            <h2 className="text-lg font-semibold text-slate-900 dark:text-white">Investment Activity &amp; Transactions</h2>
+            <p className="text-xs text-slate-500">All contributions, top-ups, transfers, and trades recorded for your investment accounts</p>
+          </div>
+        </div>
+
+        {deleteSuccess && (
+          <div className="mb-4 p-3 rounded-xl bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 border border-emerald-500/20 text-xs font-medium flex items-center gap-2">
+            <CheckCircle2 className="w-4 h-4 text-emerald-600 dark:text-emerald-400 shrink-0" />
+            <span>{deleteSuccess}</span>
+          </div>
+        )}
+
+        {deleteError && (
+          <div className="mb-4 p-3 rounded-xl bg-rose-500/10 text-rose-700 dark:text-rose-300 border border-rose-500/20 text-xs font-medium flex items-center gap-2">
+            <XCircle className="w-4 h-4 text-rose-600 dark:text-rose-400 shrink-0" />
+            <span>{deleteError}</span>
+          </div>
+        )}
+
+        {history.length === 0 ? (
+          <div className="text-center p-8 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl">
+            <p className="text-slate-500 dark:text-slate-400 text-sm">No investment transactions recorded yet.</p>
+            <p className="text-xs text-slate-400 mt-1">Transfers into investment accounts, top-ups, and buy/sell activity will appear here.</p>
+          </div>
+        ) : (
+          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl overflow-x-auto shadow-xs">
+            <table className="w-full text-left text-sm min-w-[700px]">
+              <thead className="bg-slate-50 dark:bg-slate-800/50 border-b border-slate-200 dark:border-slate-800 text-slate-500 dark:text-slate-400">
+                <tr>
+                  <th className="px-4 py-3 font-medium">Date</th>
+                  <th className="px-4 py-3 font-medium">Investment Asset</th>
+                  <th className="px-4 py-3 font-medium">Type</th>
+                  <th className="px-4 py-3 font-medium text-right">Units</th>
+                  <th className="px-4 py-3 font-medium text-right">Price / NAV</th>
+                  <th className="px-4 py-3 font-medium text-right">Amount</th>
+                  <th className="px-4 py-3 font-medium text-right">Action</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+                {history.map((txItem) => {
+                  const isBuy = txItem.transactionType === 'buy';
+                  const isDeletingThis = deletingTxId === txItem.transactionId;
+
+                  return (
+                    <tr key={txItem.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors">
+                      <td className="px-4 py-3.5 text-xs text-slate-500 whitespace-nowrap">
+                        {txItem.transactionDate}
+                      </td>
+                      <td className="px-4 py-3.5">
+                        <div className="font-medium text-slate-900 dark:text-white text-xs">{txItem.positionName}</div>
+                        {txItem.description && (
+                          <div className="text-[11px] text-slate-400 truncate max-w-xs">{txItem.description}</div>
+                        )}
+                      </td>
+                      <td className="px-4 py-3.5 whitespace-nowrap">
+                        <span className={`inline-flex items-center gap-1 text-[11px] font-semibold px-2 py-0.5 rounded-full ${
+                          isBuy
+                            ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300'
+                            : 'bg-rose-100 text-rose-800 dark:bg-rose-950/60 dark:text-rose-300'
+                        }`}>
+                          {isBuy ? <ArrowDownLeft className="w-3 h-3" /> : <ArrowUpRight className="w-3 h-3" />}
+                          {isBuy ? 'Buy / Add' : 'Sell / Withdraw'}
+                        </span>
+                      </td>
+                      <td className="px-4 py-3.5 text-right font-medium text-xs text-slate-900 dark:text-slate-300 whitespace-nowrap">
+                        {isBuy ? '+' : '-'}{txItem.units.toLocaleString(undefined, { maximumFractionDigits: 4 })}
+                      </td>
+                      <td className="px-4 py-3.5 text-right text-xs text-slate-500 whitespace-nowrap">
+                        {txItem.price > 0
+                          ? txItem.price.toLocaleString('en-US', { style: 'currency', currency: txItem.currency })
+                          : '-'}
+                      </td>
+                      <td className={`px-4 py-3.5 text-right font-semibold text-xs whitespace-nowrap ${
+                        isBuy ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400'
+                      }`}>
+                        {isBuy ? '+' : '-'}{txItem.amount.toLocaleString('en-US', { style: 'currency', currency: txItem.currency })}
+                      </td>
+                      <td className="px-4 py-3.5 text-right whitespace-nowrap">
+                        <button
+                          type="button"
+                          onClick={() => handleDeleteInvestmentTx(txItem)}
+                          disabled={isDeletingThis}
+                          className="text-xs px-2.5 py-1 rounded-lg text-rose-600 hover:text-rose-700 hover:bg-rose-50 dark:hover:bg-rose-950/50 transition-colors disabled:opacity-50 inline-flex items-center gap-1 font-medium cursor-pointer"
+                          title="Delete transaction and reverse amount/units"
+                        >
+                          {isDeletingThis ? (
+                            <>
+                              <Loader2 className="w-3 h-3 animate-spin" />
+                              Deleting...
+                            </>
+                          ) : (
+                            <>
+                              <Trash2 className="w-3 h-3" />
+                              Delete
+                            </>
+                          )}
+                        </button>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+
       {/* One-Time Investment Top Up Modal */}
       <TopUpInvestmentModal
         workspaceId={workspaceId}
@@ -456,7 +652,7 @@ export function InvestmentDashboard({ workspaceId }: { workspaceId: string }) {
             <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 dark:border-slate-800 shrink-0">
               <div>
                 <h3 className="text-base font-semibold text-slate-900 dark:text-white">Edit Investment Position</h3>
-                <p className="text-xs text-slate-500">Correct scheme, live NAV, or units held</p>
+                <p className="text-xs text-slate-500">Correct scheme, live NAV, units held, or invested amount</p>
               </div>
               <button
                 onClick={() => setIsEditOpen(false)}
@@ -557,20 +753,36 @@ export function InvestmentDashboard({ workspaceId }: { workspaceId: string }) {
                 </div>
               </div>
 
-              {/* Units Held */}
-              <div>
-                <label className="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-1">
-                  Units Currently Held
-                </label>
-                <input
-                  type="number"
-                  step="0.0001"
-                  value={editForm.units}
-                  onChange={(e) => setEditForm(prev => ({ ...prev, units: e.target.value }))}
-                  placeholder="e.g. 15.24"
-                  className="w-full px-3 py-2 text-sm rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary font-medium text-slate-900 dark:text-white"
-                />
-                <p className="text-[10px] text-slate-400 mt-1">Total units allocated across all investments in this fund</p>
+              {/* Units Held & Invested Amount */}
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-1">
+                    Units Currently Held
+                  </label>
+                  <input
+                    type="number"
+                    step="0.0001"
+                    value={editForm.units}
+                    onChange={(e) => setEditForm(prev => ({ ...prev, units: e.target.value }))}
+                    placeholder="e.g. 15.24"
+                    className="w-full px-3 py-2 text-sm rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary font-medium text-slate-900 dark:text-white"
+                  />
+                  <p className="text-[10px] text-slate-400 mt-1">Total units allocated</p>
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-1">
+                    Total Invested Amount
+                  </label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    value={editForm.investedAmount}
+                    onChange={(e) => setEditForm(prev => ({ ...prev, investedAmount: e.target.value }))}
+                    placeholder="e.g. 50000"
+                    className="w-full px-3 py-2 text-sm rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary font-medium text-slate-900 dark:text-white"
+                  />
+                  <p className="text-[10px] text-slate-400 mt-1">Total principal money invested</p>
+                </div>
               </div>
             </div>
 

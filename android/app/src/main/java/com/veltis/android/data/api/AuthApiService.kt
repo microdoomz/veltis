@@ -39,4 +39,9 @@ interface AuthApiService {
     suspend fun forgetPassword(
         @Body request: ForgetPasswordRequestDto
     ): Response<Unit>
+
+    @POST("api/auth/change-password")
+    suspend fun changePassword(
+        @Body request: com.veltis.android.data.model.ChangePasswordRequestDto
+    ): Response<Unit>
 }

@@ -58,6 +58,10 @@ class SessionManager(context: Context) {
         return User(id = id, email = email, name = name)
     }
 
+    fun saveUserName(name: String) {
+        prefs.edit().putString(KEY_USER_NAME, name.trim()).apply()
+    }
+
     fun isLoggedIn(): Boolean = !getSessionToken().isNullOrBlank()
 
     fun saveWorkspaceId(workspaceId: String) {

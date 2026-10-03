@@ -499,5 +499,95 @@ class MoreViewModel(
         }
     }
 
+    fun updateBaseCurrency(currency: String, onSuccess: () -> Unit = {}) {
+        viewModelScope.launch {
+            _uiState.update { it.copy(isSubmitting = true) }
+            sessionManager.saveBaseCurrency(currency)
+            _uiState.update { it.copy(baseCurrency = currency) }
+            when (val res = repository.updateWorkspaceProfile(baseCurrency = currency)) {
+                is VeltisResult.Success -> {
+                    _uiState.update { it.copy(isSubmitting = false, successMessage = "Base currency updated to $currency.") }
+                    onSuccess()
+                }
+                is VeltisResult.Failure -> {
+                    // Saved locally regardless
+                    _uiState.update { it.copy(isSubmitting = false, successMessage = "Base currency set to $currency.") }
+                    onSuccess()
+                }
+            }
+        }
+    }
+
+    fun updateProfile(name: String, workspaceName: String, onSuccess: () -> Unit = {}) {
+        viewModelScope.launch {
+            _uiState.update { it.copy(isSubmitting = true) }
+            sessionManager.saveUserName(name)
+            _uiState.update { it.copy(userName = name) }
+            when (val res = repository.updateWorkspaceProfile(name = workspaceName)) {
+                is VeltisResult.Success -> {
+                    _uiState.update { it.copy(isSubmitting = false, successMessage = "Profile updated successfully.") }
+                    onSuccess()
+                }
+                is VeltisResult.Failure -> {
+                    _uiState.update { it.copy(isSubmitting = false, successMessage = "Profile preferences saved.") }
+                    onSuccess()
+                }
+            }
+        }
+    }
+
+    fun createCategory(name: String, type: String = "expense", iconKey: String? = null, onSuccess: () -> Unit = {}) {
+        viewModelScope.launch {
+            _uiState.update { it.copy(isSubmitting = true) }
+            when (val res = repository.createCategory(name = name, type = type, iconKey = iconKey)) {
+                is VeltisResult.Success -> {
+                    _uiState.update { it.copy(isSubmitting = false, successMessage = "Category created successfully.") }
+                    when (val catRes = repository.getCategories()) {
+                        is VeltisResult.Success -> _uiState.update { it.copy(categories = catRes.data) }
+                        is VeltisResult.Failure -> {}
+                    }
+                    onSuccess()
+                }
+                is VeltisResult.Failure -> {
+                    _uiState.update { it.copy(isSubmitting = false, errorMessage = res.error.userFriendlyMessage()) }
+                }
+            }
+        }
+    }
+
+    fun deleteCategory(id: String, onSuccess: () -> Unit = {}) {
+        viewModelScope.launch {
+            _uiState.update { it.copy(isSubmitting = true) }
+            when (val res = repository.deleteCategory(id)) {
+                is VeltisResult.Success -> {
+                    _uiState.update { it.copy(isSubmitting = false, successMessage = "Category removed.") }
+                    when (val catRes = repository.getCategories()) {
+                        is VeltisResult.Success -> _uiState.update { it.copy(categories = catRes.data) }
+                        is VeltisResult.Failure -> {}
+                    }
+                    onSuccess()
+                }
+                is VeltisResult.Failure -> {
+                    _uiState.update { it.copy(isSubmitting = false, errorMessage = res.error.userFriendlyMessage()) }
+                }
+            }
+        }
+    }
+
+    fun changePassword(currentPass: String, newPass: String, onSuccess: () -> Unit = {}) {
+        viewModelScope.launch {
+            _uiState.update { it.copy(isSubmitting = true) }
+            when (val res = repository.changePassword(currentPass, newPass)) {
+                is VeltisResult.Success -> {
+                    _uiState.update { it.copy(isSubmitting = false, successMessage = "Password updated successfully.") }
+                    onSuccess()
+                }
+                is VeltisResult.Failure -> {
+                    _uiState.update { it.copy(isSubmitting = false, errorMessage = res.error.userFriendlyMessage()) }
+                }
+            }
+        }
+    }
+
     fun clearMessages() = _uiState.update { it.copy(errorMessage = null, successMessage = null) }
 }

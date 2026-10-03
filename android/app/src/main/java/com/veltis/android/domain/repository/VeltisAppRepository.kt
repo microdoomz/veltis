@@ -82,6 +82,10 @@ interface VeltisAppRepository {
         investedAmount: Double? = null
     ): VeltisResult<Unit>
     suspend fun getCategories(): VeltisResult<List<CategoryDto>>
+    suspend fun createCategory(name: String, type: String = "expense", iconKey: String? = null): VeltisResult<CategoryDto>
+    suspend fun deleteCategory(id: String): VeltisResult<Unit>
+    suspend fun updateWorkspaceProfile(name: String? = null, baseCurrency: String? = null): VeltisResult<Unit>
+    suspend fun changePassword(currentPassword: String, newPassword: String): VeltisResult<Unit>
     suspend fun getAnalytics(startDate: String, endDate: String): VeltisResult<Pair<AnalyticsOverviewDto, List<CategorySpendingDto>>>
     suspend fun getIncomeAnalytics(startDate: String, endDate: String): VeltisResult<List<CategorySpendingDto>>
     suspend fun getWealthTrend(startDate: String, endDate: String): VeltisResult<List<com.veltis.android.data.model.WealthTrendPointDto>>

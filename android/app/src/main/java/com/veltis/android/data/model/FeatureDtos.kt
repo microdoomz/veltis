@@ -342,5 +342,26 @@ data class AppVersionDto(
     val changelog: String = ""
 )
 
+@Serializable
+data class UpdateWorkspaceRequestDto(
+    val name: String? = null,
+    val baseCurrency: String? = null
+)
+
+@Serializable
+data class CreateCategoryRequestDto(
+    val entity: String = "category",
+    val name: String,
+    val categoryType: String = "expense",
+    val iconKey: String? = null
+)
+
+@Serializable
+data class ChangePasswordRequestDto(
+    val currentPassword: String,
+    val newPassword: String,
+    val revokeOtherSessions: Boolean = true
+)
+
 
 

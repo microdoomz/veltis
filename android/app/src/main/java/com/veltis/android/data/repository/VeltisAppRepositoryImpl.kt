@@ -28,6 +28,10 @@ class VeltisAppRepositoryImpl(
         networkClient.createService(VeltisFullApiService::class.java)
     }
 
+    private val authApi: com.veltis.android.data.api.AuthApiService by lazy {
+        networkClient.createService(com.veltis.android.data.api.AuthApiService::class.java)
+    }
+
     override suspend fun getHomeDashboard(forceRefresh: Boolean): VeltisResult<HomeDashboardDto> = withContext(Dispatchers.IO) {
         if (!forceRefresh) {
             val cached = dbHelper.getCache("home_dashboard")
@@ -710,6 +714,86 @@ class VeltisAppRepositoryImpl(
             VeltisResult.Failure(VeltisError.Network())
         } catch (e: Exception) {
             VeltisResult.Failure(VeltisError.Unknown(e.message ?: "Failed to load categories."))
+        }
+    }
+
+    override suspend fun createCategory(name: String, type: String, iconKey: String?): VeltisResult<CategoryDto> = withContext(Dispatchers.IO) {
+        try {
+            val response = api.createCategory(
+                com.veltis.android.data.model.CreateCategoryRequestDto(
+                    name = name,
+                    categoryType = type,
+                    iconKey = iconKey
+                )
+            )
+            if (response.isSuccessful && response.body() != null) {
+                VeltisResult.Success(response.body()!!)
+            } else {
+                VeltisResult.Failure(parseError(response))
+            }
+        } catch (e: IOException) {
+            VeltisResult.Failure(VeltisError.Network())
+        } catch (e: Exception) {
+            VeltisResult.Failure(VeltisError.Unknown(e.message ?: "Failed to create category."))
+        }
+    }
+
+    override suspend fun deleteCategory(id: String): VeltisResult<Unit> = withContext(Dispatchers.IO) {
+        try {
+            val response = api.deleteTaxonomyCategory(entity = "category", id = id)
+            if (response.isSuccessful) {
+                VeltisResult.Success(Unit)
+            } else {
+                VeltisResult.Failure(parseError(response))
+            }
+        } catch (e: IOException) {
+            VeltisResult.Failure(VeltisError.Network())
+        } catch (e: Exception) {
+            VeltisResult.Failure(VeltisError.Unknown(e.message ?: "Failed to delete category."))
+        }
+    }
+
+    override suspend fun updateWorkspaceProfile(name: String?, baseCurrency: String?): VeltisResult<Unit> = withContext(Dispatchers.IO) {
+        try {
+            val response = api.updateWorkspace(
+                com.veltis.android.data.model.UpdateWorkspaceRequestDto(
+                    name = name,
+                    baseCurrency = baseCurrency
+                )
+            )
+            if (response.isSuccessful) {
+                if (!baseCurrency.isNullOrBlank()) {
+                    sessionManager.saveBaseCurrency(baseCurrency)
+                }
+                VeltisResult.Success(Unit)
+            } else {
+                VeltisResult.Failure(parseError(response))
+            }
+        } catch (e: IOException) {
+            VeltisResult.Failure(VeltisError.Network())
+        } catch (e: Exception) {
+            VeltisResult.Failure(VeltisError.Unknown(e.message ?: "Failed to update profile."))
+        }
+    }
+
+    override suspend fun changePassword(currentPassword: String, newPassword: String): VeltisResult<Unit> = withContext(Dispatchers.IO) {
+        try {
+            val response: Response<Unit> = authApi.changePassword(
+                com.veltis.android.data.model.ChangePasswordRequestDto(
+                    currentPassword = currentPassword,
+                    newPassword = newPassword,
+                    revokeOtherSessions = true
+                )
+            )
+            if (response.isSuccessful) {
+                VeltisResult.Success(Unit)
+            } else {
+                VeltisResult.Failure(parseError<Unit>(response))
+            }
+        } catch (e: IOException) {
+            VeltisResult.Failure(VeltisError.Network())
+        } catch (e: Exception) {
+            VeltisResult.Failure(VeltisError.Unknown(e.message ?: "Failed to change password."))
         }
     }
 

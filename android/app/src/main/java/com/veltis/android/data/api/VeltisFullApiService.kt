@@ -195,8 +195,24 @@ interface VeltisFullApiService {
         @Query("workspaceId") workspaceId: String? = null
     ): Response<TaxonomyResponseDto>
 
+    @POST("api/taxonomy")
+    suspend fun createCategory(
+        @Body request: com.veltis.android.data.model.CreateCategoryRequestDto
+    ): Response<CategoryDto>
+
+    @DELETE("api/taxonomy")
+    suspend fun deleteTaxonomyCategory(
+        @Query("entity") entity: String = "category",
+        @Query("id") id: String
+    ): Response<Unit>
+
     @GET("api/workspace")
     suspend fun getWorkspace(): Response<WorkspaceInfoDto>
+
+    @PATCH("api/workspace")
+    suspend fun updateWorkspace(
+        @Body request: com.veltis.android.data.model.UpdateWorkspaceRequestDto
+    ): Response<Unit>
 
     @Streaming
     @POST("api/exports")

@@ -4,6 +4,8 @@ import React, { useState, useEffect } from 'react';
 import { PlusCircle, X, DollarSign, Wallet, Loader2, TrendingUp } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { useCurrency } from '@/components/layout/CurrencyProvider';
+import { getCurrencySymbol } from '@/lib/money';
 
 interface Position {
   id: string;
@@ -77,14 +79,16 @@ export function TopUpInvestmentModal({
     loadAccounts();
   }, [isOpen, workspaceId, sourceAccountId]);
 
-  if (!isOpen) return null;
-
+  const { baseCurrency } = useCurrency();
   const currentPos = positions.find((p) => p.id === selectedPosId) || positions[0];
+  const effectiveCurrency = currentPos?.currency || baseCurrency || 'INR';
   const navPrice = currentPos ? Number(currentPos.currentPriceMinor || currentPos.averageCostMinor || '1000') / 100 : 1;
   const amountNum = parseFloat(amount) || 0;
   const incrementalUnits = navPrice > 0 && amountNum > 0 ? (amountNum / navPrice).toFixed(4) : '0.0000';
   const existingUnits = currentPos ? Number(currentPos.units || 0) : 0;
   const newTotalUnits = (existingUnits + parseFloat(incrementalUnits)).toFixed(4);
+
+  if (!isOpen) return null;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -111,7 +115,7 @@ export function TopUpInvestmentModal({
           positionId: currentPos.id,
           amountMinor: Math.round(amountNum * 100),
           priceMinor: Number(priceMinor),
-          currency: currentPos.currency || 'USD',
+          currency: effectiveCurrency,
           sourceAccountId: sourceAccountId || undefined,
           transactionDate: new Date().toISOString().split('T')[0],
         }),
@@ -187,8 +191,8 @@ export function TopUpInvestmentModal({
           {/* Amount Input */}
           <div className="space-y-1.5">
             <label className="text-xs font-semibold text-foreground uppercase tracking-wider flex items-center gap-1">
-              <DollarSign className="w-3.5 h-3.5 text-primary" />
-              Investment Amount ({currentPos?.currency || 'USD'})
+              <Wallet className="w-3.5 h-3.5 text-primary" />
+              Investment Amount ({getCurrencySymbol(effectiveCurrency)})
             </label>
             <Input
               type="number"

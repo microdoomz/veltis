@@ -7,6 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Amount } from '@/components/ui/amount';
 import { EmptyState } from '@/components/ui/empty-state';
 import { ArrowUpRight, Plus, CreditCard, Clock, X, AlertCircle } from 'lucide-react';
+import { useCurrency } from '@/components/layout/CurrencyProvider';
 
 interface AccountOption {
   id: string;
@@ -34,6 +35,7 @@ interface LiabilitiesDashboardProps {
 }
 
 export function LiabilitiesDashboard({ workspaceId, accounts }: LiabilitiesDashboardProps) {
+  const { baseCurrency } = useCurrency();
   const [records, setRecords] = useState<LiabilityItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [isAddOpen, setIsAddOpen] = useState(false);
@@ -43,7 +45,7 @@ export function LiabilitiesDashboard({ workspaceId, accounts }: LiabilitiesDashb
   const [counterpartyName, setCounterpartyName] = useState('');
   const [liabilityType, setLiabilityType] = useState<'person' | 'bank' | 'credit_card' | 'other'>('person');
   const [amount, setAmount] = useState('');
-  const [currency, setCurrency] = useState(accounts[0]?.currency || 'USD');
+  const [currency, setCurrency] = useState(accounts[0]?.currency || baseCurrency || 'INR');
   const [createdDate, setCreatedDate] = useState(new Date().toISOString().split('T')[0]);
   const [dueDate, setDueDate] = useState('');
   const [destAccountId, setDestAccountId] = useState('');
@@ -195,7 +197,7 @@ export function LiabilitiesDashboard({ workspaceId, accounts }: LiabilitiesDashb
         <Card className="p-5 flex items-center justify-between">
           <div className="space-y-1">
             <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Total Outstanding Debt</p>
-            <Amount valueMinor={totalDebtMinor} currency={records[0]?.currency || 'USD'} className="text-2xl font-bold text-danger" />
+            <Amount valueMinor={totalDebtMinor} currency={records[0]?.currency || baseCurrency || 'INR'} className="text-2xl font-bold text-danger" />
           </div>
           <div className="p-3 bg-destructive/10 text-danger rounded-full">
             <ArrowUpRight className="h-6 w-6" />

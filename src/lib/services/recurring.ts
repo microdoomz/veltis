@@ -301,3 +301,40 @@ export async function deleteRecurringItem(itemId: string, workspaceId: string) {
     );
   });
 }
+
+export async function skipOccurrence(
+  occurrenceId: string,
+  workspaceId: string
+) {
+  await ensureRecurringSchema();
+
+  const occurrence = await db.query.recurringOccurrence.findFirst({
+    where: eq(recurringOccurrence.id, occurrenceId),
+  });
+
+  if (!occurrence || occurrence.status !== 'pending') {
+    throw new Error("Occurrence not found or already reviewed");
+  }
+
+  const item = await db.query.recurringItem.findFirst({
+    where: and(eq(recurringItem.id, occurrence.recurringItemId), eq(recurringItem.workspaceId, workspaceId))
+  });
+
+  if (!item) throw new Error("Item not found or unauthorized");
+
+  // Mark occurrence as skipped without executing any financial transaction
+  await db.update(recurringOccurrence).set({
+    status: 'skipped',
+    updatedAt: new Date()
+  }).where(eq(recurringOccurrence.id, occurrenceId));
+
+  // Generate next occurrence preserving exact day of month
+  const nextDateStr = calculateNextMonthlyDate(occurrence.expectedDate, item.customDay);
+
+  await db.insert(recurringOccurrence).values({
+    recurringItemId: item.id,
+    expectedDate: nextDateStr,
+    status: 'pending',
+  });
+}
+

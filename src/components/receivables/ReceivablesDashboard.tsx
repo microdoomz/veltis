@@ -7,6 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Amount } from '@/components/ui/amount';
 import { EmptyState } from '@/components/ui/empty-state';
 import { ArrowDownLeft, Plus, CheckCircle2, Clock, X, AlertCircle } from 'lucide-react';
+import { useCurrency } from '@/components/layout/CurrencyProvider';
 
 interface AccountOption {
   id: string;
@@ -33,6 +34,7 @@ interface ReceivablesDashboardProps {
 }
 
 export function ReceivablesDashboard({ workspaceId, accounts }: ReceivablesDashboardProps) {
+  const { baseCurrency } = useCurrency();
   const [records, setRecords] = useState<ReceivableItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [isAddOpen, setIsAddOpen] = useState(false);
@@ -41,7 +43,7 @@ export function ReceivablesDashboard({ workspaceId, accounts }: ReceivablesDashb
   // Form states for Add Receivable
   const [counterpartyName, setCounterpartyName] = useState('');
   const [amount, setAmount] = useState('');
-  const [currency, setCurrency] = useState(accounts[0]?.currency || 'USD');
+  const [currency, setCurrency] = useState(accounts[0]?.currency || baseCurrency || 'INR');
   const [createdDate, setCreatedDate] = useState(new Date().toISOString().split('T')[0]);
   const [expectedDate, setExpectedDate] = useState('');
   const [sourceAccountId, setSourceAccountId] = useState(accounts[0]?.id || '');
@@ -192,7 +194,7 @@ export function ReceivablesDashboard({ workspaceId, accounts }: ReceivablesDashb
         <Card className="p-5 flex items-center justify-between">
           <div className="space-y-1">
             <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Total Owed To You</p>
-            <Amount valueMinor={totalOpenMinor} currency={records[0]?.currency || 'USD'} className="text-2xl font-bold text-positive" />
+            <Amount valueMinor={totalOpenMinor} currency={records[0]?.currency || baseCurrency || 'INR'} className="text-2xl font-bold text-positive" />
           </div>
           <div className="p-3 bg-positive/10 text-positive rounded-full">
             <ArrowDownLeft className="h-6 w-6" />

@@ -10,6 +10,7 @@ import {
   Edit3,
   Layers,
 } from 'lucide-react';
+import { useCurrency } from '@/components/layout/CurrencyProvider';
 
 export function InvestmentActions({
   workspaceId,
@@ -205,6 +206,7 @@ function TransactionForm({
   onClose: () => void;
   onUpdate: () => void;
 }) {
+  const { baseCurrency } = useCurrency();
   const [amount, setAmount] = useState('');
   const [accountId, setAccountId] = useState(accounts[0]?.id || '');
   const [bankAccountId, setBankAccountId] = useState('');
@@ -221,7 +223,7 @@ function TransactionForm({
         sourceAccountId: type === 'contribution' ? bankAccountId : undefined,
         destinationAccountId: type === 'withdrawal' ? bankAccountId : undefined,
         amountMinor: Math.round(Number(amount) * 100),
-        currency: 'USD',
+        currency: baseCurrency || 'USD',
         transactionDate: new Date().toISOString().split('T')[0],
       }),
     });
@@ -304,6 +306,7 @@ function TradeForm({
   onClose: () => void;
   onUpdate: () => void;
 }) {
+  const { baseCurrency } = useCurrency();
   const [accountId, setAccountId] = useState(accounts[0]?.id || '');
   const [positionId, setPositionId] = useState(positions[0]?.id || '');
   const [units, setUnits] = useState('');
@@ -321,7 +324,7 @@ function TradeForm({
         positionId,
         units,
         priceMinor: Math.round(Number(price) * 100),
-        currency: 'USD',
+        currency: baseCurrency || 'USD',
         transactionDate: new Date().toISOString().split('T')[0],
       }),
     });
@@ -418,6 +421,7 @@ function UpdatePriceForm({
   onClose: () => void;
   onUpdate: () => void;
 }) {
+  const { baseCurrency } = useCurrency();
   const [positionId, setPositionId] = useState(positions[0]?.id || '');
   const [price, setPrice] = useState('');
 
@@ -430,7 +434,7 @@ function UpdatePriceForm({
         workspaceId,
         positionId,
         manualPriceMinor: Math.round(Number(price) * 100),
-        manualCurrency: 'USD',
+        manualCurrency: baseCurrency || 'USD',
       }),
     });
     onUpdate();

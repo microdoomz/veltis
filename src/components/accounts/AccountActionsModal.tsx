@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Edit2, Trash2, AlertTriangle, Check, X, Calendar, Search, Loader2 } from 'lucide-react';
+import { getCurrencySymbol } from '@/lib/money';
 
 const colorOptions = [
   { name: 'Emerald', value: '#10B981' },
@@ -376,7 +377,7 @@ export function AccountActionsModal({ account }: AccountActionsProps) {
                         />
                       </div>
                       <div className="space-y-1">
-                        <label className="text-xs font-medium text-muted-foreground">Current Price / NAV (₹)</label>
+                        <label className="text-xs font-medium text-muted-foreground">Current Price / NAV ({getCurrencySymbol(currency)})</label>
                         <Input
                           type="number"
                           step="any"

@@ -44,3 +44,17 @@ export const money = {
     }).format(major);
   },
 };
+
+export function getCurrencySymbol(currency: string = 'INR'): string {
+  try {
+    return (0).toLocaleString('en-US', {
+      style: 'currency',
+      currency: currency.toUpperCase(),
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 0,
+    }).replace(/\d/g, '').trim();
+  } catch {
+    return currency;
+  }
+}
+

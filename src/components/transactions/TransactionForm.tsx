@@ -8,6 +8,8 @@ import { Card, CardContent } from "@/components/ui/card"
 import { useRouter, useSearchParams } from "next/navigation"
 import { enqueueTransaction, OfflineTransactionPayload } from "@/lib/sync/db"
 import { useSync } from "@/components/sync/SyncProvider"
+import { useCurrency } from "@/components/layout/CurrencyProvider"
+import { getCurrencySymbol } from "@/lib/money"
 
 type Account = { id: string; name: string }
 type Category = { id: string; name: string }
@@ -23,6 +25,7 @@ export function TransactionForm({
   accounts: Account[]
   categories: Category[]
 }) {
+  const { baseCurrency } = useCurrency()
   const searchParams = useSearchParams()
   const paramType = searchParams?.get("type") as "expense" | "income" | "transfer" | null
   const defaultType = (paramType === "income" || paramType === "transfer" || paramType === "expense")
@@ -148,7 +151,7 @@ export function TransactionForm({
           <div>
             <label className="block text-sm font-medium text-muted-foreground mb-1">Amount</label>
             <div className="relative">
-              <span className="absolute left-3 top-2.5 text-muted-foreground">₹</span>
+              <span className="absolute left-3 top-2.5 text-muted-foreground">{getCurrencySymbol(baseCurrency)}</span>
               <Input
                 name="amount"
                 type="number"

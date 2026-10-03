@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Amount } from "@/components/ui/amount";
+import { getCurrencySymbol } from "@/lib/money";
 
 type Props = {
   accountId: string;
@@ -86,7 +87,7 @@ export function ReconcileForm({ accountId, workspaceId, calculatedBalanceMinor, 
           <div>
             <label className="block text-sm font-medium mb-1">Actual Balance (from your bank/statement)</label>
             <div className="relative">
-              <span className="absolute left-3 top-2.5 text-gray-500">$</span>
+              <span className="absolute left-3 top-2.5 text-gray-500 font-medium">{getCurrencySymbol(currency)}</span>
               <input 
                 type="number"
                 step="0.01"

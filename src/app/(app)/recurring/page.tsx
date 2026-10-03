@@ -1,6 +1,9 @@
 import { requireWorkspaceAccess } from "@/lib/auth/guards"
 import { getRecurringItemsWithOccurrences } from "@/lib/services/recurring"
 import { getCategories, getAccountSummary } from "@/lib/ledger/queries"
+import { db } from "@/lib/db"
+import { workspace } from "@/lib/db/schema"
+import { eq } from "drizzle-orm"
 import { Repeat } from "lucide-react"
 import { RecurringList } from "@/components/recurring/RecurringList"
 import { AddRecurringForm } from "@/components/recurring/AddRecurringForm"
@@ -8,21 +11,34 @@ import { AddRecurringForm } from "@/components/recurring/AddRecurringForm"
 export default async function RecurringPage() {
   const authContext = await requireWorkspaceAccess()
   
-  const [items, categories, accounts] = await Promise.all([
+  const [items, categories, accounts, ws] = await Promise.all([
     getRecurringItemsWithOccurrences(authContext.workspaceId),
     getCategories(authContext.workspaceId),
-    getAccountSummary(authContext.workspaceId)
+    getAccountSummary(authContext.workspaceId),
+    db.query.workspace.findFirst({
+      where: eq(workspace.id, authContext.workspaceId),
+    }),
   ])
 
-  // Serialize BigInt values for client component compatibility
-  const serializedItems = items.map(item => ({
-    ...item,
-    expectedAmountMinor: item.expectedAmountMinor.toString(),
-    pendingOccurrences: item.pendingOccurrences.map(occ => ({
-      ...occ,
-      actualAmountMinor: occ.actualAmountMinor ? occ.actualAmountMinor.toString() : null,
-    }))
-  }))
+  const baseCurrency = ws?.baseCurrency || accounts[0]?.currency || 'INR'
+
+  // Serialize BigInt values for client component compatibility and ensure user-chosen currency is respected
+  const serializedItems = items.map(item => {
+    const sourceAcc = accounts.find(a => a.id === item.defaultAccountId)
+    const effectiveCurrency = (item.currency && item.currency !== 'USD')
+      ? item.currency
+      : (sourceAcc?.currency || baseCurrency || item.currency || 'INR')
+
+    return {
+      ...item,
+      currency: effectiveCurrency,
+      expectedAmountMinor: item.expectedAmountMinor.toString(),
+      pendingOccurrences: item.pendingOccurrences.map(occ => ({
+        ...occ,
+        actualAmountMinor: occ.actualAmountMinor ? occ.actualAmountMinor.toString() : null,
+      }))
+    }
+  })
 
   const serializedAccounts = accounts.map(a => ({
     id: a.id,
@@ -55,6 +71,7 @@ export default async function RecurringPage() {
         workspaceId={authContext.workspaceId}
         items={serializedItems}
         accounts={serializedAccounts}
+        baseCurrency={baseCurrency}
       />
 
       {/* Add Recurring Item Form */}
@@ -62,6 +79,7 @@ export default async function RecurringPage() {
         workspaceId={authContext.workspaceId}
         accounts={serializedAccounts}
         categories={serializedCategories}
+        baseCurrency={baseCurrency}
       />
     </div>
   )

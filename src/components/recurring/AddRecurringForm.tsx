@@ -6,6 +6,8 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { addRecurringAction } from '@/app/actions/recurring'
 import { Plus, ArrowRight, Loader2 } from 'lucide-react'
+import { useCurrency } from '@/components/layout/CurrencyProvider'
+import { getCurrencySymbol } from '@/lib/money'
 
 interface AccountOption {
   id: string
@@ -23,9 +25,14 @@ interface AddRecurringFormProps {
   workspaceId: string
   accounts: AccountOption[]
   categories: CategoryOption[]
+  baseCurrency?: string
 }
 
-export function AddRecurringForm({ workspaceId, accounts, categories }: AddRecurringFormProps) {
+export function AddRecurringForm({ workspaceId, accounts, categories, baseCurrency }: AddRecurringFormProps) {
+  const { baseCurrency: contextCurrency } = useCurrency()
+  const activeCurrency = baseCurrency || contextCurrency || 'INR'
+  const currencySymbol = getCurrencySymbol(activeCurrency)
+
   const [type, setType] = useState<'expense' | 'income' | 'transfer' | 'investment'>('expense')
   const [name, setName] = useState('')
   const [amount, setAmount] = useState('')
@@ -53,6 +60,7 @@ export function AddRecurringForm({ workspaceId, accounts, categories }: AddRecur
       formData.append('type', type)
       formData.append('name', name)
       formData.append('amount', amount)
+      formData.append('currency', activeCurrency)
       formData.append('customDay', customDay)
       formData.append('categoryId', categoryId)
 
@@ -150,7 +158,7 @@ export function AddRecurringForm({ workspaceId, accounts, categories }: AddRecur
           {/* Amount */}
           <div>
             <label className="block text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1.5">
-              Amount
+              Amount ({currencySymbol})
             </label>
             <Input
               value={amount}

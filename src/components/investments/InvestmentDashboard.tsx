@@ -257,17 +257,25 @@ export function InvestmentDashboard({ workspaceId }: { workspaceId: string }) {
   };
 
   const handleDeleteInvestmentTx = async (txItem: InvestmentTransactionItem) => {
-    if (!txItem.transactionId) return;
     const isConfirmed = window.confirm(
       `Delete transaction of ${txItem.amount.toLocaleString(undefined, { minimumFractionDigits: 2 })} ${txItem.currency} on ${txItem.positionName}?\n\nThis will remove the transaction and reverse the allocated units and invested amount from your holdings.`
     );
     if (!isConfirmed) return;
 
-    setDeletingTxId(txItem.transactionId);
+    const deleteTargetId = txItem.transactionId || txItem.id;
+    setDeletingTxId(deleteTargetId);
     setDeleteError(null);
     setDeleteSuccess(null);
+
+    // Optimistically remove row from history immediately
+    const previousHistory = [...history];
+    setHistory(prev => prev.filter(h => h.id !== txItem.id));
+
     try {
-      const res = await fetch(`/api/transactions/${txItem.transactionId}`, {
+      const endpoint = txItem.transactionId
+        ? `/api/transactions/${txItem.transactionId}`
+        : `/api/investments/transactions/${txItem.id}`;
+      const res = await fetch(endpoint, {
         method: 'DELETE',
       });
       if (!res.ok) {
@@ -277,6 +285,8 @@ export function InvestmentDashboard({ workspaceId }: { workspaceId: string }) {
       setDeleteSuccess(`Transaction deleted and holding units/amount reversed successfully.`);
       await fetchInvestments();
     } catch (e: unknown) {
+      // Revert on error
+      setHistory(previousHistory);
       setDeleteError((e as Error).message || 'Failed to delete transaction');
     } finally {
       setDeletingTxId(null);
@@ -568,7 +578,7 @@ export function InvestmentDashboard({ workspaceId }: { workspaceId: string }) {
               <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
                 {history.map((txItem) => {
                   const isBuy = txItem.transactionType === 'buy';
-                  const isDeletingThis = deletingTxId === txItem.transactionId;
+                  const isDeletingThis = deletingTxId === (txItem.transactionId || txItem.id);
 
                   return (
                     <tr key={txItem.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors">

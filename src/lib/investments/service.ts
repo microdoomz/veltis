@@ -1,4 +1,4 @@
-import { eq, and } from 'drizzle-orm';
+import { eq, and, desc } from 'drizzle-orm';
 import { db } from '../db';
 import {
   transaction,
@@ -44,6 +44,16 @@ export async function recordContribution(
   await validateInvestmentAccount(workspaceId, investmentAccountId);
 
   return await db.transaction(async (tx) => {
+    // Check if position exists for this investment account
+    const pos = await tx.query.investmentPosition.findFirst({
+      where: and(
+        eq(investmentPosition.financialAccountId, investmentAccountId),
+        eq(investmentPosition.workspaceId, workspaceId)
+      ),
+    });
+
+    const descText = pos ? `Contribution: ${pos.name}` : 'Investment Contribution';
+
     // Create the main transaction
     const [txRecord] = await tx.insert(transaction).values({
       workspaceId,
@@ -54,7 +64,7 @@ export async function recordContribution(
       transactionDate: transactionDate.toISOString().split('T')[0],
       source: 'web',
       createdByUserId: userId,
-      description: 'Investment Contribution',
+      description: descText,
     }).returning();
 
     // Leg 1: Credit source account (reduce bank balance)
@@ -77,6 +87,48 @@ export async function recordContribution(
       legRole: 'destination',
     });
 
+    // Allocate units if position exists
+    if (pos) {
+      const latestSnapshot = await tx.query.investmentPriceSnapshot.findFirst({
+        where: eq(investmentPriceSnapshot.positionId, pos.id),
+        orderBy: [desc(investmentPriceSnapshot.observedAt)],
+      });
+
+      const priceMinor = latestSnapshot?.priceMinor && latestSnapshot.priceMinor > 0n
+        ? latestSnapshot.priceMinor
+        : (pos.averageCostMinor && pos.averageCostMinor > 0n ? pos.averageCostMinor : 1000n);
+
+      const unitsToAdd = Number(amountMinor) / Number(priceMinor);
+      const unitsStr = unitsToAdd.toFixed(4);
+      const currentUnits = Number(pos.units || '0');
+      const newUnits = (currentUnits + Number(unitsStr)).toFixed(4);
+
+      const currentTotalCostMinor = BigInt(Math.round(currentUnits * Number(pos.averageCostMinor || priceMinor)));
+      const newTotalCostMinor = currentTotalCostMinor + amountMinor;
+      const newUnitsNum = Number(newUnits);
+      const newAvgCostMinor = newUnitsNum > 0
+        ? BigInt(Math.round(Number(newTotalCostMinor) / newUnitsNum))
+        : priceMinor;
+
+      await tx.update(investmentPosition).set({
+        units: newUnits,
+        averageCostMinor: newAvgCostMinor,
+        updatedAt: new Date(),
+      }).where(eq(investmentPosition.id, pos.id));
+
+      await tx.insert(investmentTransaction).values({
+        workspaceId,
+        positionId: pos.id,
+        transactionId: txRecord.id,
+        transactionType: 'buy',
+        units: unitsStr,
+        priceMinor,
+        amountMinor,
+        currency,
+        transactionDate: transactionDate.toISOString().split('T')[0],
+      });
+    }
+
     return txRecord.id;
   });
 }
@@ -98,6 +150,16 @@ export async function recordWithdrawal(
   await validateInvestmentAccount(workspaceId, investmentAccountId);
 
   return await db.transaction(async (tx) => {
+    // Check if position exists for this investment account
+    const pos = await tx.query.investmentPosition.findFirst({
+      where: and(
+        eq(investmentPosition.financialAccountId, investmentAccountId),
+        eq(investmentPosition.workspaceId, workspaceId)
+      ),
+    });
+
+    const descText = pos ? `Withdrawal: ${pos.name}` : 'Investment Withdrawal';
+
     const [txRecord] = await tx.insert(transaction).values({
       workspaceId,
       transactionType: 'investment_withdrawal',
@@ -107,7 +169,7 @@ export async function recordWithdrawal(
       transactionDate: transactionDate.toISOString().split('T')[0],
       source: 'web',
       createdByUserId: userId,
-      description: 'Investment Withdrawal',
+      description: descText,
     }).returning();
 
     // Leg 1: Credit investment account (reduce cash balance)
@@ -129,6 +191,40 @@ export async function recordWithdrawal(
       currency,
       legRole: 'destination',
     });
+
+    // Deduct units if position exists
+    if (pos) {
+      const latestSnapshot = await tx.query.investmentPriceSnapshot.findFirst({
+        where: eq(investmentPriceSnapshot.positionId, pos.id),
+        orderBy: [desc(investmentPriceSnapshot.observedAt)],
+      });
+
+      const priceMinor = latestSnapshot?.priceMinor && latestSnapshot.priceMinor > 0n
+        ? latestSnapshot.priceMinor
+        : (pos.averageCostMinor && pos.averageCostMinor > 0n ? pos.averageCostMinor : 1000n);
+
+      const unitsToRemove = Number(amountMinor) / Number(priceMinor);
+      const unitsStr = unitsToRemove.toFixed(4);
+      const currentUnits = Number(pos.units || '0');
+      const newUnits = Math.max(0, currentUnits - Number(unitsStr)).toFixed(4);
+
+      await tx.update(investmentPosition).set({
+        units: newUnits,
+        updatedAt: new Date(),
+      }).where(eq(investmentPosition.id, pos.id));
+
+      await tx.insert(investmentTransaction).values({
+        workspaceId,
+        positionId: pos.id,
+        transactionId: txRecord.id,
+        transactionType: 'sell',
+        units: unitsStr,
+        priceMinor,
+        amountMinor,
+        currency,
+        transactionDate: transactionDate.toISOString().split('T')[0],
+      });
+    }
 
     return txRecord.id;
   });

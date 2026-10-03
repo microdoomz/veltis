@@ -65,12 +65,17 @@ export function TransactionList({
   accounts: AccountOption[]
   workspaceId: string
 }) {
+  const [txList, setTxList] = useState<TransactionItem[]>(transactions)
   const [selectedTxn, setSelectedTxn] = useState<TransactionItem | null>(null)
   const [isEditing, setIsEditing] = useState(false)
   const [isDeleting, setIsDeleting] = useState(false)
   const [deleteConfirmed, setDeleteConfirmed] = useState(false)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+
+  React.useEffect(() => {
+    setTxList(transactions)
+  }, [transactions])
 
   // Edit form state
   const [description, setDescription] = useState("")
@@ -130,41 +135,46 @@ export function TransactionList({
 
   const handleDeleteSubmit = async () => {
     if (!selectedTxn) return
-    setLoading(true)
-    setError(null)
+    const txnToDelete = selectedTxn
+
+    // Optimistically remove from list immediately and close modal
+    setSelectedTxn(null)
+    setIsDeleting(false)
+    setDeleteConfirmed(false)
+    setLoading(false)
+    setTxList(prev => prev.filter(t => t.id !== txnToDelete.id))
 
     try {
-      await deleteTransactionAction(workspaceId, selectedTxn.id)
-      setSelectedTxn(null)
-      setIsDeleting(false)
-      setDeleteConfirmed(false)
+      await deleteTransactionAction(workspaceId, txnToDelete.id)
     } catch (err: unknown) {
       if (err instanceof Error && err.message.includes("NEXT_REDIRECT")) {
-        setSelectedTxn(null)
-        setIsDeleting(false)
-        setDeleteConfirmed(false)
         return
       }
+      // Revert if error
+      setTxList(transactions)
       setError(err instanceof Error ? err.message : "Failed to delete transaction")
-    } finally {
-      setLoading(false)
     }
   }
 
   return (
     <>
       <ListContainer className="divide-y divide-border">
-        {transactions.map((txn) => {
+        {txList.map((txn) => {
           const isExpense =
             txn.transactionType === "expense" ||
             txn.transactionType === "credit_card_purchase"
           const isIncome = txn.transactionType === "income"
-          const isTransfer = txn.transactionType === "transfer"
+          const isInvestmentContribution = txn.transactionType === "investment_contribution"
+          const isInvestmentWithdrawal = txn.transactionType === "investment_withdrawal"
+          const isTransfer =
+            txn.transactionType === "transfer" ||
+            isInvestmentContribution ||
+            isInvestmentWithdrawal
 
           const amtMinorNum = Number(txn.amountMinor)
-          const displayMinor = isExpense ? -amtMinorNum : amtMinorNum
+          const displayMinor = isExpense || isInvestmentContribution ? -amtMinorNum : amtMinorNum
 
-          // Format account display: for transfers show source -> destination
+          // Format account display: for transfers and investments show source -> destination
           let accountDisplay = txn.legs?.[0]?.account?.name || "Account"
           if (isTransfer && txn.legs && txn.legs.length >= 2) {
             const sourceLeg = txn.legs.find((l) => l.direction === "credit")
@@ -177,7 +187,15 @@ export function TransactionList({
           const primaryText =
             txn.description ||
             txn.merchantName ||
-            (isExpense ? "Expense" : isIncome ? "Income" : "Transfer")
+            (isInvestmentContribution
+              ? "Investment Contribution"
+              : isInvestmentWithdrawal
+              ? "Investment Withdrawal"
+              : isExpense
+              ? "Expense"
+              : isIncome
+              ? "Income"
+              : "Transfer")
 
           const secondaryMerchant =
             txn.description && txn.merchantName && txn.description !== txn.merchantName

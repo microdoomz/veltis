@@ -72,3 +72,33 @@ export function formatISTDateOnly(dateStr?: string | Date | null): string {
     year: 'numeric',
   }).format(d).replace(/\bSept\b/g, 'Sep');
 }
+
+/**
+ * Returns current date string in IST YYYY-MM-DD.
+ */
+export function getTodayISTDateString(): string {
+  const formatter = new Intl.DateTimeFormat('en-CA', {
+    timeZone: IST_TIMEZONE,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  });
+  return formatter.format(new Date());
+}
+
+/**
+ * Calculates calendar day difference: targetDateStr - todayDateStr
+ * Positive means target is in the future. 0 means today. Negative means past.
+ */
+export function getDaysDifferenceFromToday(targetDateStr: string): number {
+  const todayStr = getTodayISTDateString();
+  const [ty, tm, td] = todayStr.split('-').map(Number);
+  const [ey, em, ed] = targetDateStr.split('-').map(Number);
+
+  const todayUtc = Date.UTC(ty, tm - 1, td);
+  const targetUtc = Date.UTC(ey, em - 1, ed);
+
+  const diffMs = targetUtc - todayUtc;
+  return Math.round(diffMs / (1000 * 60 * 60 * 24));
+}
+

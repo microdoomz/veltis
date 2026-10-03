@@ -15,6 +15,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
     }
     
     const actualDateStr = body.actualDateStr;
+    const destinationAccountId = body.destinationAccountId;
     const actualAmountMinor = (body.actualAmountMinor !== undefined && body.actualAmountMinor !== null) 
       ? BigInt(body.actualAmountMinor) 
       : undefined;
@@ -25,7 +26,8 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
       accountId,
       userContext.user.id,
       actualDateStr,
-      actualAmountMinor
+      actualAmountMinor,
+      destinationAccountId
     );
     
     return NextResponse.json({ success: true }, { status: 200 });

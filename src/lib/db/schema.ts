@@ -40,7 +40,7 @@ export const liabilityStatusEnum = pgEnum('liability_status', ['open', 'partiall
 export const assetTypeEnum = pgEnum('asset_type', ['mutual_fund', 'equity', 'etf', 'other']);
 export const investmentTransactionTypeEnum = pgEnum('investment_transaction_type', ['buy', 'sell', 'contribution', 'withdrawal', 'dividend', 'other']);
 export const heldForOtherStatusEnum = pgEnum('held_for_other_status', ['open', 'returned', 'cancelled']);
-export const recurringTypeEnum = pgEnum('recurring_type', ['income', 'expense']);
+export const recurringTypeEnum = pgEnum('recurring_type', ['income', 'expense', 'transfer', 'investment']);
 export const recurringFrequencyEnum = pgEnum('recurring_frequency', ['monthly']);
 export const recurringDayRuleEnum = pgEnum('recurring_day_rule', ['first_day', 'last_working_day', 'custom_day']);
 export const recurringOccurrenceStatusEnum = pgEnum('recurring_occurrence_status', ['pending', 'confirmed', 'received_early', 'will_receive_later', 'skipped', 'created']);
@@ -319,6 +319,7 @@ export const recurringItem = pgTable('recurring_item', {
   currency: char('currency', { length: 3 }).notNull(),
   categoryId: uuid('category_id'), // fk omitted to avoid hard dependency on categories if needed, or we add later
   defaultAccountId: uuid('default_account_id'),
+  destinationAccountId: uuid('destination_account_id'),
   frequency: recurringFrequencyEnum('frequency').notNull(),
   dayRule: recurringDayRuleEnum('day_rule').notNull(),
   customDay: integer('custom_day'),

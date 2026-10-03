@@ -154,7 +154,11 @@ export async function getRecentTransactions(
   }
 
   if (filters.flowType && filters.flowType !== 'all') {
-    conditions.push(eq(transaction.transactionType, filters.flowType as any));
+    if (filters.flowType === 'transfer') {
+      conditions.push(inArray(transaction.transactionType, ['transfer', 'investment_contribution', 'investment_withdrawal']));
+    } else {
+      conditions.push(eq(transaction.transactionType, filters.flowType as any));
+    }
   }
 
   if (filters.source && filters.source !== 'all') {

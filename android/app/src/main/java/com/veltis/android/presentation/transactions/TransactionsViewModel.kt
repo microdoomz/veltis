@@ -22,6 +22,8 @@ data class TransactionsUiState(
     val selectedFilterType: String = "all", // 'all', 'expense', 'income', 'transfer'
     val selectedAccountId: String? = null,
     val selectedCategoryId: String? = null,
+    val selectedSort: String = "date_desc",
+    val searchQuery: String = "",
     val errorMessage: String? = null,
     val successMessage: String? = null,
     val pendingSyncCount: Int = 0
@@ -70,7 +72,8 @@ class TransactionsViewModel(
             when (val res = repository.getTransactions(
                 type = filterType,
                 categoryId = _uiState.value.selectedCategoryId,
-                accountId = _uiState.value.selectedAccountId
+                accountId = _uiState.value.selectedAccountId,
+                sort = _uiState.value.selectedSort
             )) {
                 is VeltisResult.Success -> {
                     _uiState.update { it.copy(transactions = res.data, errorMessage = null) }
@@ -85,6 +88,78 @@ class TransactionsViewModel(
     fun filterByType(type: String) {
         _uiState.update { it.copy(selectedFilterType = type) }
         loadTransactions()
+    }
+
+    fun setSearchQuery(query: String) {
+        _uiState.update { it.copy(searchQuery = query) }
+    }
+
+    fun filterByAccount(accountId: String?) {
+        _uiState.update { it.copy(selectedAccountId = accountId) }
+        loadTransactions()
+    }
+
+    fun filterByCategory(categoryId: String?) {
+        _uiState.update { it.copy(selectedCategoryId = categoryId) }
+        loadTransactions()
+    }
+
+    fun setSort(sort: String) {
+        _uiState.update { it.copy(selectedSort = sort) }
+        loadTransactions()
+    }
+
+    fun resetFilters() {
+        _uiState.update {
+            it.copy(
+                selectedFilterType = "all",
+                selectedAccountId = null,
+                selectedCategoryId = null,
+                selectedSort = "date_desc",
+                searchQuery = ""
+            )
+        }
+        loadTransactions()
+    }
+
+    fun updateTransaction(
+        id: String,
+        description: String?,
+        merchantName: String?,
+        categoryId: String?,
+        date: String?,
+        amount: Double?,
+        accountId: String?,
+        onSuccess: () -> Unit
+    ) {
+        viewModelScope.launch {
+            _uiState.update { it.copy(isSubmitting = true, errorMessage = null) }
+            when (val res = repository.updateTransaction(
+                transactionId = id,
+                description = description,
+                merchantName = merchantName,
+                categoryId = categoryId,
+                date = date,
+                amount = amount,
+                accountId = accountId
+            )) {
+                is VeltisResult.Success -> {
+                    _uiState.update {
+                        it.copy(
+                            isSubmitting = false,
+                            successMessage = "Transaction updated successfully!"
+                        )
+                    }
+                    loadTransactions()
+                    onSuccess()
+                }
+                is VeltisResult.Failure -> {
+                    _uiState.update {
+                        it.copy(isSubmitting = false, errorMessage = res.error.userFriendlyMessage())
+                    }
+                }
+            }
+        }
     }
 
     fun createTransaction(

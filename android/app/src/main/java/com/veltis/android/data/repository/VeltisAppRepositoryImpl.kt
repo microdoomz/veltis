@@ -633,6 +633,127 @@ class VeltisAppRepositoryImpl(
         }
     }
 
+    override suspend fun getAccountAllocations(accountId: String): VeltisResult<AllocationsResponseDto> = withContext(Dispatchers.IO) {
+        try {
+            val response = api.getAccountAllocations(accountId)
+            if (response.isSuccessful && response.body() != null) {
+                VeltisResult.Success(response.body()!!)
+            } else {
+                VeltisResult.Failure(parseError(response))
+            }
+        } catch (e: IOException) {
+            VeltisResult.Failure(VeltisError.Network())
+        } catch (e: Exception) {
+            VeltisResult.Failure(VeltisError.Unknown(e.message ?: "Failed to load allocations."))
+        }
+    }
+
+    override suspend fun createAccountAllocation(
+        accountId: String,
+        name: String,
+        amount: Double,
+        description: String?,
+        color: String?
+    ): VeltisResult<Unit> = withContext(Dispatchers.IO) {
+        try {
+            val req = CreateAllocationRequestDto(name = name, amount = amount, description = description, color = color)
+            val response = api.createAccountAllocation(accountId, req)
+            if (response.isSuccessful) VeltisResult.Success(Unit)
+            else VeltisResult.Failure(parseError(response))
+        } catch (e: IOException) {
+            VeltisResult.Failure(VeltisError.Network())
+        } catch (e: Exception) {
+            VeltisResult.Failure(VeltisError.Unknown(e.message ?: "Failed to create allocation."))
+        }
+    }
+
+    override suspend fun updateAccountAllocation(
+        accountId: String,
+        allocationId: String,
+        name: String?,
+        amount: Double?,
+        description: String?,
+        color: String?
+    ): VeltisResult<Unit> = withContext(Dispatchers.IO) {
+        try {
+            val req = UpdateAllocationRequestDto(allocationId = allocationId, name = name, amount = amount, description = description, color = color)
+            val response = api.updateAccountAllocation(accountId, req)
+            if (response.isSuccessful) VeltisResult.Success(Unit)
+            else VeltisResult.Failure(parseError(response))
+        } catch (e: IOException) {
+            VeltisResult.Failure(VeltisError.Network())
+        } catch (e: Exception) {
+            VeltisResult.Failure(VeltisError.Unknown(e.message ?: "Failed to update allocation."))
+        }
+    }
+
+    override suspend fun deleteAccountAllocation(
+        accountId: String,
+        allocationId: String
+    ): VeltisResult<Unit> = withContext(Dispatchers.IO) {
+        try {
+            val response = api.deleteAccountAllocation(accountId, allocationId)
+            if (response.isSuccessful) VeltisResult.Success(Unit)
+            else VeltisResult.Failure(parseError(response))
+        } catch (e: IOException) {
+            VeltisResult.Failure(VeltisError.Network())
+        } catch (e: Exception) {
+            VeltisResult.Failure(VeltisError.Unknown(e.message ?: "Failed to delete allocation."))
+        }
+    }
+
+    override suspend fun updateAccount(
+        accountId: String,
+        name: String?,
+        color: String?,
+        institutionName: String?,
+        accountType: String?
+    ): VeltisResult<Unit> = withContext(Dispatchers.IO) {
+        try {
+            val req = EditAccountPatchRequestDto(
+                name = name,
+                color = color,
+                institutionName = institutionName,
+                accountType = accountType
+            )
+            val response = api.updateAccountDetails(accountId, req)
+            if (response.isSuccessful) VeltisResult.Success(Unit)
+            else VeltisResult.Failure(parseError(response))
+        } catch (e: IOException) {
+            VeltisResult.Failure(VeltisError.Network())
+        } catch (e: Exception) {
+            VeltisResult.Failure(VeltisError.Unknown(e.message ?: "Failed to update account."))
+        }
+    }
+
+    override suspend fun updateTransaction(
+        transactionId: String,
+        description: String?,
+        merchantName: String?,
+        categoryId: String?,
+        date: String?,
+        amount: Double?,
+        accountId: String?
+    ): VeltisResult<Unit> = withContext(Dispatchers.IO) {
+        try {
+            val req = EditTransactionPatchRequestDto(
+                description = description,
+                merchantName = merchantName,
+                categoryId = categoryId,
+                date = date,
+                amount = amount,
+                accountId = accountId
+            )
+            val response = api.updateTransaction(transactionId, req)
+            if (response.isSuccessful) VeltisResult.Success(Unit)
+            else VeltisResult.Failure(parseError(response))
+        } catch (e: IOException) {
+            VeltisResult.Failure(VeltisError.Network())
+        } catch (e: Exception) {
+            VeltisResult.Failure(VeltisError.Unknown(e.message ?: "Failed to update transaction."))
+        }
+    }
+
     override suspend fun getAnalytics(startDate: String, endDate: String): VeltisResult<Pair<AnalyticsOverviewDto, List<CategorySpendingDto>>> = withContext(Dispatchers.IO) {
         val workspaceId = sessionManager.getWorkspaceId()
         try {

@@ -99,10 +99,60 @@ data class InvestmentActionRequestDto(
 @Serializable
 data class EditAccountPatchRequestDto(
     val name: String? = null,
+    val color: String? = null,
+    val institutionName: String? = null,
+    val accountType: String? = null,
     val symbol: String? = null,
     val units: Double? = null,
     val currentPrice: Double? = null,
     val investedAmount: Double? = null
+)
+
+@Serializable
+data class EditTransactionPatchRequestDto(
+    val description: String? = null,
+    val merchantName: String? = null,
+    val categoryId: String? = null,
+    val date: String? = null,
+    val amount: Double? = null,
+    val accountId: String? = null
+)
+
+@Serializable
+data class AllocationDto(
+    val id: String,
+    val financialAccountId: String? = null,
+    val name: String,
+    val description: String? = null,
+    val amountMinor: String = "0",
+    val color: String? = null
+) {
+    val amount: Double get() = (amountMinor.toDoubleOrNull() ?: 0.0) / 100.0
+}
+
+@Serializable
+data class AllocationsResponseDto(
+    val allocations: List<AllocationDto> = emptyList(),
+    val totalAllocatedMinor: String = "0"
+) {
+    val totalAllocated: Double get() = (totalAllocatedMinor.toDoubleOrNull() ?: 0.0) / 100.0
+}
+
+@Serializable
+data class CreateAllocationRequestDto(
+    val name: String,
+    val amount: Double,
+    val description: String? = null,
+    val color: String? = null
+)
+
+@Serializable
+data class UpdateAllocationRequestDto(
+    val allocationId: String,
+    val name: String? = null,
+    val amount: Double? = null,
+    val description: String? = null,
+    val color: String? = null
 )
 
 @Serializable

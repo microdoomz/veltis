@@ -86,6 +86,35 @@ interface VeltisFullApiService {
         @Body body: EditAccountPatchRequestDto
     ): Response<Unit>
 
+    @GET("api/accounts/{id}/allocations")
+    suspend fun getAccountAllocations(
+        @Path("id") accountId: String
+    ): Response<AllocationsResponseDto>
+
+    @POST("api/accounts/{id}/allocations")
+    suspend fun createAccountAllocation(
+        @Path("id") accountId: String,
+        @Body body: CreateAllocationRequestDto
+    ): Response<Unit>
+
+    @PATCH("api/accounts/{id}/allocations")
+    suspend fun updateAccountAllocation(
+        @Path("id") accountId: String,
+        @Body body: UpdateAllocationRequestDto
+    ): Response<Unit>
+
+    @DELETE("api/accounts/{id}/allocations")
+    suspend fun deleteAccountAllocation(
+        @Path("id") accountId: String,
+        @Query("allocationId") allocationId: String
+    ): Response<Unit>
+
+    @PATCH("api/transactions/{id}")
+    suspend fun updateTransaction(
+        @Path("id") transactionId: String,
+        @Body body: EditTransactionPatchRequestDto
+    ): Response<Unit>
+
     @GET("api/budgets")
     suspend fun getBudgets(
         @Query("workspaceId") workspaceId: String? = null

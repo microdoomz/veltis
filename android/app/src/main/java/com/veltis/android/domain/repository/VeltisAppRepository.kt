@@ -52,6 +52,12 @@ interface VeltisAppRepository {
     ): VeltisResult<Unit>
     suspend fun getCategories(): VeltisResult<List<CategoryDto>>
     suspend fun getAnalytics(startDate: String, endDate: String): VeltisResult<Pair<AnalyticsOverviewDto, List<CategorySpendingDto>>>
+    suspend fun getAccountAllocations(accountId: String): VeltisResult<AllocationsResponseDto>
+    suspend fun createAccountAllocation(accountId: String, name: String, amount: Double, description: String? = null, color: String? = null): VeltisResult<Unit>
+    suspend fun updateAccountAllocation(accountId: String, allocationId: String, name: String? = null, amount: Double? = null, description: String? = null, color: String? = null): VeltisResult<Unit>
+    suspend fun deleteAccountAllocation(accountId: String, allocationId: String): VeltisResult<Unit>
+    suspend fun updateAccount(accountId: String, name: String? = null, color: String? = null, institutionName: String? = null, accountType: String? = null): VeltisResult<Unit>
+    suspend fun updateTransaction(transactionId: String, description: String? = null, merchantName: String? = null, categoryId: String? = null, date: String? = null, amount: Double? = null, accountId: String? = null): VeltisResult<Unit>
     suspend fun exportData(format: String): VeltisResult<String>
     suspend fun deleteUserAccount(): VeltisResult<Unit>
 }

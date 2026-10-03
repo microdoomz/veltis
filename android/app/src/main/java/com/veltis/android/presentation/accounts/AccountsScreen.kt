@@ -7,6 +7,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
@@ -60,6 +61,27 @@ fun AccountsScreen(
         }
     }
 
+    if (state.selectedAccount != null) {
+        AccountDetailScreen(
+            account = state.selectedAccount!!,
+            viewModel = viewModel,
+            isPrivacyMode = isPrivacyMode,
+            onNavigateBack = {
+                viewModel.selectAccount(null)
+                onAccountChanged()
+            }
+        )
+        return
+    }
+
+    val groups = remember {
+        listOf(
+            Triple("Cash & Liquid Accounts", Icons.Default.AccountBalance, listOf("bank", "cash_wallet", "digital_wallet", "prepaid")),
+            Triple("Investment Accounts", Icons.Default.TrendingUp, listOf("investment", "mutual_fund", "stocks", "crypto")),
+            Triple("Credit Cards", Icons.Default.CreditCard, listOf("credit_card")),
+            Triple("Loans & Liabilities", Icons.Default.AccountBalanceWallet, listOf("loan", "mortgage"))
+        )
+    }
     Scaffold(
         snackbarHost = { SnackbarHost(snackbarHostState) },
         topBar = {
@@ -160,12 +182,14 @@ fun AccountsScreen(
                     .fillMaxSize()
                     .padding(padding)
                     .padding(horizontal = 16.dp),
-                verticalArrangement = Arrangement.spacedBy(12.dp)
+                verticalArrangement = Arrangement.spacedBy(10.dp)
             ) {
                 item { Spacer(modifier = Modifier.height(4.dp)) }
 
                 val totalNet = state.accounts.sumOf { it.displayBalance }
                 val headerCurrency = state.accounts.firstOrNull()?.currency ?: "USD"
+
+                // Total Balance Summary Card
                 item {
                     Box(
                         modifier = Modifier
@@ -206,13 +230,77 @@ fun AccountsScreen(
                     }
                 }
 
-                items(state.accounts, key = { it.id }) { acc ->
-                    AccountCard(
-                        account = acc,
-                        isPrivacyMode = isPrivacyMode,
-                        onReconcile = { accountToReconcile = acc },
-                        onDelete = { accountToDelete = acc }
-                    )
+                // Categorized Account Groups (Cash, Investments, Credit Cards, Loans)
+                groups.forEach { (groupTitle, groupIcon, groupTypes) ->
+                    val groupAccounts = state.accounts.filter { it.accountType in groupTypes }
+                    if (groupAccounts.isNotEmpty()) {
+                        val groupTotal = groupAccounts.sumOf { it.displayBalance }
+                        item {
+                            Surface(
+                                shape = RoundedCornerShape(12.dp),
+                                color = VeltisMutedBg,
+                                border = androidx.compose.foundation.BorderStroke(1.dp, VeltisCardBorder),
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(top = 6.dp)
+                            ) {
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(horizontal = 14.dp, vertical = 10.dp),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Row(
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                    ) {
+                                        Icon(
+                                            imageVector = groupIcon,
+                                            contentDescription = null,
+                                            tint = TealLight,
+                                            modifier = Modifier.size(18.dp)
+                                        )
+                                        Text(
+                                            text = groupTitle,
+                                            fontSize = 13.sp,
+                                            fontWeight = FontWeight.Bold,
+                                            color = Color.White
+                                        )
+                                        Surface(
+                                            shape = RoundedCornerShape(6.dp),
+                                            color = TealPrimary.copy(alpha = 0.15f)
+                                        ) {
+                                            Text(
+                                                text = "${groupAccounts.size}",
+                                                fontSize = 11.sp,
+                                                fontWeight = FontWeight.SemiBold,
+                                                color = TealLight,
+                                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                                            )
+                                        }
+                                    }
+
+                                    Text(
+                                        text = if (isPrivacyMode) "••••" else formatCurrency(groupTotal, headerCurrency),
+                                        fontSize = 14.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        color = if (groupTotal >= 0) Color.White else ExpenseRed
+                                    )
+                                }
+                            }
+                        }
+
+                        items(groupAccounts, key = { it.id }) { acc ->
+                            AccountCard(
+                                account = acc,
+                                isPrivacyMode = isPrivacyMode,
+                                onClick = { viewModel.selectAccount(acc) },
+                                onReconcile = { accountToReconcile = acc },
+                                onDelete = { accountToDelete = acc }
+                            )
+                        }
+                    }
                 }
 
                 item { Spacer(modifier = Modifier.height(80.dp)) }
@@ -287,15 +375,29 @@ fun AccountsScreen(
 fun AccountCard(
     account: AccountDetailDto,
     isPrivacyMode: Boolean,
+    onClick: () -> Unit,
     onReconcile: () -> Unit,
     onDelete: () -> Unit
 ) {
+    val accentColor = remember(account.color) {
+        if (!account.color.isNullOrBlank()) {
+            try {
+                Color(android.graphics.Color.parseColor(account.color))
+            } catch (_: Exception) {
+                TealPrimary
+            }
+        } else {
+            TealPrimary
+        }
+    }
+
     Box(
         modifier = Modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(16.dp))
             .background(VeltisCardBg)
             .border(1.dp, VeltisCardBorder, RoundedCornerShape(16.dp))
+            .clickable(onClick = onClick)
             .padding(16.dp)
     ) {
         Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -304,25 +406,35 @@ fun AccountCard(
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Column(
+                Row(
                     modifier = Modifier
                         .weight(1f)
-                        .padding(end = 12.dp)
+                        .padding(end = 12.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(10.dp)
                 ) {
-                    Text(
-                        text = account.name,
-                        fontSize = 16.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = Color.White,
-                        maxLines = 1,
-                        overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
+                    Box(
+                        modifier = Modifier
+                            .size(10.dp)
+                            .clip(CircleShape)
+                            .background(accentColor)
                     )
-                    Text(
-                        text = account.accountType.replace("_", " ").uppercase(Locale.getDefault()),
-                        fontSize = 11.sp,
-                        fontWeight = FontWeight.SemiBold,
-                        color = TealLight
-                    )
+                    Column {
+                        Text(
+                            text = account.name,
+                            fontSize = 16.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = Color.White,
+                            maxLines = 1,
+                            overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
+                        )
+                        Text(
+                            text = "${account.accountType.replace("_", " ").uppercase(Locale.getDefault())} • ${account.institutionName ?: "Manual"}",
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            color = TextMuted
+                        )
+                    }
                 }
 
                 Text(
@@ -333,7 +445,7 @@ fun AccountCard(
                 )
             }
 
-            Divider(color = VeltisCardBorder, thickness = 0.5.dp)
+            HorizontalDivider(color = VeltisCardBorder, thickness = 0.5.dp)
 
             Row(
                 modifier = Modifier.fillMaxWidth(),
